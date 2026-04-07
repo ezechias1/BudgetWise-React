@@ -6,6 +6,7 @@ import SavingsPage from '@/pages/SavingsPage';
 import AccountPage from '@/pages/AccountPage';
 import CurrencyPage from '@/pages/CurrencyPage';
 import AdvicePage from '@/pages/AdvicePage';
+import ProFeatureGate from '@/pages/ProFeatureGate';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -46,6 +47,62 @@ export default function App() {
               <Route path="currency" element={<CurrencyPage />} />
               <Route path="advice" element={<AdvicePage />} />
               <Route path="account" element={<AccountPage />} />
+
+              {/* Pro-gated routes — stubbed until their dedicated rounds */}
+              <Route
+                path="bank"
+                element={
+                  <ProFeatureGate
+                    title="Bank Linking"
+                    description="Link your bank account via Plaid, Stitch, or Salt Edge to auto-import transactions. Requires Pro."
+                  />
+                }
+              />
+              <Route
+                path="stokvel"
+                element={
+                  <ProFeatureGate
+                    title="Stokvel"
+                    description="Run rotating savings clubs with members, contributions, and automatic payouts. Requires Pro."
+                  />
+                }
+              />
+              <Route
+                path="clients"
+                element={
+                  <ProFeatureGate
+                    title="Clients"
+                    description="Manage business clients, track invoices, and monitor profitability. Requires Pro."
+                  />
+                }
+              />
+              <Route
+                path="invoices"
+                element={
+                  <ProFeatureGate
+                    title="Invoices"
+                    description="Create, send, and track invoices for your business. Requires Pro."
+                  />
+                }
+              />
+              <Route
+                path="members"
+                element={
+                  <ProFeatureGate
+                    title="Family Members"
+                    description="Add family members, assign roles, and share budgets. Requires Pro."
+                  />
+                }
+              />
+              <Route
+                path="chores"
+                element={
+                  <ProFeatureGate
+                    title="Chores & Rewards"
+                    description="Assign chores to family members, reward them, and track completion. Requires Pro."
+                  />
+                }
+              />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

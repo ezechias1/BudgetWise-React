@@ -32,5 +32,16 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register the service worker for PWA installability.
+      // Only in production — avoids stale-cache headaches during dev.
+      if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            console.warn('SW register failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
