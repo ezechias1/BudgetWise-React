@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useExpenses } from '@/hooks/useExpenses';
@@ -69,9 +70,7 @@ export default function AccountPage() {
 
   const handleChangePassword = async () => {
     if (!user?.email) return;
-    const { error } = await (
-      await import('@/lib/supabase')
-    ).supabase.auth.resetPasswordForEmail(user.email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: `${window.location.origin}/`,
     });
     if (error) alert(`Error: ${error.message}`);
