@@ -26,9 +26,20 @@ export interface Expense {
   user_id: string;
   amount: number;
   category: string;
-  description: string | null;
-  date: string;
+  description: string;
+  date: string; // ISO date (YYYY-MM-DD)
+  recurring: 'no' | 'weekly' | 'monthly';
+  account_mode: Mode;
+  group_id: string | null;
   created_at: string;
+}
+
+export interface NewExpense {
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+  recurring: 'no' | 'weekly' | 'monthly';
 }
 
 export interface SavingsGoal {

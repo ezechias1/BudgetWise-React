@@ -94,7 +94,7 @@ export default function AuthPage() {
     }
   }, []);
 
-  const typeDesc = useMemo(() => TYPE_DESC[signupType], [signupType]);
+  const typeDesc = TYPE_DESC[signupType];
 
   if (loading) return null;
   if (user) return <Navigate to="/dashboard" replace />;

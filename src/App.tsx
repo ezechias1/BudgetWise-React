@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthPage from '@/pages/AuthPage';
+import ExpensesPage from '@/pages/ExpensesPage';
 import PagePlaceholder from '@/pages/PagePlaceholder';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -44,15 +45,7 @@ export default function App() {
                   />
                 }
               />
-              <Route
-                path="expenses"
-                element={
-                  <PagePlaceholder
-                    title="Expenses"
-                    note="Expense list + add/edit/delete modal + category chips — pending port."
-                  />
-                }
-              />
+              <Route path="expenses" element={<ExpensesPage />} />
               <Route
                 path="savings"
                 element={
