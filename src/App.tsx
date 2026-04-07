@@ -3,6 +3,7 @@ import AuthPage from '@/pages/AuthPage';
 import OverviewPage from '@/pages/OverviewPage';
 import ExpensesPage from '@/pages/ExpensesPage';
 import SavingsPage from '@/pages/SavingsPage';
+import AccountPage from '@/pages/AccountPage';
 import PagePlaceholder from '@/pages/PagePlaceholder';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -59,15 +60,7 @@ export default function App() {
                   />
                 }
               />
-              <Route
-                path="account"
-                element={
-                  <PagePlaceholder
-                    title="Account"
-                    note="Profile, subscription, theme toggle, mode switch — pending port."
-                  />
-                }
-              />
+              <Route path="account" element={<AccountPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
