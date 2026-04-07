@@ -1,0 +1,42 @@
+// Shared types for the BudgetWise React app.
+// These mirror the shapes used by the vanilla app so queries are compatible.
+
+export type Mode = 'personal' | 'business' | 'family';
+export type Theme = 'dark' | 'light';
+
+export interface UserSettings {
+  user_id: string;
+  currency: string;
+  monthly_income: number;
+  monthly_savings_goal: number;
+  account_type: Mode;
+  is_pro: boolean;
+  subscription_end: string | null;
+  has_paid: boolean;
+  country: string | null;
+  full_name: string | null;
+  company_name: string | null;
+  family_name: string | null;
+  automations: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  user_id: string;
+  amount: number;
+  category: string;
+  description: string | null;
+  date: string;
+  created_at: string;
+}
+
+export interface SavingsGoal {
+  id: string;
+  user_id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline: string | null;
+  created_at: string;
+}
