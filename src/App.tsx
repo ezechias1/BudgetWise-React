@@ -4,7 +4,8 @@ import OverviewPage from '@/pages/OverviewPage';
 import ExpensesPage from '@/pages/ExpensesPage';
 import SavingsPage from '@/pages/SavingsPage';
 import AccountPage from '@/pages/AccountPage';
-import PagePlaceholder from '@/pages/PagePlaceholder';
+import CurrencyPage from '@/pages/CurrencyPage';
+import AdvicePage from '@/pages/AdvicePage';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -42,24 +43,8 @@ export default function App() {
               <Route index element={<OverviewPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route path="savings" element={<SavingsPage />} />
-              <Route
-                path="currency"
-                element={
-                  <PagePlaceholder
-                    title="Currency"
-                    note="Live FX rates via exchangerate-api.com — pending port."
-                  />
-                }
-              />
-              <Route
-                path="advice"
-                element={
-                  <PagePlaceholder
-                    title="Advice"
-                    note="AI-powered spending insights — pending port."
-                  />
-                }
-              />
+              <Route path="currency" element={<CurrencyPage />} />
+              <Route path="advice" element={<AdvicePage />} />
               <Route path="account" element={<AccountPage />} />
             </Route>
 
