@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthPage from '@/pages/AuthPage';
+import OverviewPage from '@/pages/OverviewPage';
 import ExpensesPage from '@/pages/ExpensesPage';
 import PagePlaceholder from '@/pages/PagePlaceholder';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -36,15 +37,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route
-                index
-                element={
-                  <PagePlaceholder
-                    title="Overview"
-                    note="Stat cards, Chart.js spending breakdown, and recent transactions — pending port."
-                  />
-                }
-              />
+              <Route index element={<OverviewPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route
                 path="savings"
