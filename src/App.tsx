@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthPage from '@/pages/AuthPage';
 import OverviewPage from '@/pages/OverviewPage';
 import ExpensesPage from '@/pages/ExpensesPage';
+import SavingsPage from '@/pages/SavingsPage';
 import PagePlaceholder from '@/pages/PagePlaceholder';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -39,15 +40,7 @@ export default function App() {
             >
               <Route index element={<OverviewPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
-              <Route
-                path="savings"
-                element={
-                  <PagePlaceholder
-                    title="Savings"
-                    note="Goal list with progress rings and contribution flow — pending port."
-                  />
-                }
-              />
+              <Route path="savings" element={<SavingsPage />} />
               <Route
                 path="currency"
                 element={

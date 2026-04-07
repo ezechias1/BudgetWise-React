@@ -47,7 +47,16 @@ export interface SavingsGoal {
   user_id: string;
   name: string;
   target_amount: number;
-  current_amount: number;
+  saved_amount: number;
+  monthly_contribution: number;
   deadline: string | null;
+  account_mode: Mode;
   created_at: string;
+}
+
+export interface NewSavingsGoal {
+  name: string;
+  target_amount: number;
+  monthly_contribution: number;
+  deadline: string | null;
 }
