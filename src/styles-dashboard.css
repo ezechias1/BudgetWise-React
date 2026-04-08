@@ -425,6 +425,7 @@ body.light .mode-transition-label {
     transition: all 0.2s;
     font-size: 0.88rem;
     font-weight: 500;
+    text-decoration: none;
 }
 
 .nav-item:hover {
@@ -7576,4 +7577,214 @@ body.light .stokvel-card .stokvel-stat-label {
 }
 body.light .stokvel-progress {
     background: rgba(0,0,0,0.06);
+}
+
+/* ============================================================
+   React-port additive overrides — theme-aware polish
+   ============================================================ */
+
+/* Make `.inline-form .field select` match input styling */
+.inline-form .field select {
+    width: 100%;
+    padding: 0 16px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.03);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27rgba(255,255,255,0.4)%27 stroke-width=%272%27><path d=%27M6 9l6 6 6-6%27/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+}
+.inline-form .field select:focus {
+    border-color: rgba(var(--accent-rgb),0.5);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb),0.07);
+}
+body.light .inline-form .field select {
+    background-color: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.1);
+    color: #111;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27rgba(0,0,0,0.45)%27 stroke-width=%272%27><path d=%27M6 9l6 6 6-6%27/></svg>");
+}
+body.light .inline-form .field select option {
+    background: #fff;
+    color: #111;
+}
+body.light .inline-form .field input {
+    background-color: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.1);
+    color: #111;
+}
+body.light .inline-form .field input::placeholder {
+    color: rgba(0,0,0,0.35);
+}
+body.light .inline-form .field label {
+    color: rgba(0,0,0,0.5);
+}
+
+/* Theme-aware tithe/automation toggle slider (vanilla forgot light mode) */
+body.light .tithe-slider {
+    background: rgba(0,0,0,0.15);
+}
+body.light .tithe-slider::before {
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Account-page SMS coming soon card text — neutral in both themes */
+body.light .sms-coming-soon p {
+    color: inherit;
+}
+
+/* ============================================================
+   Admin page — ported from vanilla admin.html inline <style>.
+   All rules scoped under `.admin-page` to avoid conflicts with
+   the dashboard's existing `.stat-card` / `.container` rules.
+   ============================================================ */
+
+.admin-page { max-width: 1100px; margin: 0 auto; padding: 8px 0; }
+.admin-page a { color: var(--accent, #10b981); text-decoration: none; }
+.admin-page a:hover { text-decoration: underline; }
+
+.admin-page .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+}
+.admin-page .header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin: 0; }
+.admin-page .header h1 span { color: var(--accent, #10b981); }
+
+.admin-page .back-link { font-size: 0.875rem; color: rgba(255,255,255,0.55); }
+.admin-page .back-link:hover { color: #fff; }
+
+.admin-page .denied {
+    text-align: center; padding: 4rem 1rem;
+    color: rgba(255,255,255,0.55); font-size: 1.1rem;
+}
+.admin-page .loading, .admin-page .empty {
+    text-align: center; padding: 3rem; color: rgba(255,255,255,0.4);
+}
+
+/* Stats grid — scoped so it doesn't collide with dashboard .stat-card */
+.admin-page .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+}
+.admin-page .stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 1.25rem;
+    display: block;
+}
+.admin-page .stat-card .value { font-size: 2rem; font-weight: 700; color: #fff; }
+.admin-page .stat-card .label {
+    font-size: 0.8rem; color: rgba(255,255,255,0.55);
+    margin-top: 0.25rem;
+}
+.admin-page .stat-card.accent .value { color: var(--accent, #10b981); }
+
+/* Tabs */
+.admin-page .tabs {
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem;
+}
+.admin-page .tab-btn {
+    background: none; border: none;
+    color: rgba(255,255,255,0.55); font-size: 0.875rem; font-family: inherit;
+    padding: 0.5rem 1rem; cursor: pointer; border-radius: 6px;
+    transition: all 0.2s;
+}
+.admin-page .tab-btn:hover {
+    color: #fff; background: rgba(255,255,255,0.04);
+}
+.admin-page .tab-btn.active {
+    color: var(--accent, #10b981);
+    background: rgba(var(--accent-rgb),0.1);
+    font-weight: 600;
+}
+
+/* Table */
+.admin-page .table-wrap { overflow-x: auto; }
+.admin-page table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.admin-page th {
+    text-align: left; color: rgba(255,255,255,0.45); font-weight: 600;
+    padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08);
+    white-space: nowrap;
+}
+.admin-page td {
+    padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+    white-space: nowrap; color: rgba(255,255,255,0.85);
+}
+.admin-page tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* Badges */
+.admin-page .badge {
+    display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 600;
+}
+.admin-page .badge-green { background: rgba(16,185,129,0.15); color: #34d399; }
+.admin-page .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.admin-page .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.admin-page .badge-gray { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+/* Refresh button */
+.admin-page .refresh-btn {
+    background: rgba(var(--accent-rgb),0.1);
+    border: 1px solid rgba(var(--accent-rgb),0.2);
+    color: var(--accent, #10b981);
+    padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.8rem;
+    cursor: pointer; font-family: inherit; transition: all 0.2s;
+}
+.admin-page .refresh-btn:hover {
+    background: rgba(var(--accent-rgb),0.2);
+}
+
+/* Light mode */
+body.light .admin-page .header h1 { color: #1a1a2e; }
+body.light .admin-page .back-link { color: #64748b; }
+body.light .admin-page .back-link:hover { color: #1a1a2e; }
+body.light .admin-page .denied,
+body.light .admin-page .loading,
+body.light .admin-page .empty { color: #94a3b8; }
+
+body.light .admin-page .stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+body.light .admin-page .stat-card .value { color: #1a1a2e; }
+body.light .admin-page .stat-card .label { color: #64748b; }
+body.light .admin-page .stat-card.accent .value { color: var(--accent, #10b981); }
+
+body.light .admin-page .tabs { border-bottom-color: #e2e8f0; }
+body.light .admin-page .tab-btn { color: #64748b; }
+body.light .admin-page .tab-btn:hover { color: #1a1a2e; background: rgba(0,0,0,0.04); }
+body.light .admin-page .tab-btn.active {
+    color: var(--accent, #10b981);
+    background: rgba(var(--accent-rgb),0.1);
+}
+
+body.light .admin-page th { color: #475569; border-bottom-color: #e2e8f0; }
+body.light .admin-page td { color: #334155; border-bottom-color: #f1f5f9; }
+body.light .admin-page tr:hover td { background: rgba(0,0,0,0.02); }
+
+body.light .admin-page .refresh-btn {
+    background: rgba(var(--accent-rgb),0.08);
+    border-color: rgba(var(--accent-rgb),0.2);
+}
+
+body.light .admin-page .badge-green { background: rgba(16,185,129,0.1); color: #059669; }
+body.light .admin-page .badge-blue { background: rgba(59,130,246,0.1); color: #2563eb; }
+body.light .admin-page .badge-purple { background: rgba(139,92,246,0.1); color: #7c3aed; }
+body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #475569; }
+
+@media (max-width: 640px) {
+    .admin-page .stats { grid-template-columns: 1fr 1fr; }
+    .admin-page .header h1 { font-size: 1.25rem; }
 }

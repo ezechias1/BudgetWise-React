@@ -1,13 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { CATEGORIES, CATEGORY_LABELS } from '@/lib/categories';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { getCategoriesForMode } from '@/lib/categories';
 import { todayIso } from '@/lib/format';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useMode } from '@/contexts/ModeContext';
 import type { NewExpense } from '@/types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSubmit: (expense: NewExpense) => Promise<{ error: string | null }>;
+  /** Pre-select a category when the modal opens (e.g. "Savings" from the Savings page). */
+  defaultCategory?: string;
 }
 
 /**
@@ -18,10 +21,12 @@ interface Props {
  * The Tithe auto-fill behavior is preserved: picking "Tithe" fills the
  * amount with 10% of the stored monthly income and sets a description.
  */
-export function ExpenseModal({ open, onClose, onSubmit }: Props) {
+export function ExpenseModal({ open, onClose, onSubmit, defaultCategory }: Props) {
   const { income } = useUserSettings();
+  const { mode } = useMode();
+  const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
 
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(defaultCategory ?? '');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(todayIso);
@@ -32,14 +37,14 @@ export function ExpenseModal({ open, onClose, onSubmit }: Props) {
   // Reset form every time the modal opens so it doesn't show stale state
   useEffect(() => {
     if (open) {
-      setCategory('');
+      setCategory(defaultCategory ?? '');
       setDescription('');
       setAmount('');
       setDate(todayIso());
       setRecurring('no');
       setError(null);
     }
-  }, [open]);
+  }, [open, defaultCategory]);
 
   // Close on Escape
   useEffect(() => {
@@ -116,9 +121,9 @@ export function ExpenseModal({ open, onClose, onSubmit }: Props) {
               required
             >
               <option value="">Select...</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_LABELS[c]}
+              {modeCategories.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
                 </option>
               ))}
             </select>

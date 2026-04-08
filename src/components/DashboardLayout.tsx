@@ -38,7 +38,7 @@ export function DashboardLayout() {
         <span style={{ width: 24 }} />
       </div>
 
-      <main className="main-content">
+      <main className="main-content loaded">
         <Outlet />
       </main>
     </>

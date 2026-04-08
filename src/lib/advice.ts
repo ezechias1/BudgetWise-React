@@ -204,3 +204,159 @@ export function buildComfort(
 
   return { monthlyExpenses, buffer, savingsLine, comfortMonthly, comfortYearly, note };
 }
+
+// =============================================
+// AI Spending Insights
+// =============================================
+
+export interface AIInsight {
+  type: 'positive' | 'negative' | 'neutral';
+  icon: string;
+  title: string;
+  text: string;
+}
+
+/**
+ * Ports `renderAIInsights()` from js/app.js:4293 — derives 4-6 contextual
+ * insights from this month's expenses + last month's totals + income.
+ * Pure function: deterministic, easy to test, no DOM mutation.
+ */
+export function buildAIInsights(
+  monthExpenses: Expense[],
+  prevMonthExpenses: Expense[],
+  income: number,
+  currency: string,
+): AIInsight[] {
+  const insights: AIInsight[] = [];
+  if (monthExpenses.length === 0) return insights;
+
+  const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const catTotals: Record<string, number> = {};
+  for (const e of monthExpenses) {
+    catTotals[e.category] = (catTotals[e.category] ?? 0) + e.amount;
+  }
+
+  // 1. Top spending category
+  const sortedCats = Object.keys(catTotals).sort(
+    (a, b) => catTotals[b] - catTotals[a],
+  );
+  const topCat = sortedCats[0];
+  const topPct = totalSpent > 0 ? Math.round((catTotals[topCat] / totalSpent) * 100) : 0;
+  insights.push({
+    type: topPct > 40 ? 'negative' : 'neutral',
+    icon: '📊',
+    title: `Top Category: ${topCat}`,
+    text:
+      `${topCat} takes up ${topPct}% of your spending (${formatCurrency(catTotals[topCat], currency)}). ` +
+      (topPct > 40
+        ? 'This is quite concentrated — consider diversifying or reducing.'
+        : 'This looks like a reasonable proportion.'),
+  });
+
+  // 2. Spending velocity / projection
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dailyAvg = totalSpent / dayOfMonth;
+  const projectedTotal = dailyAvg * daysInMonth;
+  if (income > 0) {
+    const projPct = Math.round((projectedTotal / income) * 100);
+    insights.push({
+      type: projPct > 100 ? 'negative' : projPct > 80 ? 'neutral' : 'positive',
+      icon: '🚀',
+      title: 'Spending Projection',
+      text:
+        `At your current rate of ${formatCurrency(dailyAvg, currency)}/day, you're on track to spend ${formatCurrency(projectedTotal, currency)} this month (${projPct}% of income). ` +
+        (projPct > 100
+          ? "You'll overshoot your budget — slow down spending now."
+          : projPct > 80
+            ? 'Getting close to your limit — be mindful.'
+            : "Looking good, you're well within budget."),
+    });
+  }
+
+  // 3. Weekend vs weekday
+  let weekdaySpend = 0;
+  let weekendSpend = 0;
+  let weekdayCount = 0;
+  let weekendCount = 0;
+  for (const e of monthExpenses) {
+    const day = new Date(e.date).getDay();
+    if (day === 0 || day === 6) {
+      weekendSpend += e.amount;
+      weekendCount++;
+    } else {
+      weekdaySpend += e.amount;
+      weekdayCount++;
+    }
+  }
+  if (weekendCount > 0 && weekdayCount > 0) {
+    const wkdayAvg = weekdaySpend / weekdayCount;
+    const wkendAvg = weekendSpend / weekendCount;
+    if (wkendAvg > wkdayAvg * 1.5) {
+      insights.push({
+        type: 'negative',
+        icon: '📅',
+        title: 'Weekend Spending Spike',
+        text: `You spend ${formatCurrency(wkendAvg, currency)} per transaction on weekends vs ${formatCurrency(wkdayAvg, currency)} on weekdays. Weekend impulse spending might be hurting your budget.`,
+      });
+    } else {
+      insights.push({
+        type: 'positive',
+        icon: '📅',
+        title: 'Consistent Spending Pattern',
+        text: "Your weekday and weekend spending are balanced — that's a sign of disciplined habits.",
+      });
+    }
+  }
+
+  // 4. Month-over-month
+  if (prevMonthExpenses.length > 0) {
+    const lastTotal = prevMonthExpenses.reduce((s, e) => s + e.amount, 0);
+    const changePct = lastTotal > 0 ? Math.round(((totalSpent - lastTotal) / lastTotal) * 100) : 0;
+    insights.push({
+      type: changePct > 20 ? 'negative' : changePct < -10 ? 'positive' : 'neutral',
+      icon: changePct > 0 ? '📈' : '📉',
+      title: 'Month-over-Month',
+      text:
+        changePct > 0
+          ? `Spending is up ${changePct}% vs last month (${formatCurrency(lastTotal, currency)} → ${formatCurrency(totalSpent, currency)}). Check which categories grew.`
+          : changePct < 0
+            ? `Spending is down ${Math.abs(changePct)}% vs last month. Great cost-cutting!`
+            : 'Spending is roughly the same as last month.',
+    });
+  }
+
+  // 5. Frequency
+  const catCounts: Record<string, number> = {};
+  for (const e of monthExpenses) {
+    catCounts[e.category] = (catCounts[e.category] ?? 0) + 1;
+  }
+  const freqCat = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
+  if (freqCat && catCounts[freqCat] > 5) {
+    insights.push({
+      type: 'neutral',
+      icon: '🔁',
+      title: `Frequent: ${freqCat}`,
+      text: `You've made ${catCounts[freqCat]} ${freqCat} transactions this month. Small purchases add up — they total ${formatCurrency(catTotals[freqCat], currency)}.`,
+    });
+  }
+
+  // 6. Savings potential
+  if (income > 0 && totalSpent < income) {
+    const canSave = income - totalSpent;
+    const savePct = Math.round((canSave / income) * 100);
+    insights.push({
+      type: 'positive',
+      icon: '💰',
+      title: 'Savings Potential',
+      text:
+        `You have ${formatCurrency(canSave, currency)} (${savePct}%) left this month. ` +
+        (savePct > 30
+          ? 'Excellent — consider moving some to savings goals.'
+          : 'Keep watching your spending to maintain this buffer.'),
+    });
+  }
+
+  return insights;
+}

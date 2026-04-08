@@ -101,7 +101,7 @@ export default function CurrencyPage() {
             <select value={from} onChange={(e) => setFrom(e.target.value)}>
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.code}
+                  {c.label}
                 </option>
               ))}
             </select>
@@ -123,7 +123,7 @@ export default function CurrencyPage() {
             <select value={to} onChange={(e) => setTo(e.target.value)}>
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.code}
+                  {c.label}
                 </option>
               ))}
             </select>

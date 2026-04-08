@@ -130,13 +130,18 @@ export function IncomeVsExpensesChart({ income, totalSpent, savingsGoal, saved }
 }
 
 interface TrendProps {
-  trend: Array<{ key: string; label: string; total: number }>;
+  trend: Array<{ key: string; label: string; total: number; saved: number }>;
+  income: number;
 }
 
-/** 6-month spending trend line. */
-export function SpendingTrendChart({ trend }: TrendProps) {
+/**
+ * 6-month spending trend — three lines: Spent (red), Saved (green),
+ * Income (dashed indigo). Matches vanilla js/app.js:3651-3679.
+ */
+export function SpendingTrendChart({ trend, income }: TrendProps) {
   useTheme();
   const cc = chartColors();
+  const light = isLight();
 
   return (
     <Line
@@ -144,15 +149,41 @@ export function SpendingTrendChart({ trend }: TrendProps) {
         labels: trend.map((t) => t.label),
         datasets: [
           {
+            label: 'Spent',
             data: trend.map((t) => t.total),
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16,185,129,0.1)',
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.12)',
             fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.4,
+            pointBackgroundColor: '#ef4444',
+            pointBorderColor: light ? '#fff' : '#ef4444',
+            pointBorderWidth: light ? 2 : 0,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderWidth: 2.5,
+          },
+          {
+            label: 'Saved',
+            data: trend.map((t) => t.saved),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,0.12)',
+            fill: true,
+            tension: 0.4,
             pointBackgroundColor: '#10b981',
+            pointBorderColor: light ? '#fff' : '#10b981',
+            pointBorderWidth: light ? 2 : 0,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderWidth: 2.5,
+          },
+          {
+            label: 'Income',
+            data: Array(trend.length).fill(income),
+            borderColor: 'rgba(99,102,241,0.6)',
+            borderDash: [6, 4],
+            pointRadius: 0,
             borderWidth: 2,
+            fill: false,
           },
         ],
       }}
@@ -160,7 +191,15 @@ export function SpendingTrendChart({ trend }: TrendProps) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: true,
+            labels: {
+              color: cc.legendText,
+              font: { family: 'Inter', weight: light ? 500 : 400 },
+              usePointStyle: true,
+              padding: 16,
+            },
+          },
           tooltip: chartTooltip(),
         },
         scales: {

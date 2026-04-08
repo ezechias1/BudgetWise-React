@@ -1,29 +1,17 @@
 // Currency + date helpers ported from js/app.js so formatting stays
 // identical between the vanilla app and the React port.
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  ZAR: 'R',
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  NGN: '₦',
-  KES: 'KSh',
-  GHS: 'GH₵',
-  INR: '₹',
-  BRL: 'R$',
-  JPY: '¥',
-  AUD: 'A$',
-  CAD: 'C$',
-  CNY: '¥',
-  BWP: 'P',
-  MZN: 'MT',
-};
+import { CURRENCY_INFO } from './currencies';
+
+/** Matches `getCurrencySymbol()` in js/app.js. */
+export function getCurrencySymbol(currency: string): string {
+  return CURRENCY_INFO[currency]?.symbol ?? `${currency} `;
+}
 
 /** Matches `fmt()` in js/app.js line 2191. */
 export function formatCurrency(amount: number, currency: string): string {
-  const sym = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
   return (
-    sym +
+    getCurrencySymbol(currency) +
     Number(amount).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

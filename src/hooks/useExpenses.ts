@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
-import type { Expense, NewExpense } from '@/types';
+import type { Expense, Mode, NewExpense } from '@/types';
 
 /**
  * Reads and mutates the `expenses` Supabase table.
@@ -29,12 +29,17 @@ export function useExpenses() {
     if (!user) return;
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
+    // Personal mode also picks up legacy rows where account_mode IS NULL
+    // (vanilla app wrote those before the mode column existed).
+    let query = supabase
       .from('expenses')
       .select('*')
-      .eq('user_id', user.id)
-      .eq('account_mode', mode)
-      .order('date', { ascending: false });
+      .eq('user_id', user.id);
+    query =
+      mode === 'personal'
+        ? query.or('account_mode.is.null,account_mode.eq.personal')
+        : query.eq('account_mode', mode);
+    const { data, error: err } = await query.order('date', { ascending: false });
     if (err) {
       setError(err.message);
     } else {
@@ -82,6 +87,27 @@ export function useExpenses() {
     [user, expenses],
   );
 
+  // Ports js/app.js `attachMoveHandlers` (line 2438) — flips an expense's
+  // account_mode so it disappears from the current ledger and shows in another.
+  const moveExpense = useCallback(
+    async (id: string, targetMode: Mode): Promise<{ error: string | null }> => {
+      if (!user) return { error: 'Not signed in' };
+      const snapshot = expenses;
+      setExpenses((list) => list.filter((e) => e.id !== id)); // optimistic
+      const { error: err } = await supabase
+        .from('expenses')
+        .update({ account_mode: targetMode })
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (err) {
+        setExpenses(snapshot);
+        return { error: err.message };
+      }
+      return { error: null };
+    },
+    [user, expenses],
+  );
+
   return {
     expenses,
     loading,
@@ -89,5 +115,6 @@ export function useExpenses() {
     refresh: load,
     addExpense,
     deleteExpense,
+    moveExpense,
   };
 }

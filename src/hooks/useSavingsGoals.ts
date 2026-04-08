@@ -21,12 +21,16 @@ export function useSavingsGoals() {
     if (!user) return;
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
+    // Personal mode also picks up legacy rows where account_mode IS NULL.
+    let query = supabase
       .from('savings_goals')
       .select('*')
-      .eq('user_id', user.id)
-      .eq('account_mode', mode)
-      .order('created_at', { ascending: false });
+      .eq('user_id', user.id);
+    query =
+      mode === 'personal'
+        ? query.or('account_mode.is.null,account_mode.eq.personal')
+        : query.eq('account_mode', mode);
+    const { data, error: err } = await query.order('created_at', { ascending: false });
     if (err) setError(err.message);
     else setGoals((data ?? []) as SavingsGoal[]);
     setLoading(false);

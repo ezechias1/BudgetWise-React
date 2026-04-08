@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { Line } from 'react-chartjs-2';
 import { useOverviewStats } from '@/hooks/useOverviewStats';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { useExpenses } from '@/hooks/useExpenses';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { NewGoalModal, AddToGoalModal } from '@/components/SavingsGoalModals';
-import { formatCurrency } from '@/lib/format';
+import { ExpenseModal } from '@/components/ExpenseModal';
+import { chartColors, chartTooltip, isLight } from '@/lib/chartTheme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { formatCurrency, monthKey } from '@/lib/format';
+import '@/lib/chartRegistry';
 import type { SavingsGoal } from '@/types';
 
 // Matches `goalColors` in app.js line 209.
@@ -60,16 +67,70 @@ function buildAdvice(goal: SavingsGoal, currency: string): string {
  */
 export default function SavingsPage() {
   const { goals, addGoal, fundGoal, deleteGoal } = useSavingsGoals();
+  const { expenses, addExpense } = useExpenses();
+  const { income, savingsGoal, updateSettings, refresh: refreshSettings } = useUserSettings();
   const stats = useOverviewStats();
+  useTheme();
 
   const [newGoalOpen, setNewGoalOpen] = useState(false);
+  const [addSavingsOpen, setAddSavingsOpen] = useState(false);
   const [fundTarget, setFundTarget] = useState<SavingsGoal | null>(null);
+  const [newGoalInput, setNewGoalInput] = useState('');
+  const [newIncomeInput, setNewIncomeInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   const handleDelete = async (goal: SavingsGoal) => {
     if (!confirm(`Delete "${goal.name}"?`)) return;
     const { error } = await deleteGoal(goal.id);
     if (error) alert(`Delete failed: ${error}`);
   };
+
+  const handleUpdateBudget = async (ev: FormEvent) => {
+    ev.preventDefault();
+    setBusy(true);
+    const patch: { savings_goal?: number; income?: number } = {};
+    if (newGoalInput) patch.savings_goal = parseFloat(newGoalInput) || 0;
+    if (newIncomeInput) patch.income = parseFloat(newIncomeInput) || 0;
+    const { error } = await updateSettings(patch);
+    setBusy(false);
+    if (error) {
+      setSavedMsg(`Failed: ${error}`);
+    } else {
+      setSavedMsg('Budget updated');
+      setNewGoalInput('');
+      setNewIncomeInput('');
+      setTimeout(() => setSavedMsg(null), 2500);
+    }
+  };
+
+  const handleResetBudget = async () => {
+    if (!confirm('Reset monthly budget and income to 0?')) return;
+    setBusy(true);
+    await updateSettings({ savings_goal: 0, income: 0 });
+    await refreshSettings();
+    setBusy(false);
+    setSavedMsg('Budget reset');
+    setTimeout(() => setSavedMsg(null), 2500);
+  };
+
+  // 6-month savings line — saved per month = max(0, income − month spent)
+  const cc = chartColors();
+  const light = isLight();
+  const savingsTrend = useMemo(() => {
+    const out: Array<{ label: string; saved: number }> = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = monthKey(d);
+      const label = d.toLocaleString(undefined, { month: 'short' });
+      const monthTotal = expenses
+        .filter((e) => e.date.startsWith(key))
+        .reduce((s, e) => s + e.amount, 0);
+      out.push({ label, saved: Math.max(0, income - monthTotal) });
+    }
+    return out;
+  }, [expenses, income]);
 
   const goalStatus =
     stats.savingsGoal === 0
@@ -87,6 +148,23 @@ export default function SavingsPage() {
             <p className="page-subtitle">Track your savings goals</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn-add"
+              onClick={() => setAddSavingsOpen(true)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+              Add Savings
+            </button>
             <button
               type="button"
               className="btn-add"
@@ -270,7 +348,98 @@ export default function SavingsPage() {
             )}
           </div>
         </div>
+        {/* Savings Over Time line — port of #savingsLineChart */}
+        <div className="chart-card full-width">
+          <h3>Savings Over Time</h3>
+          <div className="chart-container chart-wide">
+            <Line
+              data={{
+                labels: savingsTrend.map((t) => t.label),
+                datasets: [
+                  {
+                    label: 'Saved',
+                    data: savingsTrend.map((t) => t.saved),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.12)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: light ? '#fff' : '#10b981',
+                    pointBorderWidth: light ? 2 : 0,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    borderWidth: 2.5,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: chartTooltip(),
+                },
+                scales: {
+                  y: { grid: { color: cc.grid }, ticks: { color: cc.tick } },
+                  x: { grid: { display: false }, ticks: { color: cc.text } },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Update Monthly Budget — port of #updateGoalForm */}
+        <div className="chart-card full-width">
+          <h3>Update Monthly Budget</h3>
+          <form onSubmit={handleUpdateBudget} className="inline-form">
+            <div className="field">
+              <label>New Monthly Goal</label>
+              <input
+                type="number"
+                value={newGoalInput}
+                onChange={(ev) => setNewGoalInput(ev.target.value)}
+                placeholder={savingsGoal ? String(savingsGoal) : 'e.g. 5000'}
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div className="field">
+              <label>New Monthly Income</label>
+              <input
+                type="number"
+                value={newIncomeInput}
+                onChange={(ev) => setNewIncomeInput(ev.target.value)}
+                placeholder={income ? String(income) : 'e.g. 25000'}
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Update'}
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={handleResetBudget}
+              disabled={busy}
+            >
+              Reset
+            </button>
+            {savedMsg && (
+              <p style={{ color: '#10b981', fontSize: '0.85rem', marginTop: 8 }}>
+                {savedMsg}
+              </p>
+            )}
+          </form>
+        </div>
       </section>
+
+      <ExpenseModal
+        open={addSavingsOpen}
+        onClose={() => setAddSavingsOpen(false)}
+        onSubmit={addExpense}
+        defaultCategory="Savings"
+      />
 
       <NewGoalModal
         open={newGoalOpen}

@@ -3,18 +3,25 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { isAdmin, isProUser } from '@/lib/access';
 import type { Mode } from '@/types';
 
 interface NavEntry {
   to: string;
   label: Partial<Record<Mode, string>>;
   fallback: string;
+  /** Hide for these modes. */
   hideIn?: Mode[];
+  /** Show only for these modes (overrides hideIn). */
+  onlyIn?: Mode[];
+  /** Append a small BETA badge to the label. */
+  beta?: boolean;
   icon: JSX.Element;
 }
 
-// Port of the `.sidebar-nav` `<li class="nav-item">` entries from dashboard.html.
-// Kept data-driven so Pro gating and mode-based hiding are one place, not sprinkled.
+// Port of the `.sidebar-nav` `<li class="nav-item">` entries from dashboard.html (lines 82-174).
+// Order and visibility rules must match the vanilla site exactly.
 const NAV: NavEntry[] = [
   {
     to: '/dashboard',
@@ -74,6 +81,191 @@ const NAV: NavEntry[] = [
       </svg>
     ),
   },
+  // Business-only
+  {
+    to: '/dashboard/invoices',
+    fallback: 'Invoices',
+    label: {},
+    onlyIn: ['business'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <path d="M14 2v6h6M16 13H8m8 4H8m2-8H8" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/clients',
+    fallback: 'Clients',
+    label: {},
+    onlyIn: ['business'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/pnl',
+    fallback: 'Profit & Loss',
+    label: {},
+    onlyIn: ['business'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18 20V10m-6 10V4M6 20v-6" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/tax',
+    fallback: 'Tax',
+    label: {},
+    onlyIn: ['business'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="18" rx="2" />
+        <path d="M8 7v4m8-4v4M6 15h4m4 0h4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/partners',
+    fallback: 'Partners',
+    label: {},
+    onlyIn: ['business'],
+    beta: true,
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" />
+      </svg>
+    ),
+  },
+  // Family-only
+  {
+    to: '/dashboard/members',
+    fallback: 'Our Family',
+    label: {},
+    onlyIn: ['family'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/allowances',
+    fallback: 'Pocket Money',
+    label: {},
+    onlyIn: ['family'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/chores',
+    fallback: 'Chores & Rewards',
+    label: {},
+    onlyIn: ['family'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/family-goals',
+    fallback: 'Family Goals',
+    label: {},
+    onlyIn: ['family'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/spending-tracker',
+    fallback: 'Spending Tracker',
+    label: {},
+    onlyIn: ['family'],
+    beta: true,
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+  },
+  // SA-only features — shown to everyone in the port (SA detection is a future round)
+  {
+    to: '/dashboard/loadshedding',
+    fallback: 'Load Shedding',
+    label: {},
+    hideIn: ['business'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/stokvel',
+    fallback: 'Stokvel',
+    label: {},
+    hideIn: ['business', 'family'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+    ),
+  },
+  // Bank connect (not for family)
+  {
+    to: '/dashboard/bank',
+    fallback: 'Bank',
+    label: { personal: 'Bank', business: 'Banking' },
+    hideIn: ['family'],
+    beta: true,
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v3m4-3v3m4-3v3" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/help',
+    fallback: 'How to Use',
+    label: {},
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    to: '/dashboard/admin',
+    fallback: 'Admin',
+    label: {},
+    icon: (
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    ),
+  },
   {
     to: '/dashboard/account',
     fallback: 'Account',
@@ -87,11 +279,29 @@ const NAV: NavEntry[] = [
   },
 ];
 
+/** Visibility check — matches vanilla `nav-no-*` / `nav-*-only` classes. */
+function isVisible(entry: NavEntry, mode: Mode): boolean {
+  if (entry.onlyIn && !entry.onlyIn.includes(mode)) return false;
+  if (entry.hideIn?.includes(mode)) return false;
+  return true;
+}
+
 export function Sidebar() {
   const { mode, setMode, label } = useMode();
-  const { theme, toggleTheme } = useTheme();
+  const { toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
+  const { avatarUrl, isProFromSettings } = useUserSettings();
   const navigate = useNavigate();
+
+  const userIsAdmin = isAdmin(user);
+  const userIsPro = isProUser(isProFromSettings, user);
+  // Google OAuth users have an avatar in user_metadata; stored avatars in
+  // user_settings override it.
+  const metadataAvatar =
+    (user?.user_metadata?.avatar_url as string | undefined) ??
+    (user?.user_metadata?.picture as string | undefined) ??
+    null;
+  const effectiveAvatar = avatarUrl || metadataAvatar;
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -116,6 +326,9 @@ export function Sidebar() {
   const handleModeSelect = (next: Mode) => {
     setMode(next);
     setDropdownOpen(false);
+    // Always land on Overview after a mode switch — the previous page may not
+    // exist (or have data) in the new mode.
+    navigate('/dashboard');
   };
 
   const modeLabel = mode === 'personal' ? 'Personal' : mode === 'business' ? 'Business' : 'Family';
@@ -150,7 +363,7 @@ export function Sidebar() {
       </div>
 
       {/* Mode dropdown — port of .mode-dropdown from dashboard.html lines 53-80 */}
-      <div className="mode-dropdown" ref={dropdownRef}>
+      <div className={`mode-dropdown ${dropdownOpen ? 'open' : ''}`} ref={dropdownRef}>
         <button
           type="button"
           className="mode-dropdown-btn"
@@ -227,7 +440,9 @@ export function Sidebar() {
       </div>
 
       <ul className="sidebar-nav">
-        {NAV.filter((n) => !n.hideIn?.includes(mode)).map((n) => (
+        {NAV
+          .filter((n) => n.to !== '/dashboard/admin' || userIsAdmin)
+          .filter((n) => isVisible(n, mode)).map((n) => (
           <li key={n.to}>
             <NavLink
               to={n.to}
@@ -235,50 +450,65 @@ export function Sidebar() {
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               {n.icon}
-              <span className="nav-label">{label(n.label, n.fallback)}</span>
+              <span className="nav-label">
+                {label(n.label, n.fallback)}
+                {n.beta && <span className="beta-badge">Beta</span>}
+              </span>
             </NavLink>
           </li>
         ))}
       </ul>
 
       <div className="sidebar-footer">
+        {/* Render BOTH icons; vanilla CSS toggles them via body.light */}
         <button
           type="button"
           className="theme-toggle"
           onClick={toggleTheme}
           aria-label="Toggle theme"
         >
-          {theme === 'light' ? (
-            <svg
-              className="icon-moon"
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-            </svg>
-          ) : (
-            <svg
-              className="icon-sun"
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-          )}
+          <svg
+            className="icon-sun"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+          <svg
+            className="icon-moon"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+          </svg>
         </button>
 
         <div className="user-info">
-          <div className="user-avatar">{initials}</div>
+          <div
+            className="user-avatar"
+            style={
+              effectiveAvatar
+                ? {
+                    backgroundImage: `url(${encodeURI(effectiveAvatar)})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
+                : undefined
+            }
+          >
+            {effectiveAvatar ? '' : initials}
+          </div>
           <span>{user?.user_metadata?.full_name ?? user?.email ?? 'User'}</span>
+          {userIsPro && <span className="pro-badge">PRO</span>}
         </div>
 
         <button
