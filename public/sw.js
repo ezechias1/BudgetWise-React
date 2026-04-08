@@ -1,10 +1,8 @@
-// Minimal service worker for the React port — cache-first for the shell,
-// network-first for API calls. The vanilla app uses a more aggressive
-// cache (budgetwise-v34) that turned out to cause stale-JS issues in
-// development (per project memory). This intentionally ships a thin SW
-// that just enables PWA installability + offline fallback for the shell.
+// React port service worker — network-first for navigations so a reload
+// always gets fresh HTML (and therefore fresh hashed JS bundles). Falls
+// back to cached shell only when offline. Static assets are cache-first.
 
-const CACHE = 'budgetwise-react-v1';
+const CACHE = 'budgetwise-react-v3';
 const SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -35,20 +33,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell: try cache, fall back to network
+  // NAVIGATIONS (document requests): network-first. Falls back to cached
+  // /index.html only when offline so the user still sees the app shell.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cached) => cached ?? fetch(event.request)),
+      fetch(event.request)
+        .then((response) => {
+          // Stash the fresh HTML so offline fallback stays up to date.
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE).then((c) => c.put('/index.html', clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html').then((c) => c || Response.error())),
     );
     return;
   }
 
+  // Static same-origin GETs: cache-first with background refresh.
   event.respondWith(
     caches.match(event.request).then(
       (cached) =>
         cached ??
         fetch(event.request).then((response) => {
-          // Only cache same-origin successful GETs
           if (
             event.request.method === 'GET' &&
             response.status === 200 &&

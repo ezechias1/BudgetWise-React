@@ -286,7 +286,12 @@ function isVisible(entry: NavEntry, mode: Mode): boolean {
   return true;
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  /** When true, adds the `open` class for the mobile drawer (vanilla behavior). */
+  mobileOpen?: boolean;
+}
+
+export function Sidebar({ mobileOpen = false }: SidebarProps) {
   const { mode, setMode, label } = useMode();
   const { toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
@@ -341,7 +346,7 @@ export function Sidebar() {
     .toUpperCase();
 
   return (
-    <nav className="sidebar" id="sidebar">
+    <nav className={`sidebar${mobileOpen ? ' open' : ''}`} id="sidebar">
       <div className="sidebar-brand">
         <svg
           viewBox="0 0 24 24"

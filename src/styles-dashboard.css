@@ -7788,3 +7788,50 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
     .admin-page .stats { grid-template-columns: 1fr 1fr; }
     .admin-page .header h1 { font-size: 1.25rem; }
 }
+
+/* ============================================================
+   Mobile polish — React port specific
+   ============================================================ */
+
+/* Scan button: on small screens collapse to icon only so the
+   header doesn't wrap. */
+@media (max-width: 640px) {
+    .btn-scan {
+        padding: 0 10px !important;
+        gap: 0 !important;
+    }
+    .btn-scan svg {
+        margin: 0 !important;
+    }
+    .btn-scan {
+        font-size: 0;
+    }
+    .btn-scan svg {
+        font-size: initial;
+    }
+}
+
+/* Page header action rows wrap gracefully on small screens */
+@media (max-width: 640px) {
+    .page-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .page-header .header-actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* Prevent horizontal scroll on mobile from wide flex containers */
+@media (max-width: 640px) {
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .inline-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .inline-form .field {
+        min-width: 0;
+    }
+}

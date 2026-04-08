@@ -72,7 +72,48 @@
       })();
     </script>
 
-    <div id="root"></div>
+    <div id="root">
+      <!-- Inline loader: visible while the React bundle downloads / boots.
+           React replaces #root's children on mount so this vanishes. -->
+      <div
+        style="
+          position: fixed;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          background: #06060a;
+          color: rgba(255, 255, 255, 0.5);
+          font-family: 'Inter', -apple-system, sans-serif;
+          font-size: 0.85rem;
+        "
+      >
+        <div
+          style="
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(16, 185, 129, 0.2);
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: bw-spin 0.8s linear infinite;
+          "
+        ></div>
+        <div>Loading BudgetWise…</div>
+      </div>
+      <style>
+        @keyframes bw-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        html.light-early #root > div {
+          background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 30%, #f5f3ff 70%, #eff6ff 100%) !important;
+          color: rgba(0, 0, 0, 0.45) !important;
+        }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Register the React service worker for PWA installability.

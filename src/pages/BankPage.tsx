@@ -600,7 +600,7 @@ export default function BankPage() {
             </div>
             <p
               style={{
-                color: 'rgba(255,255,255,0.4)',
+                color: 'inherit', opacity: 0.4,
                 marginBottom: 16,
                 fontSize: '0.85rem',
               }}
@@ -639,7 +639,7 @@ export default function BankPage() {
               <p
                 className="bank-search-result"
                 style={{
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'inherit', opacity: 0.5,
                   fontSize: '0.8rem',
                   marginBottom: 12,
                 }}
@@ -693,7 +693,7 @@ export default function BankPage() {
             </div>
             <p
               style={{
-                color: 'rgba(255,255,255,0.4)',
+                color: 'inherit', opacity: 0.4,
                 marginBottom: 16,
                 fontSize: '0.85rem',
               }}
