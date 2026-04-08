@@ -8,3 +8,18 @@ dist-ssr
 .idea
 *.log
 tsconfig.tsbuildinfo
+.vercel
+
+# Capacitor / Android build artifacts
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/app/release/
+android/local.properties
+android/captures/
+android/.cxx/
+*.iml
+
+# Vercel
+.vercel
