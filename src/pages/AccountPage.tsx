@@ -115,18 +115,20 @@ export default function AccountPage() {
     setProfileEmail(user?.email ?? '');
   }, [user]);
 
-  // Load automations JSONB + tithe_enabled directly from user_settings
+  // Load automations JSONB from user_settings. Tithe flag is stored in
+  // localStorage — the vanilla site doesn't have a dedicated column for
+  // it, so we keep this client-side to avoid 400s on the REST query.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!user) return;
       const { data } = await supabase
         .from('user_settings')
-        .select('automations, tithe_enabled')
+        .select('automations')
         .eq('user_id', user.id)
         .maybeSingle();
       if (cancelled || !data) return;
-      const raw = (data as { automations: unknown; tithe_enabled: unknown }).automations;
+      const raw = (data as { automations: unknown }).automations;
       const parsed: Record<string, boolean> = {};
       if (raw && typeof raw === 'object') {
         for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
@@ -134,7 +136,9 @@ export default function AccountPage() {
         }
       }
       setAutomations(parsed);
-      setTitheEnabled(Boolean((data as { tithe_enabled: unknown }).tithe_enabled));
+      try {
+        setTitheEnabled(localStorage.getItem('bw-tithe-enabled') === '1');
+      } catch (_) {}
     })();
     return () => {
       cancelled = true;
@@ -155,16 +159,13 @@ export default function AccountPage() {
     }
   };
 
-  const toggleTithe = async () => {
-    if (!user) return;
+  const toggleTithe = () => {
     const next = !titheEnabled;
     setTitheEnabled(next);
-    const { error } = await supabase
-      .from('user_settings')
-      .upsert({ user_id: user.id, tithe_enabled: next });
-    if (error) {
-      setTitheEnabled(!next);
-      alert(`Failed to save tithe setting: ${error.message}`);
+    try {
+      localStorage.setItem('bw-tithe-enabled', next ? '1' : '0');
+    } catch (_) {
+      // localStorage unavailable — state stays in-memory for this session
     }
   };
 
