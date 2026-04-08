@@ -30,13 +30,58 @@
     </script>
   </head>
   <body>
+    <!--
+      ONE-TIME migration from the vanilla site's service worker.
+      Visitors who used the old budget-wise-ruby.vercel.app vanilla site
+      have the old `budgetwise-v34` SW cached in their browser, which
+      intercepts requests and serves the old HTML/JS shell even after
+      the alias swap to the React port. This snippet runs exactly once
+      per browser (gated by localStorage) to unregister ALL old service
+      workers, clear ALL caches, then hard reload so the fresh React
+      shell is fetched from the network.
+    -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('bw-react-sw-migrated') === '1') return;
+          if (!('serviceWorker' in navigator)) {
+            localStorage.setItem('bw-react-sw-migrated', '1');
+            return;
+          }
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            var hadOld = regs.length > 0;
+            Promise.all(regs.map(function (r) { return r.unregister(); }))
+              .then(function () {
+                if ('caches' in window) {
+                  return caches.keys().then(function (keys) {
+                    return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                  });
+                }
+              })
+              .then(function () {
+                localStorage.setItem('bw-react-sw-migrated', '1');
+                if (hadOld) {
+                  // Hard reload bypassing the intercepted cache.
+                  location.reload();
+                }
+              });
+          });
+        } catch (_) {
+          try { localStorage.setItem('bw-react-sw-migrated', '1'); } catch (_) {}
+        }
+      })();
+    </script>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register the service worker for PWA installability.
+      // Register the React service worker for PWA installability.
       // Only in production — avoids stale-cache headaches during dev.
+      // Also waits for the migration flag so we don't race with the
+      // old-SW cleanup above.
       if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
         window.addEventListener('load', function () {
+          if (localStorage.getItem('bw-react-sw-migrated') !== '1') return;
           navigator.serviceWorker.register('/sw.js').catch(function (err) {
             console.warn('SW register failed:', err);
           });
