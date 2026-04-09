@@ -17,9 +17,16 @@ export function DashboardLayout() {
   const location = useLocation();
   const { toggleTheme } = useTheme();
 
-  // Close drawer on navigation
+  // Close drawer on navigation + scroll to top of the new page.
+  // Mobile browsers otherwise keep the previous scroll offset, which looks
+  // like the new page "opened at the bottom".
   useEffect(() => {
     setMobileOpen(false);
+    // Reset both window and the .main-content container — whichever one
+    // is actually the scrollable parent at the current breakpoint.
+    window.scrollTo(0, 0);
+    const main = document.querySelector('.main-content');
+    if (main) main.scrollTop = 0;
   }, [location.pathname]);
 
   return (
