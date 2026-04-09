@@ -7793,21 +7793,36 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
    Mobile polish — React port specific
    ============================================================ */
 
-/* Scan button: on small screens collapse to icon only so the
-   header doesn't wrap. */
+/* Scan button: on small screens hide the label, keep the icon. */
 @media (max-width: 640px) {
     .btn-scan {
-        padding: 0 10px !important;
+        padding: 0 12px !important;
         gap: 0 !important;
     }
-    .btn-scan svg {
-        margin: 0 !important;
+    .btn-scan .btn-scan-label {
+        display: none;
     }
-    .btn-scan {
-        font-size: 0;
+}
+
+/* Automation rows: force consistent layout + stack on mobile. */
+.automation-toggle.account-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    flex-wrap: nowrap;
+}
+.automation-toggle > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+@media (max-width: 640px) {
+    .automation-toggle.account-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
     }
-    .btn-scan svg {
-        font-size: initial;
+    .automation-toggle .tithe-toggle {
+        align-self: flex-start;
     }
 }
 

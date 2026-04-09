@@ -89,6 +89,9 @@ export default function AccountPage() {
   const [nameDraft, setNameDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
   const restoreInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarZoom, setAvatarZoom] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const metadataAvatar =
     (user?.user_metadata?.avatar_url as string | undefined) ??
     (user?.user_metadata?.picture as string | undefined) ??
@@ -149,13 +152,66 @@ export default function AccountPage() {
     if (!user) return;
     const next = { ...automations, [key]: !automations[key] };
     setAutomations(next);
+    // Match the vanilla write pattern (js/app.js:35) — update + eq user_id,
+    // not upsert, since the PK on user_settings is `id`, not `user_id`.
     const { error } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, automations: next });
+      .update({ automations: next })
+      .eq('user_id', user.id);
     if (error) {
-      // Revert on failure
       setAutomations((prev) => ({ ...prev, [key]: !next[key] }));
       alert(`Failed to save automation: ${error.message}`);
+    }
+  };
+
+  const handleAvatarFile = async (ev: ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file || !user) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large — please pick one under 2MB.');
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      // Read + downscale to 256x256 as a data URL, then persist to
+      // user_settings.avatar_url. Matches the vanilla app's approach.
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('no canvas ctx'));
+            // Center-crop to square then scale
+            const min = Math.min(img.width, img.height);
+            const sx = (img.width - min) / 2;
+            const sy = (img.height - min) / 2;
+            ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          };
+          img.onerror = reject;
+          img.src = reader.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ avatar_url: dataUrl })
+        .eq('user_id', user.id);
+      if (error) throw error;
+      // Force a settings refresh so the sidebar + profile pick up the new image
+      window.location.reload();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`Upload failed: ${msg}`);
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -396,23 +452,110 @@ export default function AccountPage() {
 
       <div className="account-profile-clean">
         <h2 className="account-name-top">{fullName}</h2>
-        <div className="account-avatar-wrap">
+        <div className="account-avatar-wrap" style={{ position: 'relative', display: 'inline-block' }}>
           <div
             className="account-avatar"
-            style={
-              effectiveAvatar
+            onClick={() => effectiveAvatar && setAvatarZoom(true)}
+            style={{
+              cursor: effectiveAvatar ? 'zoom-in' : 'default',
+              ...(effectiveAvatar
                 ? {
                     backgroundImage: `url(${encodeURI(effectiveAvatar)})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                   }
-                : undefined
-            }
+                : {}),
+            }}
           >
             {effectiveAvatar ? '' : initials}
           </div>
+          <button
+            type="button"
+            className="avatar-camera-btn"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            aria-label="Change profile picture"
+            style={{
+              position: 'absolute',
+              right: 2,
+              bottom: 2,
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              border: '2px solid var(--accent, #10b981)',
+              background: '#1a1a2e',
+              color: 'var(--accent, #10b981)',
+              cursor: avatarUploading ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            }}
+          >
+            {avatarUploading ? (
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  border: '2px solid rgba(16,185,129,0.25)',
+                  borderTopColor: '#10b981',
+                  borderRadius: '50%',
+                  animation: 'bw-spin 0.8s linear infinite',
+                }}
+              />
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            )}
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleAvatarFile}
+          />
         </div>
       </div>
+
+      {/* Avatar zoom overlay */}
+      {avatarZoom && effectiveAvatar && (
+        <div
+          onClick={() => setAvatarZoom(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+            padding: 20,
+          }}
+        >
+          <img
+            src={effectiveAvatar}
+            alt="Profile"
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              borderRadius: 16,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            }}
+          />
+        </div>
+      )}
 
       {/*
        * Subscription card — when the Pro system is disabled or the user is

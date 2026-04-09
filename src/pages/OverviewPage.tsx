@@ -199,7 +199,7 @@ export default function OverviewPage() {
                 <line x1="7" y1="12" x2="17" y2="12" />
                 <line x1="7" y1="16" x2="13" y2="16" />
               </svg>
-              Scan
+              <span className="btn-scan-label">Scan</span>
             </button>
             <button
               type="button"

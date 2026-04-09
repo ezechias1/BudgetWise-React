@@ -1,0 +1,509 @@
+================================================================================
+                         BUDGETWISE - BUSINESS PLAN
+                         By Ezechias Mulamba
+                         Prepared: March 2026
+================================================================================
+
+
+1. EXECUTIVE SUMMARY
+================================================================================
+
+BudgetWise is a smart budgeting Progressive Web App (PWA) that helps individuals,
+businesses, and families take control of their finances. It offers expense tracking,
+savings goals, AI-powered financial advice, bank sync, currency conversion, and
+multi-account management — all from one app.
+
+The app operates on a freemium subscription model. Users get core features for free
+and unlock premium features (bank sync, business/family modes, advanced reports)
+with a Pro subscription.
+
+BudgetWise is built for a global audience with special focus on South Africa and
+emerging markets where budgeting tools are limited and financial literacy is growing.
+
+
+2. WHAT BUDGETWISE DOES
+================================================================================
+
+CORE FEATURES (FREE):
+- Manual expense tracking with 12+ categories
+- Visual spending breakdowns (pie charts, bar charts, trend lines)
+- Monthly budget overview with income vs. spending analysis
+- Savings goals with progress tracking (up to 3)
+- Currency converter with real-time exchange rates (15+ currencies)
+- AI-powered financial advice and insights
+- Tithe calculator (auto 10% of income, optional)
+- Recurring expense detection
+- Dark and light themes
+- Installable PWA (works offline, feels like a native app)
+- Offline mode — queue actions when disconnected, auto-sync when back online
+
+SOUTH AFRICA-SPECIFIC FEATURES (FREE for SA users):
+- Load Shedding Tracker — track the real cost of power outages (generator
+  fuel, UPS/inverter, candles, spoiled food, mobile data, eating out)
+  Expenses with "Load Shedding" category auto-populate the tracker.
+- Stokvel Group Savings — create or join stokvel groups with invite codes.
+  Features: rotating payout schedule, member contribution tracking (who paid
+  / who didn't), admin approval for new members, bank reference for EFT
+  payments, contribution reminders (1st and 25th of each month), start/end
+  dates, contribution history, and admin-confirmed payments.
+- SA expense categories: Airtime & Data, Taxi / Minibus, Load Shedding,
+  Stokvel Contribution, School Fees
+- ZAR auto-default for South African users
+- Country picker at signup with timezone auto-detection
+- SMS/USSD expense tracking (coming soon — Africa's Talking integration)
+
+PRO FEATURES (PAID):
+- Bank sync — automatic transaction import from linked bank accounts
+  (Stitch for SA, Plaid for USA, Salt Edge for global)
+- Auto transaction routing between personal/business/family accounts
+- Push notifications — budget alerts (80%, 90%, 100%), inactivity reminders
+- Business mode — invoices, clients, P&L statements, tax reports
+- Family mode — shared budgets, allowances, chores & rewards, family goals
+- Unlimited savings goals
+- Export reports (CSV & PDF)
+- Priority support
+
+
+3. HOW IT WORKS
+================================================================================
+
+USER JOURNEY:
+
+Step 1: Sign Up
+   - User creates an account (email or Google sign-in)
+   - Chooses account type: Personal (free), Business (Pro), or Family (Pro)
+   - Sets currency, monthly income, and savings goal
+
+Step 2: Track Expenses
+   - Add expenses manually via form or quick-add bar
+   - Categorize spending (Housing, Food, Transport, Tithe, etc.)
+   - View spending breakdowns by category, daily, and monthly
+
+Step 3: Set Goals
+   - Create savings goals with targets and deadlines
+   - Track progress with visual gauges
+   - Get notified when goals are reached
+
+Step 4: Connect Bank (Pro)
+   - Link bank account via Plaid (USA) or Salt Edge (SA, Europe, Global)
+   - Transactions auto-import and categorize
+   - Real-time balance and spending alerts
+
+Step 5: Get Insights
+   - AI analyzes spending patterns
+   - Personalized advice on saving more
+   - Budget warnings before overspending
+
+TECHNOLOGY STACK:
+- Frontend: Vanilla JavaScript, HTML5, CSS3 (no frameworks — fast & lightweight)
+- Backend: Supabase (PostgreSQL database + authentication + edge functions)
+- Charts: Chart.js
+- Payments: Stripe
+- Bank Sync: Plaid (USA), Salt Edge (SA, Europe, 50+ countries)
+- Hosting: Vercel / Netlify (free tier)
+- Push Notifications: Web Push API via Service Worker
+
+
+4. SUBSCRIPTION PRICING
+================================================================================
+
+PLAN                    PRICE (ZAR)         PRICE (USD)
+--------------------------------------------------------------
+Free                    R0 / forever         $0 / forever
+Pro Monthly             R79 / month          $4.99 / month
+Pro Yearly              R659 / year          $39.99 / year
+Free Trial              1 month free         1 month free
+
+Pro Yearly saves users ~30% compared to monthly billing.
+Free trial requires no credit card — converts to paid after 30 days.
+
+
+5. REVENUE PROJECTIONS
+================================================================================
+
+CONSERVATIVE SCENARIO (Year 1):
+--------------------------------------------------------------
+Month 1-3:    100 free users, 10 Pro users
+Month 4-6:    500 free users, 50 Pro users
+Month 7-9:    2,000 free users, 150 Pro users
+Month 10-12:  5,000 free users, 400 Pro users
+
+Assuming 70% monthly / 30% yearly split:
+
+MONTHLY REVENUE AT MONTH 12:
+- 280 monthly subscribers x R79   = R22,120 / month
+- 120 yearly subscribers x R55    = R6,600 / month (R659/12)
+- TOTAL                           = R28,720 / month
+- ANNUAL RUN RATE                 = R344,640 / year
+
+MODERATE SCENARIO (Year 2):
+--------------------------------------------------------------
+- 20,000 free users, 2,000 Pro users
+- 1,400 monthly x R79             = R110,600 / month
+- 600 yearly x R55                = R33,000 / month
+- TOTAL                           = R143,600 / month
+- ANNUAL RUN RATE                 = R1,723,200 / year
+
+AGGRESSIVE SCENARIO (Year 3):
+--------------------------------------------------------------
+- 100,000 free users, 10,000 Pro users
+- 7,000 monthly x R79             = R553,000 / month
+- 3,000 yearly x R55              = R165,000 / month
+- TOTAL                           = R718,000 / month
+- ANNUAL RUN RATE                 = R8,616,000 / year
+
+
+6. COSTS & EXPENSES
+================================================================================
+
+A. STRIPE PAYMENT PROCESSING FEES
+--------------------------------------------------------------
+Stripe charges 2.9% + R5.00 per successful transaction.
+
+Per Pro Monthly subscriber (R79):
+  - Stripe fee: R79 x 2.9% + R5 = R7.29
+  - Net revenue: R71.71
+
+Per Pro Yearly subscriber (R659):
+  - Stripe fee: R659 x 2.9% + R5 = R24.11
+  - Net revenue: R634.89
+
+At 400 Pro users (Month 12, Conservative):
+  - 280 monthly: 280 x R7.29     = R2,041 / month
+  - 10 yearly transactions/mo: 10 x R24.11 = R241 / month
+  - TOTAL STRIPE FEES             = ~R2,282 / month
+
+At 2,000 Pro users (Year 2):
+  - TOTAL STRIPE FEES             = ~R11,400 / month
+
+At 10,000 Pro users (Year 3):
+  - TOTAL STRIPE FEES             = ~R57,000 / month
+
+
+B. SALT EDGE (BANK SYNC - SA & GLOBAL)
+--------------------------------------------------------------
+Salt Edge pricing is per active bank connection (user linked to a bank).
+
+Estimated pricing tiers:
+  - Sandbox/Development:          FREE (fake data, unlimited)
+  - Startup (up to 100 connections): ~R2,000 - R4,000 / month
+  - Growth (up to 1,000 connections): ~R6,000 - R12,000 / month
+  - Scale (5,000+ connections):   ~R20,000 - R40,000 / month
+  - Enterprise (10,000+):         Custom pricing
+
+Not all Pro users will link a bank. Estimated 40% bank link rate:
+
+At 400 Pro users -> 160 bank connections:
+  - SALT EDGE COST                = ~R4,000 / month
+
+At 2,000 Pro users -> 800 bank connections:
+  - SALT EDGE COST                = ~R10,000 / month
+
+At 10,000 Pro users -> 4,000 bank connections:
+  - SALT EDGE COST                = ~R35,000 / month
+
+
+C. PLAID (BANK SYNC - USA)
+--------------------------------------------------------------
+Plaid charges per connection, similar to Salt Edge.
+
+  - Development/Sandbox:          FREE
+  - Production: ~$0.30 - $1.50 per connection/month
+
+At 400 Pro users -> 40 US bank connections (estimate 10% US users):
+  - PLAID COST                    = ~R600 / month
+
+At 2,000 Pro users -> 200 US connections:
+  - PLAID COST                    = ~R3,000 / month
+
+At 10,000 Pro users -> 1,000 US connections:
+  - PLAID COST                    = ~R15,000 / month
+
+
+D. INFRASTRUCTURE
+--------------------------------------------------------------
+Supabase:
+  - Free tier: 500MB database, 50k API requests  -> R0
+  - Pro tier (when needed): ~R400 / month ($25)
+  - Team tier: ~R1,600 / month ($99)
+
+Hosting (Vercel/Netlify):
+  - Free tier covers most usage                   -> R0
+  - Pro tier (if needed): ~R350 / month ($20)
+
+Domain:
+  - .co.za: ~R100 / year
+  - .com: ~R200 / year
+
+Push Notifications:
+  - Web Push API: FREE (built into browsers)
+
+
+E. BUSINESS REGISTRATION & LEGAL
+--------------------------------------------------------------
+CIPC Company Registration (Pty Ltd):     R125 - R475 (once)
+Company Name Reservation:                R50 (once)
+Trademark "BudgetWise":                  R590 (once)
+Privacy Policy / Terms:                  FREE (generated online)
+POPIA Compliance:                        FREE (policy + consent)
+Tax Registration (SARS):                 FREE
+--------------------------------------------------------------
+TOTAL LEGAL/SETUP:                       ~R1,240 (once-off)
+
+
+F. APP STORE FEES
+--------------------------------------------------------------
+Google Play Developer Account:           R450 (once, lifetime)
+Apple Developer Program:                 R1,700 / year
+--------------------------------------------------------------
+TOTAL APP STORES:                        R450 once + R1,700/year
+
+
+G. MARKETING (OPTIONAL)
+--------------------------------------------------------------
+Social Media (organic):                  FREE
+Google Ads (when ready):                 R500 - R2,000 / month
+TikTok/Instagram Ads:                   R500 - R3,000 / month
+Influencer partnerships:                 R500 - R5,000 / campaign
+
+
+7. PROFIT & LOSS SUMMARY
+================================================================================
+
+YEAR 1 (CONSERVATIVE - 400 Pro users by month 12)
+--------------------------------------------------------------
+                            Monthly (M12)    Annual Total
+REVENUE
+  Subscriptions              R28,720          ~R150,000
+                            ---------        ---------
+EXPENSES
+  Stripe fees                R2,282           ~R12,000
+  Salt Edge                  R4,000           ~R24,000
+  Plaid                      R600             ~R3,600
+  Supabase                   R0 (free)        R0
+  Hosting                    R0 (free)        R0
+  Domain                     -                R200
+  Legal/Setup (once)         -                R1,240
+  Google Play (once)         -                R450
+  Apple Developer            -                R1,700
+  Marketing                  R1,000           ~R6,000
+                            ---------        ---------
+  TOTAL EXPENSES             R7,882           ~R49,190
+
+NET PROFIT (Month 12)        R20,838 / month
+NET PROFIT (Year 1 total)                    ~R100,810
+--------------------------------------------------------------
+
+
+YEAR 2 (MODERATE - 2,000 Pro users)
+--------------------------------------------------------------
+                            Monthly          Annual
+REVENUE                      R143,600         R1,723,200
+
+EXPENSES
+  Stripe fees                R11,400          R136,800
+  Salt Edge                  R10,000          R120,000
+  Plaid                      R3,000           R36,000
+  Supabase Pro               R400             R4,800
+  Hosting Pro                R350             R4,200
+  Apple Developer            -                R1,700
+  Marketing                  R3,000           R36,000
+                            ---------        ---------
+  TOTAL EXPENSES             R28,150          R339,500
+
+NET PROFIT                   R115,450 / month
+NET PROFIT (Year 2)                          R1,383,700
+--------------------------------------------------------------
+
+
+YEAR 3 (AGGRESSIVE - 10,000 Pro users)
+--------------------------------------------------------------
+                            Monthly          Annual
+REVENUE                      R718,000         R8,616,000
+
+EXPENSES
+  Stripe fees                R57,000          R684,000
+  Salt Edge                  R35,000          R420,000
+  Plaid                      R15,000          R180,000
+  Supabase Team              R1,600           R19,200
+  Hosting                    R350             R4,200
+  Apple Developer            -                R1,700
+  Staff (developer + support) R40,000         R480,000
+  Marketing                  R10,000          R120,000
+                            ---------        ---------
+  TOTAL EXPENSES             R158,950         R1,909,100
+
+NET PROFIT                   R559,050 / month
+NET PROFIT (Year 3)                          R6,706,900
+--------------------------------------------------------------
+
+
+8. STARTUP COSTS SUMMARY (TO LAUNCH)
+================================================================================
+
+MINIMUM LAUNCH (PWA only):
+  Domain (.co.za)                            R100
+  CIPC Registration                          R175
+  Privacy Policy                             FREE
+  Hosting                                    FREE
+  Supabase                                   FREE
+  ------------------------------------------------
+  TOTAL                                      R275
+
+RECOMMENDED LAUNCH (PWA + Play Store):
+  Everything above                           R275
+  Google Play Account                        R450
+  Trademark                                  R590
+  ------------------------------------------------
+  TOTAL                                      R1,315
+
+FULL LAUNCH (PWA + Play Store + App Store):
+  Everything above                           R1,315
+  Apple Developer Program                    R1,700
+  ------------------------------------------------
+  TOTAL                                      R3,015
+
+
+9. PAYMENT SCHEDULE — ONCE-OFF vs MONTHLY vs YEARLY
+================================================================================
+
+ONCE-OFF (Pay once, never again):
+--------------------------------------------------------------
+  CIPC Company Registration                 R125 - R475
+  Company Name Reservation                  R50
+  Trademark "BudgetWise"                    R590
+  Google Play Developer Account             R450
+  ------------------------------------------------
+  TOTAL ONCE-OFF                            R1,215 - R1,565
+
+YEARLY (Pay once per year):
+--------------------------------------------------------------
+  Domain (.co.za or .com)                   R100 - R200 / year
+  Apple Developer Program                   R1,700 / year
+  ------------------------------------------------
+  TOTAL YEARLY                              R1,800 - R1,900 / year
+
+MONTHLY (Ongoing, scales with users):
+--------------------------------------------------------------
+  Stripe payment fees                       2.9% + R5 per transaction
+    - At 400 users:                         ~R2,282 / month
+    - At 2,000 users:                       ~R11,400 / month
+    - At 10,000 users:                      ~R57,000 / month
+
+  Salt Edge (bank sync - SA & global)
+    - At 160 connections:                   ~R4,000 / month
+    - At 800 connections:                   ~R10,000 / month
+    - At 4,000 connections:                 ~R35,000 / month
+
+  Plaid (bank sync - USA)
+    - At 40 connections:                    ~R600 / month
+    - At 200 connections:                   ~R3,000 / month
+    - At 1,000 connections:                 ~R15,000 / month
+
+  Supabase (database)
+    - Up to 500 users:                      FREE
+    - Pro tier:                             R400 / month
+    - Team tier:                            R1,600 / month
+
+  Hosting (Vercel/Netlify)
+    - Up to ~10,000 visitors:               FREE
+    - Pro tier:                             R350 / month
+
+  Marketing (optional)                      R500 - R5,000 / month
+
+FREE FOREVER:
+--------------------------------------------------------------
+  Tax registration (SARS)                   FREE
+  Privacy Policy / Terms of Service         FREE
+  POPIA Compliance                          FREE
+  Push Notifications (Web Push API)         FREE
+  Supabase (free tier)                      FREE
+  Hosting (free tier)                       FREE
+  Social media marketing                    FREE
+
+SUMMARY — WHAT YOU PAY TO LAUNCH:
+--------------------------------------------------------------
+  Day 1 (once-off):                         R275 - R1,565
+  Month 1 (no paying users yet):            R0 (everything free tier)
+  Month 3 (first paying users):             Stripe fees only (~R73/user)
+  Month 6+ (scaling):                       Salt Edge + Stripe + optional marketing
+
+
+10. COMPETITIVE ADVANTAGE
+================================================================================
+
+- Multi-mode accounts: Personal, Business, and Family in one app
+- South African focus: ZAR currency, SA bank integration, local context
+- SA-specific features NO competitor has:
+    * Load shedding cost tracker (generator fuel, UPS, spoiled food)
+    * Stokvel group savings with rotating payouts and invite codes
+    * SA expense categories (airtime, taxi, school fees)
+    * SMS/USSD expense tracking (coming soon)
+- Global reach: 15+ currencies, 50+ countries via Salt Edge
+- Lightweight PWA: No app store required, works offline, installs instantly
+- Offline-first: Queue actions offline, auto-sync when reconnected
+- AI-powered insights: Smart advice based on spending patterns
+- Tithe tracking: Built-in 10% tithe calculator (unique feature)
+- Freemium model: Low barrier to entry, upgrade when ready
+- Free trial: 1 month Pro free, no credit card required
+
+COMPETITORS & DIFFERENTIATION:
+- 22seven (SA): Bank-focused, no stokvel, no load shedding, shutting down
+- YNAB: US-focused, expensive ($14.99/mo), no SA features
+- Wallet by BudgetBakers: No SA bank support, no stokvel
+- Mint: US-only, shutting down (migrating to Credit Karma)
+- StokvelApp: Stokvel-only, no full budgeting
+- BudgetWise advantage: All-in-one (budgeting + stokvel + load shedding
+  + bank sync + business/family modes) at R79/month
+
+
+11. PRODUCT ROADMAP
+================================================================================
+
+PHASE 1 — LAUNCHED (March 2026):
+- Core budgeting (expenses, savings, charts, advice)
+- Business mode (invoices, clients, P&L, tax)
+- Family mode (members, allowances, chores, goals)
+- Bank connect infrastructure (Plaid, Stitch, Salt Edge ready)
+- SA features: Load shedding tracker, Stokvel groups, SA categories
+- Offline-first PWA with background sync
+- Country-based feature detection (SA users see SA features)
+
+PHASE 2 — Q2 2026:
+- Activate bank sync (pay for Stitch API)
+- Auto-categorize bank transactions
+- Stokvel auto-debit via Ozow/PayFast
+- SMS expense tracking via Africa's Talking
+- Receipt OCR improvements
+- Google Play Store listing (TWA)
+
+PHASE 3 — Q3 2026:
+- Apple App Store via Capacitor
+- Stokvel payment collection (PayFast integration)
+- Advanced AI insights (spending predictions, saving recommendations)
+- USSD menu for feature phone users
+- Multi-language support (isiZulu, isiXhosa, Afrikaans, Setswana)
+
+PHASE 4 — Q4 2026:
+- Expand to Nigeria, Kenya, Ghana (Mono bank integration)
+- Susu/Chama support (West/East African group savings equivalents)
+- Micro-lending features
+- Financial literacy content hub
+- Partnerships with SA banks
+
+
+12. CONTACT
+================================================================================
+
+App:        BudgetWise
+Developer:  Ezechias Mulamba
+Founder:    Ezechias Mulamba
+Company:    Down Dog Media
+Email:      ezechiasmulamba@gmail.com
+GitHub:     github.com/ezechias1 (private)
+Website:    budget-wise-ruby.vercel.app
+
+
+================================================================================
+                    END OF BUSINESS PLAN — Updated March 2026
+================================================================================
