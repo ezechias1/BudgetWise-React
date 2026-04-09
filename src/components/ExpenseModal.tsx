@@ -11,6 +11,16 @@ interface Props {
   onSubmit: (expense: NewExpense) => Promise<{ error: string | null }>;
   /** Pre-select a category when the modal opens (e.g. "Savings" from the Savings page). */
   defaultCategory?: string;
+  /**
+   * Seed values for the form when the modal opens - used by the receipt
+   * scanner to pre-fill amount/description/date from OCR output. Category
+   * is intentionally left to `defaultCategory` so the user still picks it.
+   */
+  defaultValues?: {
+    amount?: string;
+    description?: string;
+    date?: string;
+  };
 }
 
 /**
@@ -21,7 +31,13 @@ interface Props {
  * The Tithe auto-fill behavior is preserved: picking "Tithe" fills the
  * amount with 10% of the stored monthly income and sets a description.
  */
-export function ExpenseModal({ open, onClose, onSubmit, defaultCategory }: Props) {
+export function ExpenseModal({
+  open,
+  onClose,
+  onSubmit,
+  defaultCategory,
+  defaultValues,
+}: Props) {
   const { income } = useUserSettings();
   const { mode } = useMode();
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
@@ -34,17 +50,19 @@ export function ExpenseModal({ open, onClose, onSubmit, defaultCategory }: Props
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset form every time the modal opens so it doesn't show stale state
+  // Reset form every time the modal opens so it doesn't show stale state.
+  // `defaultValues` (from the receipt scanner) seeds amount/description/date
+  // when provided; otherwise fall back to empty + today's date.
   useEffect(() => {
     if (open) {
       setCategory(defaultCategory ?? '');
-      setDescription('');
-      setAmount('');
-      setDate(todayIso());
+      setDescription(defaultValues?.description ?? '');
+      setAmount(defaultValues?.amount ?? '');
+      setDate(defaultValues?.date ?? todayIso());
       setRecurring('no');
       setError(null);
     }
-  }, [open, defaultCategory]);
+  }, [open, defaultCategory, defaultValues]);
 
   // Close on Escape
   useEffect(() => {

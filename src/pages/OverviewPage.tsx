@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { scanReceipt, type ParsedReceipt } from '@/lib/receipt-scan';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useOverviewStats } from '@/hooks/useOverviewStats';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -66,6 +67,46 @@ export default function OverviewPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [comparisonDismissed, setComparisonDismissed] = useState(false);
+
+  // Receipt scanner state — ported from vanilla `setupReceiptScanning()`
+  // (js/app.js:3503). The hidden <input type="file"> is triggered by the
+  // Scan button click; Tesseract.js is lazy-loaded inside scanReceipt().
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanDefaults, setScanDefaults] = useState<ParsedReceipt | undefined>(
+    undefined,
+  );
+
+  const handleScanClick = () => {
+    receiptInputRef.current?.click();
+  };
+
+  const handleReceiptFile = async (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0];
+    // Always clear the input so picking the same file twice still fires onChange.
+    ev.target.value = '';
+    if (!file) return;
+
+    setScanning(true);
+    try {
+      const parsed = await scanReceipt(file);
+      setScanDefaults(parsed);
+      setModalOpen(true);
+      if (!parsed.amount && !parsed.description) {
+        // Non-blocking notice — modal still opens so the user can type manually.
+        console.warn('Receipt OCR found no fields, opening blank modal.');
+      }
+    } catch (err) {
+      console.error('Receipt scan failed:', err);
+      alert(
+        'Could not scan the receipt (OCR library failed to load). Opening manual entry instead.',
+      );
+      setScanDefaults(undefined);
+      setModalOpen(true);
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Quick Add bar state — ports the inline `quickAddBar` from dashboard.html:499-507
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
@@ -177,13 +218,23 @@ export default function OverviewPage() {
             <p className="page-subtitle">{monthLabel}</p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Scan Receipt button — port of #scanReceiptBtn in dashboard.html:432 */}
+            {/* Scan Receipt button — port of #scanReceiptBtn in dashboard.html:432.
+                Triggers a hidden file input; on select we run OCR via
+                src/lib/receipt-scan.ts and open ExpenseModal pre-filled. */}
+            <input
+              ref={receiptInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleReceiptFile}
+              style={{ display: 'none' }}
+              aria-hidden="true"
+            />
             <button
               type="button"
               className="btn-export btn-scan"
-              onClick={() =>
-                alert('Receipt scanner (OCR) — coming soon in this React port.')
-              }
+              onClick={handleScanClick}
+              disabled={scanning}
               style={{ gap: 6 }}
             >
               <svg
@@ -600,9 +651,62 @@ export default function OverviewPage() {
 
       <ExpenseModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          // Clear OCR-seeded values after close so the next manual "Add
+          // Expense" click opens an empty form.
+          setScanDefaults(undefined);
+        }}
         onSubmit={addExpense}
+        defaultValues={scanDefaults}
       />
+
+      {/* OCR scanning overlay — shown while Tesseract.js loads + recognizes. */}
+      {scanning && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            zIndex: 300,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 20,
+            color: '#fff',
+            fontFamily: 'inherit',
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              border: '4px solid rgba(255,255,255,0.15)',
+              borderTopColor: '#10b981',
+              borderRadius: '50%',
+              animation: 'receipt-scan-spin 0.9s linear infinite',
+            }}
+          />
+          <div style={{ fontSize: '1rem', fontWeight: 600 }}>
+            Scanning receipt…
+          </div>
+          <div
+            style={{
+              fontSize: '0.8rem',
+              color: 'rgba(255,255,255,0.6)',
+              maxWidth: 260,
+              textAlign: 'center',
+            }}
+          >
+            Running OCR on your image. This may take a few seconds the first
+            time while the library loads.
+          </div>
+          <style>{`@keyframes receipt-scan-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
 
       <TransferMoneyModal
         open={transferOpen}

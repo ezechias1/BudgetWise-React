@@ -21,6 +21,7 @@ interface AchievementDef {
     categoriesUsed: number;
     goalReached: boolean;
     underBudget: boolean;
+    streakDays: number;
   }) => boolean;
 }
 
@@ -31,8 +32,8 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'hundred_expenses', icon: '\u{1F3C6}', title: 'Centurion', desc: 'Logged 100 expenses', check: (c) => c.expensesCount >= 100 },
   { id: 'goal_reached', icon: '\u{1F389}', title: 'Goal Smasher', desc: 'Reached a savings goal', check: (c) => c.goalReached },
   { id: 'under_budget', icon: '\u{1F4B0}', title: 'Budget Boss', desc: 'Spent less than income this month', check: (c) => c.underBudget },
-  { id: 'streak_7', icon: '\u{1F525}', title: 'Week Warrior', desc: '7-day logging streak', check: () => false },
-  { id: 'streak_30', icon: '\u2B50', title: 'Monthly Master', desc: '30-day logging streak', check: () => false },
+  { id: 'streak_7', icon: '\u{1F525}', title: 'Week Warrior', desc: '7-day logging streak', check: (c) => c.streakDays >= 7 },
+  { id: 'streak_30', icon: '\u2B50', title: 'Monthly Master', desc: '30-day logging streak', check: (c) => c.streakDays >= 30 },
   { id: 'five_categories', icon: '\u{1F3A8}', title: 'Diversified', desc: 'Used 5+ categories', check: (c) => c.categoriesUsed >= 5 },
 ];
 
@@ -428,6 +429,31 @@ export default function AccountPage() {
 
   const categoriesUsed = new Set(expenses.map((e) => e.category)).size;
 
+  /**
+   * Longest current streak of consecutive days with at least one logged
+   * expense, ending today. Walks backwards from today one day at a time.
+   */
+  const streakDays = (() => {
+    if (expenses.length === 0) return 0;
+    const dayKeys = new Set(expenses.map((e) => e.date?.slice(0, 10)).filter(Boolean) as string[]);
+    let streak = 0;
+    const cursor = new Date();
+    // Allow today OR yesterday as the starting point (a single skipped day
+    // shouldn't nuke the streak if it's the current day and the user hasn't
+    // logged yet).
+    const today = cursor.toISOString().slice(0, 10);
+    if (!dayKeys.has(today)) cursor.setDate(cursor.getDate() - 1);
+    // Walk back
+    while (true) {
+      const key = cursor.toISOString().slice(0, 10);
+      if (!dayKeys.has(key)) break;
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+      if (streak > 365) break; // safety cap
+    }
+    return streak;
+  })();
+
   // Achievement context
   const now = new Date();
   const ymKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -439,6 +465,7 @@ export default function AccountPage() {
     categoriesUsed,
     goalReached: goals.some((g) => g.saved_amount >= g.target_amount),
     underBudget: monthTotal > 0 && income > 0 && monthTotal < income,
+    streakDays,
   };
 
   return (

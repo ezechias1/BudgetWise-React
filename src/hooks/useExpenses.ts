@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import type { Expense, Mode, NewExpense } from '@/types';
 
+export type ExpensePatch = Partial<NewExpense>;
+
 /**
  * Reads and mutates the `expenses` Supabase table.
  *
@@ -108,6 +110,23 @@ export function useExpenses() {
     [user, expenses],
   );
 
+  // Patch-update an existing expense row. Used by the inline edit modal on
+   // the Expenses page. Only touches user-owned rows.
+  const updateExpense = useCallback(
+    async (id: string, patch: ExpensePatch): Promise<{ error: string | null }> => {
+      if (!user) return { error: 'Not signed in' };
+      const { error: err } = await supabase
+        .from('expenses')
+        .update(patch)
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (err) return { error: err.message };
+      await load();
+      return { error: null };
+    },
+    [user, load],
+  );
+
   return {
     expenses,
     loading,
@@ -116,5 +135,6 @@ export function useExpenses() {
     addExpense,
     deleteExpense,
     moveExpense,
+    updateExpense,
   };
 }

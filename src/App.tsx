@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import AuthPage from '@/pages/AuthPage';
 import OverviewPage from '@/pages/OverviewPage';
 import ExpensesPage from '@/pages/ExpensesPage';
@@ -43,6 +45,8 @@ export default function App() {
     <ThemeProvider>
       <ModeProvider>
         <AuthProvider>
+          <Analytics />
+          <SpeedInsights />
           <Routes>
             <Route path="/" element={<AuthPage />} />
 
