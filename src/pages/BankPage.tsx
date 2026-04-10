@@ -1006,7 +1006,7 @@ export default function BankPage() {
                       </td>
                       <td style={{ padding: '6px 10px' }}>
                         <select
-                          className="input"
+                          className="quick-input"
                           value={tx.category}
                           onChange={(e) =>
                             updatePreviewCategory(i, e.target.value)
@@ -1158,7 +1158,7 @@ export default function BankPage() {
               </svg>
               <input
                 type="text"
-                className="input"
+                className="quick-input"
                 placeholder="Search for your bank..."
                 style={{ paddingLeft: 36, width: '100%' }}
                 value={regionSearch}
@@ -1251,7 +1251,7 @@ export default function BankPage() {
               </svg>
               <input
                 type="text"
-                className="input"
+                className="quick-input"
                 placeholder="Search SA banks..."
                 style={{ paddingLeft: 36, width: '100%' }}
                 value={saSearch}
@@ -1287,29 +1287,27 @@ export default function BankPage() {
                 onSubmit={handleSASubmit}
                 style={{ marginTop: 20 }}
               >
-                <div className="form-group">
+                <div className="field">
                   <label>Account Name</label>
                   <input
                     type="text"
                     value={saAccountName}
                     onChange={(e) => setSaAccountName(e.target.value)}
                     placeholder="e.g. My Cheque Account"
-                    className="input"
                   />
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>Account Type</label>
                   <select
                     value={saAccountType}
                     onChange={(e) => setSaAccountType(e.target.value)}
-                    className="input"
                   >
                     <option value="cheque">Cheque / Current</option>
                     <option value="savings">Savings</option>
                     <option value="credit">Credit Card</option>
                   </select>
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>Current Balance (ZAR)</label>
                   <input
                     type="number"
@@ -1317,7 +1315,6 @@ export default function BankPage() {
                     value={saBalance}
                     onChange={(e) => setSaBalance(e.target.value)}
                     placeholder="0.00"
-                    className="input"
                   />
                 </div>
                 <button
