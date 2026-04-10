@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { WishListModal } from '@/components/WishListModal';
 
 /**
  * Ports #page-allowances from dashboard.html (line 1750) and
@@ -36,6 +37,7 @@ export default function AllowancesPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [tipDismissed, setTipDismissed] = useState(false);
+  const [wishListOpen, setWishListOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -308,7 +310,7 @@ export default function AllowancesPage() {
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button
           className="btn-primary"
-          onClick={() => alert('Wish List coming soon')}
+          onClick={() => setWishListOpen(true)}
           style={{
             flex: 1,
             padding: 10,
@@ -333,6 +335,12 @@ export default function AllowancesPage() {
           📊 Monthly Report
         </button>
       </div>
+
+      <WishListModal
+        open={wishListOpen}
+        onClose={() => setWishListOpen(false)}
+        currency={currency}
+      />
     </section>
   );
 }
