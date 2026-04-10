@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { FAMILY_CATEGORIES } from '@/lib/categories';
 
 /**
  * Ports #page-family-tracking from dashboard.html (line 1835) and
@@ -70,6 +71,8 @@ export default function SpendingTrackerPage() {
   const [joinError, setJoinError] = useState('');
   const [sharingEnabled, setSharingEnabled] = useState(false);
   const [shareScope, setShareScope] = useState<'all' | 'selected'>('all');
+  const [shareCategories, setShareCategories] = useState<string[]>([]);
+  const [familyIncome, setFamilyIncome] = useState<number>(0);
 
   const loadState = useCallback(async () => {
     if (!user) return;
@@ -102,8 +105,26 @@ export default function SpendingTrackerPage() {
           .order('date', { ascending: false })
           .limit(50),
       ]);
-      setLinkedMembers((linksRes.data as FamilyLink[]) || []);
+      const links = (linksRes.data as FamilyLink[]) || [];
+      setLinkedMembers(links);
       setSpendingFeed((feedRes.data as FamilySpending[]) || []);
+
+      // Sum fam_income from all approved linked members' user_settings
+      const approvedIds = links
+        .filter((l) => l.approved)
+        .map((l) => l.user_id);
+      if (approvedIds.length > 0) {
+        const { data: settingsRows } = await supabase
+          .from('user_settings')
+          .select('fam_income')
+          .in('user_id', approvedIds);
+        const total = (settingsRows || []).reduce(
+          (sum: number, r: { fam_income?: number | null }) =>
+            sum + (r.fam_income || 0),
+          0,
+        );
+        setFamilyIncome(total);
+      }
     } else {
       setOwnedGroup(null);
       const myLinkRes = await supabase
@@ -119,6 +140,7 @@ export default function SpendingTrackerPage() {
       if (link) {
         setSharingEnabled(!!link.sharing_enabled);
         setShareScope(link.share_all === false ? 'selected' : 'all');
+        setShareCategories(link.share_categories || []);
       }
     }
 
@@ -128,6 +150,29 @@ export default function SpendingTrackerPage() {
   useEffect(() => {
     loadState();
   }, [loadState]);
+
+  // Realtime subscription on family_spending for the parent view
+  useEffect(() => {
+    if (!ownedGroup) return;
+    const channel = supabase
+      .channel('family-spending-' + ownedGroup.id)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'family_spending',
+          filter: 'group_id=eq.' + ownedGroup.id,
+        },
+        (payload) => {
+          setSpendingFeed((prev) => [payload.new as FamilySpending, ...prev]);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ownedGroup]);
 
   const generateCode = async () => {
     if (!user) return;
@@ -217,6 +262,12 @@ export default function SpendingTrackerPage() {
     loadState();
   };
 
+  const toggleShareCategory = (cat: string) => {
+    setShareCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
+
   const saveSharing = async () => {
     if (!myLink) return;
     await supabase
@@ -224,6 +275,7 @@ export default function SpendingTrackerPage() {
       .update({
         sharing_enabled: sharingEnabled,
         share_all: shareScope === 'all',
+        share_categories: shareScope === 'selected' ? shareCategories : null,
       })
       .eq('id', myLink.id);
     alert('Sharing preferences saved');
@@ -350,15 +402,40 @@ export default function SpendingTrackerPage() {
               own contribution.
             </p>
             <div id="familyIncomeSummary">
-              {/* TODO: sum user_settings.fam_income across linked members */}
-              <p
-                style={{
-                  color: 'rgba(255,255,255,0.35)',
-                  fontSize: '0.85rem',
-                }}
-              >
-                Family income summary coming soon.
-              </p>
+              {familyIncome > 0 ? (
+                <div
+                  style={{
+                    fontSize: '1.6rem',
+                    fontWeight: 800,
+                    color: '#10b981',
+                  }}
+                >
+                  {familyIncome.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 400,
+                      color: 'rgba(255,255,255,0.5)',
+                      marginLeft: 6,
+                    }}
+                  >
+                    / month (combined)
+                  </span>
+                </div>
+              ) : (
+                <p
+                  style={{
+                    color: 'rgba(255,255,255,0.35)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  No family income set yet. Members can set their contribution
+                  in Account settings.
+                </p>
+              )}
             </div>
           </div>
 
@@ -487,7 +564,7 @@ export default function SpendingTrackerPage() {
           {/* Spending feed */}
           <div className="chart-card full-width">
             <h3 style={{ marginBottom: 12 }}>Family Spending Feed</h3>
-            {/* TODO: subscribe to realtime channel on family_spending */}
+            {/* Live feed — realtime via Supabase channel */}
             <div id="familySpendingFeed">
               {spendingFeed.length === 0 ? (
                 <div className="empty-state" style={{ padding: 20 }}>
@@ -651,16 +728,43 @@ export default function SpendingTrackerPage() {
             >
               Your submissions waiting for parent approval.
             </p>
-            {/* TODO: query family_pending for requests made by me */}
             <div id="myPendingList">
-              <p
-                style={{
-                  color: 'rgba(255,255,255,0.35)',
-                  fontSize: '0.85rem',
-                }}
-              >
-                No pending requests
-              </p>
+              {myLink && !myLink.approved ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: 12,
+                    background: 'rgba(245,158,11,0.08)',
+                    borderRadius: 10,
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>⏳</span>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                      Join request pending
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.72rem',
+                        color: 'rgba(255,255,255,0.5)',
+                      }}
+                    >
+                      Waiting for parent to approve your link
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  style={{
+                    color: 'rgba(255,255,255,0.35)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  No pending requests
+                </p>
+              )}
             </div>
           </div>
 
@@ -771,12 +875,51 @@ export default function SpendingTrackerPage() {
                           className="tracking-desc"
                           style={{ fontSize: '0.72rem' }}
                         >
-                          {/* TODO: category picker */}
                           Pick which categories to share
                         </div>
                       </div>
                     </label>
                   </div>
+                  {shareScope === 'selected' && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 6,
+                        marginBottom: 12,
+                      }}
+                    >
+                      {FAMILY_CATEGORIES.map((cat) => (
+                        <label
+                          key={cat.value}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 10px',
+                            background: shareCategories.includes(cat.value)
+                              ? 'rgba(16,185,129,0.15)'
+                              : 'rgba(255,255,255,0.03)',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={shareCategories.includes(cat.value)}
+                            onChange={() => toggleShareCategory(cat.value)}
+                            style={{
+                              width: 14,
+                              height: 14,
+                              accentColor: '#10b981',
+                            }}
+                          />
+                          {cat.label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                   <button
                     className="btn-primary"
                     onClick={saveSharing}

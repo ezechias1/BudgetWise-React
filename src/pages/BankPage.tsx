@@ -244,11 +244,31 @@ export default function BankPage() {
     [linkedAccounts]
   );
 
+  // ---- Plaid Link SDK loader ----
+  const plaidScriptLoaded = useRef(false);
+
+  const loadPlaidScript = useCallback((): Promise<void> => {
+    if (plaidScriptLoaded.current || document.getElementById('plaid-link-script'))
+      return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.id = 'plaid-link-script';
+      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      s.onload = () => {
+        plaidScriptLoaded.current = true;
+        resolve();
+      };
+      s.onerror = () => reject(new Error('Failed to load Plaid Link SDK'));
+      document.head.appendChild(s);
+    });
+  }, []);
+
   // ---- Provider connect handlers ----
   const openPlaidLink = useCallback(async () => {
     if (!user) return;
     setConnecting(true);
     try {
+      await loadPlaidScript();
       const { data, error } = await supabase.functions.invoke(
         'plaid-link-token',
         { body: { user_id: user.id } }
@@ -260,16 +280,53 @@ export default function BankPage() {
         );
         return;
       }
-      // TODO: Initialize Plaid Link SDK with data.link_token once the script
-      // is loaded in index.html (mirrors openPlaidLink in app.js L4704).
-      console.log('[plaid] link_token received, open Plaid Link here', data);
-      alert('Plaid Link token received. Full Plaid SDK flow is not wired in the React port yet.');
+      // Open Plaid Link modal (mirrors openPlaidLink in app.js L4704)
+      const Plaid = (window as unknown as Record<string, unknown>).Plaid as {
+        create: (cfg: Record<string, unknown>) => { open: () => void };
+      };
+      const handler = Plaid.create({
+        token: data.link_token,
+        onSuccess: async (publicToken: string, metadata: Record<string, unknown>) => {
+          // Exchange public token for access token via edge function
+          const { data: exchangeData } = await supabase.functions.invoke(
+            'plaid-exchange-token',
+            { body: { public_token: publicToken } }
+          );
+          if (exchangeData?.accounts) {
+            // Save each account to linked_accounts
+            for (const acc of exchangeData.accounts as Array<Record<string, unknown>>) {
+              const balances = acc.balances as { current?: number; available?: number } | undefined;
+              await supabase.from('linked_accounts').insert({
+                user_id: user.id,
+                plaid_access_token: exchangeData.access_token,
+                account_id: acc.account_id,
+                account_name: acc.name || acc.official_name,
+                account_type: acc.type,
+                account_subtype: acc.subtype,
+                institution_name: (metadata.institution as { name?: string })?.name || 'Bank',
+                mask: acc.mask || '****',
+                balance_current: balances?.current ?? 0,
+                balance_available: balances?.available ?? 0,
+                currency_code: 'USD',
+                last_synced: new Date().toISOString(),
+                account_mode: mode,
+              });
+            }
+            await loadLinkedAccounts();
+          }
+        },
+        onExit: () => {
+          setConnecting(false);
+        },
+      });
+      handler.open();
+      return; // onExit will reset connecting
     } catch (err) {
       alert('Connection error: ' + (err as Error).message);
     } finally {
       setConnecting(false);
     }
-  }, [user]);
+  }, [user, mode, loadPlaidScript, loadLinkedAccounts]);
 
   const openStitchLink = useCallback(async () => {
     // In vanilla, Stitch is South Africa: it opens the SA manual-entry modal
@@ -292,15 +349,58 @@ export default function BankPage() {
         );
         return;
       }
-      // TODO: full Salt Edge redirect/callback flow (app.js L5159).
-      console.log('[saltedge] connect_url', data);
-      window.open(data.connect_url, '_blank', 'noopener,noreferrer');
+      // Salt Edge redirects back to our app with connection_id in the URL.
+      // We open in same window so we can catch the return params on reload.
+      window.location.href = data.connect_url;
     } catch (err) {
       alert('Connection error: ' + (err as Error).message);
     } finally {
       setConnecting(false);
     }
   }, [user]);
+
+  // Handle Salt Edge callback — check URL params on mount
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    const connectionId = params.get('connection_id');
+    if (!connectionId) return;
+
+    // Clean the URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Fetch accounts for this connection from our edge function
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('saltedge-accounts', {
+          body: { connection_id: connectionId, user_id: user.id },
+        });
+        if (data?.accounts) {
+          for (const acc of data.accounts as Array<Record<string, unknown>>) {
+            const balance = acc.balance as number | undefined;
+            await supabase.from('linked_accounts').insert({
+              user_id: user.id,
+              plaid_access_token: 'saltedge-' + connectionId,
+              account_id: 'se-' + (acc.id || Date.now()),
+              account_name: acc.name || 'Account',
+              account_type: (acc.nature as string) || 'depository',
+              account_subtype: (acc.nature as string) || 'checking',
+              institution_name: (acc.extra as { institution_name?: string })?.institution_name || 'Bank',
+              mask: '****',
+              balance_current: balance ?? 0,
+              balance_available: balance ?? 0,
+              currency_code: (acc.currency_code as string) || 'USD',
+              last_synced: new Date().toISOString(),
+              account_mode: mode,
+            });
+          }
+          await loadLinkedAccounts();
+        }
+      } catch (err) {
+        console.error('Salt Edge callback error:', err);
+      }
+    })();
+  }, [user, mode, loadLinkedAccounts]);
 
   const handleRegionClick = (r: RegionOption) => {
     if (!r.ready) {

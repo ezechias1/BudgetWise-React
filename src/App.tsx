@@ -23,6 +23,7 @@ import SpendingTrackerPage from '@/pages/SpendingTrackerPage';
 import HelpPage from '@/pages/HelpPage';
 import AdminPage from '@/pages/AdminPage';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AdminRoute, ProtectedRoute } from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -42,6 +43,7 @@ import { ModeProvider } from '@/contexts/ModeContext';
  */
 export default function App() {
   return (
+    <ErrorBoundary>
     <ThemeProvider>
       <ModeProvider>
         <AuthProvider>
@@ -101,5 +103,6 @@ export default function App() {
         </AuthProvider>
       </ModeProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
