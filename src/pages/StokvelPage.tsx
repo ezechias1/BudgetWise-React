@@ -20,8 +20,8 @@ import { getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
  * line 8962), admin confirm-paid, view history modal, advance payout
  * rotation.
  *
- * TODO(ezechias): checkStokvelReminders() local notifications (app.js
- * line 9291) — stubbed, vanilla-only feature.
+ * Stokvel contribution reminders use the web Notification API
+ * (mirrors checkStokvelReminders from app.js line 9291).
  */
 
 interface StokvelGroup {
@@ -166,6 +166,49 @@ export default function StokvelPage() {
   useEffect(() => {
     loadStokvelData();
   }, [loadStokvelData]);
+
+  // Stokvel contribution reminders — web Notification API
+  // Mirrors checkStokvelReminders() from app.js line 9291
+  useEffect(() => {
+    if (groups.length === 0 || !user) return;
+
+    const lastReminder = localStorage.getItem('budgetwise-stokvel-reminder');
+    const today = new Date().toISOString().split('T')[0];
+    if (lastReminder === today) return; // Only remind once per day
+
+    // Check if any group has a contribution due this month
+    const now = new Date();
+    const currentMonth = monthKey(now);
+
+    for (const g of groups) {
+      const myContribs = (contribsMap[g.id] || []).filter(
+        (c) => c.user_id === user.id,
+      );
+      const paidThisMonth = myContribs.some(
+        (c) => monthKey(new Date(c.date)) === currentMonth,
+      );
+      if (!paidThisMonth && g.monthly_amount > 0) {
+        // Show notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Stokvel Reminder', {
+            body: `Your ${g.name} contribution of ${sym}${g.monthly_amount.toFixed(2)} is due this month.`,
+            icon: '/icons/icon-192.png',
+          });
+        } else if ('Notification' in window && Notification.permission !== 'denied') {
+          Notification.requestPermission().then((perm) => {
+            if (perm === 'granted') {
+              new Notification('Stokvel Reminder', {
+                body: `Your ${g.name} contribution of ${sym}${g.monthly_amount.toFixed(2)} is due this month.`,
+                icon: '/icons/icon-192.png',
+              });
+            }
+          });
+        }
+        localStorage.setItem('budgetwise-stokvel-reminder', today);
+        break; // One reminder per day is enough
+      }
+    }
+  }, [groups, contribsMap, user, sym]);
 
   // ============================================================
   // Handlers

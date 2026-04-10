@@ -74,9 +74,25 @@ export default function AdminPage() {
     loadAll();
   }, [loadAll]);
 
-  // TODO: Destructive admin actions (grant Pro, revoke Pro, delete user,
-  // force-refresh session) require the service role key and must be routed
-  // through a Supabase edge function. Do not call admin APIs from the browser.
+  const adminAction = async (action: string, targetId: string, label: string) => {
+    if (!confirm(`Are you sure you want to ${label}?`)) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-actions', {
+        body: { action, target_user_id: targetId },
+      });
+      if (error) {
+        alert('Error: ' + error.message);
+        return;
+      }
+      alert(data?.result || 'Done');
+      if (action === 'delete_user') {
+        setUsers((prev) => prev.filter((u) => u.id !== targetId));
+      }
+      await loadAll();
+    } catch (err) {
+      alert('Error: ' + (err as Error).message);
+    }
+  };
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -212,12 +228,13 @@ export default function AdminPage() {
                     <th>Logins</th>
                     <th>Joined</th>
                     <th>Last Login</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="usersBody">
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="empty">
+                      <td colSpan={8} className="empty">
                         No users yet
                       </td>
                     </tr>
@@ -235,6 +252,29 @@ export default function AdminPage() {
                         <td>{loginCounts[u.id] || 0}</td>
                         <td>{fmt(u.created_at)}</td>
                         <td>{fmt(u.last_sign_in)}</td>
+                        <td style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          <button
+                            className="badge badge-green"
+                            style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: '0.7rem' }}
+                            onClick={() => adminAction('grant_pro', u.id, `grant Pro to ${u.email}`)}
+                          >
+                            Grant Pro
+                          </button>
+                          <button
+                            className="badge badge-gray"
+                            style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: '0.7rem' }}
+                            onClick={() => adminAction('revoke_pro', u.id, `revoke Pro from ${u.email}`)}
+                          >
+                            Revoke
+                          </button>
+                          <button
+                            className="badge"
+                            style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: '0.7rem', background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                            onClick={() => adminAction('delete_user', u.id, `permanently delete ${u.email}`)}
+                          >
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}

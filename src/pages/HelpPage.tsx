@@ -1,4 +1,5 @@
 import { useMode } from '@/contexts/ModeContext';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Ports #page-help from dashboard.html lines 2108-2273.
@@ -12,11 +13,14 @@ import { useMode } from '@/contexts/ModeContext';
  */
 export default function HelpPage() {
   const { mode } = useMode();
+  const navigate = useNavigate();
 
   const handleReplayTour = () => {
-    // TODO: wire up the guided tour replay once the tour system is ported.
-    // Vanilla: js/app.js resets the onboarding flag in localStorage and
-    // re-triggers the walkthrough overlay.
+    // Reset onboarding flag so the welcome overlay shows again on Overview
+    localStorage.removeItem('budgetwise-onboarded');
+    localStorage.removeItem('budgetwise-tour-complete');
+    alert('Tour reset! Redirecting to the dashboard to replay the welcome guide.');
+    navigate('/dashboard');
   };
 
   return (

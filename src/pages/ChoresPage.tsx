@@ -26,6 +26,7 @@ interface Chore {
   reward: number;
   frequency: string;
   completed: boolean;
+  pending_approval: boolean;
 }
 
 function symbolFor(currency: string): string {
@@ -86,6 +87,7 @@ export default function ChoresPage() {
       reward: parseFloat(reward) || 0,
       frequency,
       completed: false,
+      pending_approval: false,
     };
     const { data } = await supabase
       .from('family_chores')
@@ -100,17 +102,34 @@ export default function ChoresPage() {
     setShowModal(false);
   };
 
-  const toggleComplete = async (chore: Chore) => {
-    const next = !chore.completed;
+  /** Child marks chore done → goes to pending_approval. */
+  const markDone = async (chore: Chore) => {
     await supabase
       .from('family_chores')
-      .update({ completed: next })
+      .update({ pending_approval: true })
       .eq('id', chore.id);
     setChores((prev) =>
-      prev.map((c) => (c.id === chore.id ? { ...c, completed: next } : c)),
+      prev.map((c) =>
+        c.id === chore.id ? { ...c, pending_approval: true } : c,
+      ),
     );
-    // Reward the assignee when newly completed
-    if (next && chore.assignee) {
+  };
+
+  /** Parent approves → completed + reward credited. */
+  const approveChore = async (chore: Chore) => {
+    await supabase
+      .from('family_chores')
+      .update({ completed: true, pending_approval: false })
+      .eq('id', chore.id);
+    setChores((prev) =>
+      prev.map((c) =>
+        c.id === chore.id
+          ? { ...c, completed: true, pending_approval: false }
+          : c,
+      ),
+    );
+    // Credit assignee
+    if (chore.assignee) {
       const member = members.find((m) => m.id === chore.assignee);
       if (member) {
         const earned = (member.earned || 0) + chore.reward;
@@ -125,6 +144,45 @@ export default function ChoresPage() {
           ),
         );
       }
+    }
+  };
+
+  /** Parent rejects → back to not done. */
+  const rejectChore = async (chore: Chore) => {
+    await supabase
+      .from('family_chores')
+      .update({ pending_approval: false, completed: false })
+      .eq('id', chore.id);
+    setChores((prev) =>
+      prev.map((c) =>
+        c.id === chore.id
+          ? { ...c, pending_approval: false, completed: false }
+          : c,
+      ),
+    );
+  };
+
+  /** Direct toggle for quick complete (parent shortcut). */
+  const toggleComplete = async (chore: Chore) => {
+    if (chore.completed) {
+      // Un-complete
+      await supabase
+        .from('family_chores')
+        .update({ completed: false, pending_approval: false })
+        .eq('id', chore.id);
+      setChores((prev) =>
+        prev.map((c) =>
+          c.id === chore.id
+            ? { ...c, completed: false, pending_approval: false }
+            : c,
+        ),
+      );
+    } else if (chore.pending_approval) {
+      // Already pending — treat click as approve
+      await approveChore(chore);
+    } else {
+      // Not done — mark as pending approval
+      await markDone(chore);
     }
   };
 
@@ -184,11 +242,13 @@ export default function ChoresPage() {
           chores.map((ch) => {
             const member = members.find((m) => m.id === ch.assignee);
             const memberName = member ? member.name : 'Unassigned';
+            const statusClass = ch.completed
+              ? ' completed'
+              : ch.pending_approval
+                ? ' pending'
+                : '';
             return (
-              <div
-                key={ch.id}
-                className={'chore-card' + (ch.completed ? ' completed' : '')}
-              >
+              <div key={ch.id} className={'chore-card' + statusClass}>
                 <div
                   className="chore-check"
                   onClick={() => toggleComplete(ch)}
@@ -197,6 +257,18 @@ export default function ChoresPage() {
                   <div className="chore-name">{ch.name}</div>
                   <div className="chore-meta">
                     {memberName} • {ch.frequency}
+                    {ch.pending_approval && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          color: '#f59e0b',
+                          fontWeight: 600,
+                          fontSize: '0.72rem',
+                        }}
+                      >
+                        Awaiting approval
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="chore-reward">
@@ -204,6 +276,32 @@ export default function ChoresPage() {
                   {Number(ch.reward).toFixed(2)}
                 </div>
                 <div className="chore-actions">
+                  {ch.pending_approval && !ch.completed && (
+                    <>
+                      <button
+                        title="Approve"
+                        onClick={() => approveChore(ch)}
+                        style={{
+                          color: '#10b981',
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        title="Reject"
+                        onClick={() => rejectChore(ch)}
+                        style={{
+                          color: '#ef4444',
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                        }}
+                      >
+                        ✗
+                      </button>
+                    </>
+                  )}
                   <button title="Delete" onClick={() => deleteChore(ch.id)}>
                     ×
                   </button>

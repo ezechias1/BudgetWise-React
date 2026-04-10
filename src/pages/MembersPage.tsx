@@ -47,6 +47,7 @@ export default function MembersPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('parent');
   const [age, setAge] = useState('');
@@ -81,27 +82,63 @@ export default function MembersPage() {
     setAge('');
     setColor('#8b5cf6');
     setAllowance('');
+    setEditingMember(null);
+  };
+
+  const openEdit = (m: FamilyMember) => {
+    setEditingMember(m);
+    setName(m.name);
+    setRole(m.role);
+    setAge(m.age != null ? String(m.age) : '');
+    setColor(m.color);
+    setAllowance(String(m.allowance || ''));
+    setShowModal(true);
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const member = {
-      user_id: user.id,
-      name: name.trim(),
-      role,
-      age: age ? Number(age) : null,
-      color,
-      allowance: Number(allowance) || 0,
-      spent: 0,
-      earned: 0,
-    };
-    const { data } = await supabase
-      .from('family_members')
-      .insert(member)
-      .select()
-      .single();
-    if (data) setMembers((prev) => [...prev, data as FamilyMember]);
+
+    if (editingMember) {
+      // Update existing member
+      const updates = {
+        name: name.trim(),
+        role,
+        age: age ? Number(age) : null,
+        color,
+        allowance: Number(allowance) || 0,
+      };
+      const { error } = await supabase
+        .from('family_members')
+        .update(updates)
+        .eq('id', editingMember.id);
+      if (!error) {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.id === editingMember.id ? { ...m, ...updates } : m,
+          ),
+        );
+      }
+    } else {
+      // Insert new member
+      const member = {
+        user_id: user.id,
+        name: name.trim(),
+        role,
+        age: age ? Number(age) : null,
+        color,
+        allowance: Number(allowance) || 0,
+        spent: 0,
+        earned: 0,
+      };
+      const { data } = await supabase
+        .from('family_members')
+        .insert(member)
+        .select()
+        .single();
+      if (data) setMembers((prev) => [...prev, data as FamilyMember]);
+    }
+
     resetForm();
     setShowModal(false);
   };
@@ -200,10 +237,9 @@ export default function MembersPage() {
                   </div>
                 </div>
                 <div className="member-actions">
-                  {/* TODO: inline edit-member modal */}
                   <button
                     className="btn-edit-member"
-                    onClick={() => alert('Edit coming soon')}
+                    onClick={() => openEdit(m)}
                   >
                     Edit
                   </button>
@@ -224,10 +260,10 @@ export default function MembersPage() {
         <div className="modal-overlay" id="memberModal">
           <div className="modal">
             <div className="modal-header">
-              <h2>Add Family Member</h2>
+              <h2>{editingMember ? 'Edit Family Member' : 'Add Family Member'}</h2>
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); resetForm(); }}
               >
                 ×
               </button>
@@ -296,7 +332,7 @@ export default function MembersPage() {
                 className="btn-primary"
                 style={{ width: '100%' }}
               >
-                Add Member
+                {editingMember ? 'Save Changes' : 'Add Member'}
               </button>
             </form>
           </div>
