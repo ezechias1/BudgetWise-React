@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy": "vercel --prod && vercel alias set budget-wise-react.vercel.app budget-wise-ruby.vercel.app"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
