@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from 'react';
 import { ExpenseModal } from '@/components/ExpenseModal';
+import { UndoToast } from '@/components/UndoToast';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
@@ -78,7 +79,10 @@ export default function ExpensesPage() {
 
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
   const [month, setMonth] = useState<string>(() => monthKey());
-  const [category, setCategory] = useState<string>('');
+  const [category, setCategory] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('category') || '';
+  });
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
@@ -180,10 +184,30 @@ export default function ExpensesPage() {
     });
   }, [expenses, month, category, search]);
 
+  const [undoData, setUndoData] = useState<{ id: string; expense: Record<string, unknown> } | null>(null);
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this expense?')) return;
+    // Store the expense data before deleting so we can restore on undo
+    const exp = expenses.find((e) => e.id === id);
+    if (!exp) return;
     const { error: delErr } = await deleteExpense(id);
-    if (delErr) alert(`Delete failed: ${delErr}`);
+    if (delErr) { alert(`Delete failed: ${delErr}`); return; }
+    setUndoData({
+      id,
+      expense: {
+        category: exp.category,
+        description: exp.description,
+        amount: exp.amount,
+        date: exp.date,
+        recurring: exp.recurring || 'no',
+      },
+    });
+  };
+
+  const handleUndo = async () => {
+    if (!undoData) return;
+    await addExpense(undoData.expense as unknown as Parameters<typeof addExpense>[0]);
+    setUndoData(null);
   };
 
   // Totals per category for the currently selected month — used by the
@@ -749,6 +773,14 @@ export default function ExpensesPage() {
           </div>
         );
       })()}
+
+      {undoData && (
+        <UndoToast
+          message="Expense deleted"
+          onUndo={handleUndo}
+          onDismiss={() => setUndoData(null)}
+        />
+      )}
     </>
   );
 }
