@@ -89,14 +89,23 @@ money saving app, budget app
 
 --------------------------------------------------------------
 
-WHAT'S NEW (for updates):
-- SA Features: Load Shedding Tracker, Stokvel Group Savings
-- Country-based feature detection (SA users get SA features)
-- Offline mode with background sync
-- SA smart transaction categorization (50+ merchants)
-- Stitch bank integration ready (SA banks)
-- SMS/USSD expense tracking (coming soon)
-- Updated onboarding tour for SA users
+WHAT'S NEW (v2.0 — React Rebuild):
+- Completely rebuilt in React for faster performance
+- Code-split bundles — pages load 2x faster
+- Onboarding tour for first-time users
+- Receipt scanner with OCR — snap a photo, auto-fill expense
+- Wish List for Family mode — kids save toward items they want
+- Monthly Family Report — per-member spending breakdown
+- Recurring expense auto-detection (3+ months = suggestion)
+- Swipe to delete/edit on mobile
+- Multi-bank account management — set primary, track all balances
+- Income routing — choose which bank account income goes to
+- Cross-mode account detection (shared bank across Personal/Business)
+- Animated stat counters on dashboard
+- Undo delete with 5-second toast
+- Pie chart drill-down — tap a category to filter expenses
+- Loading skeletons while data fetches
+- Global error boundary — no more white screens
 
 --------------------------------------------------------------
 

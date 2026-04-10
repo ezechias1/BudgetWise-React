@@ -1,33 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import AuthPage from '@/pages/AuthPage';
-import OverviewPage from '@/pages/OverviewPage';
-import ExpensesPage from '@/pages/ExpensesPage';
-import SavingsPage from '@/pages/SavingsPage';
-import AccountPage from '@/pages/AccountPage';
-import CurrencyPage from '@/pages/CurrencyPage';
-import AdvicePage from '@/pages/AdvicePage';
-import BankPage from '@/pages/BankPage';
-import StokvelPage from '@/pages/StokvelPage';
-import LoadSheddingPage from '@/pages/LoadSheddingPage';
-import InvoicesPage from '@/pages/InvoicesPage';
-import ClientsPage from '@/pages/ClientsPage';
-import PnLPage from '@/pages/PnLPage';
-import TaxPage from '@/pages/TaxPage';
-import MembersPage from '@/pages/MembersPage';
-import AllowancesPage from '@/pages/AllowancesPage';
-import ChoresPage from '@/pages/ChoresPage';
-import FamilyGoalsPage from '@/pages/FamilyGoalsPage';
-import SpendingTrackerPage from '@/pages/SpendingTrackerPage';
-import HelpPage from '@/pages/HelpPage';
-import AdminPage from '@/pages/AdminPage';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { AdminRoute, ProtectedRoute } from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ModeProvider } from '@/contexts/ModeContext';
+
+// Lazy-loaded page components — each becomes its own chunk
+const AuthPage = lazy(() => import('@/pages/AuthPage'));
+const OverviewPage = lazy(() => import('@/pages/OverviewPage'));
+const ExpensesPage = lazy(() => import('@/pages/ExpensesPage'));
+const SavingsPage = lazy(() => import('@/pages/SavingsPage'));
+const AccountPage = lazy(() => import('@/pages/AccountPage'));
+const CurrencyPage = lazy(() => import('@/pages/CurrencyPage'));
+const AdvicePage = lazy(() => import('@/pages/AdvicePage'));
+const BankPage = lazy(() => import('@/pages/BankPage'));
+const StokvelPage = lazy(() => import('@/pages/StokvelPage'));
+const LoadSheddingPage = lazy(() => import('@/pages/LoadSheddingPage'));
+const InvoicesPage = lazy(() => import('@/pages/InvoicesPage'));
+const ClientsPage = lazy(() => import('@/pages/ClientsPage'));
+const PnLPage = lazy(() => import('@/pages/PnLPage'));
+const TaxPage = lazy(() => import('@/pages/TaxPage'));
+const MembersPage = lazy(() => import('@/pages/MembersPage'));
+const AllowancesPage = lazy(() => import('@/pages/AllowancesPage'));
+const ChoresPage = lazy(() => import('@/pages/ChoresPage'));
+const FamilyGoalsPage = lazy(() => import('@/pages/FamilyGoalsPage'));
+const SpendingTrackerPage = lazy(() => import('@/pages/SpendingTrackerPage'));
+const HelpPage = lazy(() => import('@/pages/HelpPage'));
+const AdminPage = lazy(() => import('@/pages/AdminPage'));
 
 /**
  * Top-level router + provider tree.
@@ -49,6 +53,7 @@ export default function App() {
         <AuthProvider>
           <Analytics />
           <SpeedInsights />
+          <Suspense fallback={<LoadingOverlay />}>
           <Routes>
             <Route path="/" element={<AuthPage />} />
 
@@ -100,6 +105,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </ModeProvider>
     </ThemeProvider>

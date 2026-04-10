@@ -7,10 +7,11 @@ import '@/lib/chartRegistry';
 
 interface PieProps {
   categoryTotals: Record<string, number>;
+  onCategoryClick?: (category: string) => void;
 }
 
 /** Spending-by-category doughnut — matches the pieChart config in app.js line 2300. */
-export function SpendingPieChart({ categoryTotals }: PieProps) {
+export function SpendingPieChart({ categoryTotals, onCategoryClick }: PieProps) {
   // Subscribe to theme/mode so the chart re-renders on toggle
   useTheme();
   const labels = Object.keys(categoryTotals);
@@ -70,6 +71,13 @@ export function SpendingPieChart({ categoryTotals }: PieProps) {
           },
           tooltip: chartTooltip(),
         },
+        onClick: onCategoryClick
+          ? (_event: unknown, elements: Array<{ index: number }>) => {
+              if (elements.length > 0) {
+                onCategoryClick(labels[elements[0].index]);
+              }
+            }
+          : undefined,
       }}
     />
   );

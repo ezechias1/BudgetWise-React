@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { scanReceipt, type ParsedReceipt } from '@/lib/receipt-scan';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useOverviewStats } from '@/hooks/useOverviewStats';
@@ -22,6 +23,7 @@ import { BudgetRing } from '@/components/overview/BudgetRing';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
 import { OnboardingTour } from '@/components/OnboardingTour';
+import { OverviewSkeleton } from '@/components/Skeleton';
 
 /** Greeting based on current hour (ported from vanilla welcome banner). */
 function greeting(): string {
@@ -48,6 +50,7 @@ function firstName(fullName: string | undefined, email: string | undefined): str
  * budget-warnings, move-money, receipt scan, drill-down click handlers.
  */
 export default function OverviewPage() {
+  const navigate = useNavigate();
   const stats = useOverviewStats();
   const { addExpense, moveExpense, deleteExpense, refresh } = useExpenses();
   const { mode } = useMode();
@@ -162,7 +165,8 @@ export default function OverviewPage() {
 
   return (
     <>
-      <section className="page active" id="page-overview">
+      {stats.loading && <OverviewSkeleton />}
+      <section className="page active" id="page-overview" style={stats.loading ? { display: 'none' } : undefined}>
         <div className="welcome-banner">
           <div className="welcome-left">
             <h2>
@@ -545,7 +549,10 @@ export default function OverviewPage() {
           <div className="chart-card">
             <h3>Spending by Category</h3>
             <div className="chart-container">
-              <SpendingPieChart categoryTotals={stats.categoryTotals} />
+              <SpendingPieChart
+                categoryTotals={stats.categoryTotals}
+                onCategoryClick={(cat) => navigate(`/dashboard/expenses?category=${encodeURIComponent(cat)}`)}
+              />
             </div>
           </div>
           <div className="chart-card">
@@ -937,6 +944,43 @@ interface StatCardProps {
 }
 
 function StatCard({ label, value, iconClass, icon }: StatCardProps) {
+  // Animate the number counting up from 0
+  const [display, setDisplay] = useState(value);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    // Extract the numeric part (e.g. "R5,000.00" → 5000)
+    const numStr = value.replace(/[^0-9.\-]/g, '');
+    const target = parseFloat(numStr) || 0;
+    const prefix = value.match(/^[^0-9\-]*/)?.[0] || '';
+    const hasDecimals = value.includes('.');
+
+    if (target === 0 || prevValue.current === value) {
+      setDisplay(value);
+      prevValue.current = value;
+      return;
+    }
+    prevValue.current = value;
+
+    const duration = 600; // ms
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = target * eased;
+      const formatted = hasDecimals
+        ? current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : current.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      setDisplay(prefix + formatted);
+      if (progress < 1) requestAnimationFrame(tick);
+      else setDisplay(value); // snap to exact formatted value
+    };
+    requestAnimationFrame(tick);
+  }, [value]);
+
   return (
     <div className="stat-card">
       <div className={`stat-icon ${iconClass}`}>
@@ -953,7 +997,7 @@ function StatCard({ label, value, iconClass, icon }: StatCardProps) {
       </div>
       <div className="stat-info">
         <span className="stat-label">{label}</span>
-        <span className="stat-value">{value}</span>
+        <span className="stat-value">{display}</span>
       </div>
     </div>
   );
