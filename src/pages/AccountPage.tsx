@@ -9,6 +9,8 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency } from '@/lib/format';
 import { CURRENCIES } from '@/lib/currencies';
 import { ENABLE_PRO_SYSTEM, isAdmin, isProUser } from '@/lib/access';
+import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
+import { IncomeRoutingModal } from '@/components/IncomeRoutingModal';
 
 // -------- Achievements (mirrors js/app.js:4261 achievementDefs) --------
 interface AchievementDef {
@@ -104,6 +106,8 @@ export default function AccountPage() {
   const [goalInput, setGoalInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [incomeRouting, setIncomeRouting] = useState<number | null>(null);
+  const { accounts: linkedAccts, updateBalance: updateAccBalance } = useLinkedAccounts();
 
   // Seed the form once settings load
   useEffect(() => {
@@ -382,9 +386,11 @@ export default function AccountPage() {
     e.preventDefault();
     setSaving(true);
     setSaveMsg(null);
+    const newIncome = parseFloat(incomeInput) || 0;
+    const incomeChanged = newIncome !== income && newIncome > 0;
     const { error } = await updateSettings({
       currency: currencyInput,
-      income: parseFloat(incomeInput) || 0,
+      income: newIncome,
       savings_goal: parseFloat(goalInput) || 0,
     });
     setSaving(false);
@@ -393,8 +399,21 @@ export default function AccountPage() {
         ? { text: `Save failed: ${error}`, ok: false }
         : { text: 'Saved', ok: true },
     );
+    // Show income routing modal if income changed and user has bank accounts
+    if (!error && incomeChanged && linkedAccts.length > 0) {
+      setIncomeRouting(newIncome);
+    }
     // Auto-clear the success message after a moment
     if (!error) setTimeout(() => setSaveMsg(null), 2500);
+  };
+
+  const handleIncomeRoute = async (accountId: string) => {
+    if (incomeRouting == null) return;
+    const acc = linkedAccts.find((a) => a.id === accountId);
+    if (acc) {
+      await updateAccBalance(accountId, (acc.balance_current ?? 0) + incomeRouting);
+    }
+    setIncomeRouting(null);
   };
 
   const handleChangePassword = async () => {
@@ -469,6 +488,7 @@ export default function AccountPage() {
   };
 
   return (
+    <>
     <section className="page active" id="page-account">
       <div className="page-header">
         <div>
@@ -1042,5 +1062,16 @@ export default function AccountPage() {
         </div>
       </div>
     </section>
+
+    {incomeRouting != null && (
+      <IncomeRoutingModal
+        accounts={linkedAccts}
+        currency={currency}
+        incomeAmount={incomeRouting}
+        onRoute={handleIncomeRoute}
+        onSkip={() => setIncomeRouting(null)}
+      />
+    )}
+    </>
   );
 }

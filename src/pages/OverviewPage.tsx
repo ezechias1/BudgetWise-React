@@ -19,6 +19,8 @@ import {
   SpendingTrendChart,
 } from '@/components/overview/OverviewCharts';
 import { BudgetRing } from '@/components/overview/BudgetRing';
+import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
+import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
 
 /** Greeting based on current hour (ported from vanilla welcome banner). */
 function greeting(): string {
@@ -49,7 +51,12 @@ export default function OverviewPage() {
   const { addExpense, moveExpense, deleteExpense, refresh } = useExpenses();
   const { mode } = useMode();
   const { user } = useAuth();
-  const { companyName, familyName } = useUserSettings();
+  const { companyName, familyName, currency: userCurrency } = useUserSettings();
+  const {
+    accounts: linkedAccounts,
+    totalBalance: bankTotalBalance,
+    crossModeAccounts,
+  } = useLinkedAccounts();
   const userFirstName = firstName(
     user?.user_metadata?.full_name as string | undefined,
     user?.email,
@@ -212,6 +219,12 @@ export default function OverviewPage() {
           </div>
         )}
 
+        {/* Cross-mode account warning banner */}
+        <CrossModeDepositBanner
+          crossModeAccounts={crossModeAccounts}
+          currentMode={mode}
+        />
+
         <div className="page-header">
           <div>
             <h1>Overview</h1>
@@ -314,6 +327,124 @@ export default function OverviewPage() {
             icon={<path d="M22 12h-4l-3 9L9 3l-3 9H2" />}
           />
         </div>
+
+        {/* Accounts Wallet — shows all linked bank accounts with balances */}
+        {linkedAccounts.length > 0 && (
+          <div
+            className="chart-card full-width"
+            style={{ marginBottom: 12, padding: '14px 16px' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700 }}>
+                My Accounts
+              </h3>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'rgba(255,255,255,0.5)',
+                }}
+              >
+                Total: {formatCurrency(bankTotalBalance, userCurrency)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {linkedAccounts.map((acc) => {
+                const isPrimary = acc.is_primary === true;
+                return (
+                  <div
+                    key={acc.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 12px',
+                      background: isPrimary
+                        ? 'rgba(16,185,129,0.08)'
+                        : 'rgba(255,255,255,0.03)',
+                      border: isPrimary
+                        ? '1px solid rgba(16,185,129,0.2)'
+                        : '1px solid transparent',
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: 'rgba(99,102,241,0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '0.7rem',
+                        color: '#6366f1',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {(acc.institution_name || 'B').charAt(0)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '0.82rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        {acc.institution_name || 'Bank'}
+                        {acc.mask && (
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              color: 'rgba(255,255,255,0.4)',
+                            }}
+                          >
+                            ****{acc.mask}
+                          </span>
+                        )}
+                        {isPrimary && (
+                          <span
+                            style={{
+                              fontSize: '0.6rem',
+                              fontWeight: 700,
+                              background: 'rgba(16,185,129,0.2)',
+                              color: '#10b981',
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                            }}
+                          >
+                            Main
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'rgba(255,255,255,0.45)',
+                        }}
+                      >
+                        {acc.account_subtype || acc.account_type || 'Account'}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', flexShrink: 0 }}>
+                      {formatCurrency(acc.balance_current ?? 0, userCurrency)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Transfer Money button — port of dashboard.html:484-487 */}
         <button

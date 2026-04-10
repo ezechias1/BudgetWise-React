@@ -18,30 +18,16 @@ import {
   categoryOptionsForMode,
   type ParsedTransaction,
 } from '@/lib/csv-import';
+import {
+  useLinkedAccounts,
+  type LinkedAccount,
+} from '@/hooks/useLinkedAccounts';
 
 // ==========================================================================
 // Ported from vanilla dashboard.html (#page-bank, line 1165) and js/app.js
 // bank connection flows (loadLinkedAccounts, renderBankCards, openPlaidLink,
 // openStitchLink, openSaltEdgeConnect). See app.js lines ~4650-5492.
 // ==========================================================================
-
-interface LinkedAccount {
-  id: string;
-  user_id: string;
-  plaid_access_token?: string | null;
-  account_id?: string | null;
-  account_name?: string | null;
-  account_type?: string | null;
-  account_subtype?: string | null;
-  institution_name?: string | null;
-  mask?: string | null;
-  balance_current?: number | null;
-  balance_available?: number | null;
-  currency_code?: string | null;
-  last_synced?: string | null;
-  account_mode?: string | null;
-  created_at?: string | null;
-}
 
 interface RegionOption {
   provider: string;
@@ -188,9 +174,15 @@ export default function BankPage() {
   const { user } = useAuth();
   const { mode } = useMode();
   const { currency } = useUserSettings();
+  const {
+    accounts: linkedAccounts,
+    loading,
+    primaryAccount,
+    totalBalance,
+    setPrimary,
+    refresh: loadLinkedAccounts,
+  } = useLinkedAccounts();
 
-  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
-  const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
   const [showRegionModal, setShowRegionModal] = useState(false);
@@ -205,43 +197,6 @@ export default function BankPage() {
   const fmt = useCallback(
     (n: number) => formatCurrency(n, currency),
     [currency]
-  );
-
-  // ---- Load linked accounts (port of loadLinkedAccounts, app.js L4857) ----
-  const loadLinkedAccounts = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('linked_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('account_mode', mode)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setLinkedAccounts((data ?? []) as LinkedAccount[]);
-    } catch {
-      // Fallback: account_mode column may not exist yet.
-      const { data } = await supabase
-        .from('linked_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      setLinkedAccounts((data ?? []) as LinkedAccount[]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, mode]);
-
-  useEffect(() => {
-    loadLinkedAccounts();
-  }, [loadLinkedAccounts]);
-
-  // ---- Totals (port of renderBankCards totals, app.js L5450) ----
-  const totalBalance = useMemo(
-    () =>
-      linkedAccounts.reduce((sum, a) => sum + (a.balance_current ?? 0), 0),
-    [linkedAccounts]
   );
 
   // ---- Plaid Link SDK loader ----
@@ -673,6 +628,11 @@ export default function BankPage() {
           <div className="balance-sub" id="bankAccountCount">
             {linkedAccounts.length} account
             {linkedAccounts.length !== 1 ? 's' : ''} linked
+            {primaryAccount && (
+              <span style={{ marginLeft: 8, color: '#10b981' }}>
+                · Main: {primaryAccount.institution_name} ****{primaryAccount.mask}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -692,11 +652,29 @@ export default function BankPage() {
           const dots = `\u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  ${mask}`;
           const isManual = acc.plaid_access_token === 'manual';
 
+          const isPrimary = acc.is_primary === true;
+
           return (
-            <div className={'bank-card ' + cardType} key={acc.id}>
+            <div className={'bank-card ' + cardType} key={acc.id} style={isPrimary ? { border: '2px solid #10b981' } : undefined}>
               <div className="bank-card-top">
                 <span className="bank-card-institution">
                   {acc.institution_name || 'Bank'}
+                  {isPrimary && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        background: 'rgba(16,185,129,0.2)',
+                        color: '#10b981',
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      ★ Main
+                    </span>
+                  )}
                 </span>
                 <span className="bank-card-type">{acc.account_subtype}</span>
               </div>
@@ -726,6 +704,24 @@ export default function BankPage() {
                       onClick={() => handleSync(acc)}
                     >
                       Sync
+                    </button>
+                  )}
+                  {!isPrimary && (
+                    <button
+                      className="btn-set-primary"
+                      onClick={() => setPrimary(acc.id)}
+                      style={{
+                        background: 'rgba(16,185,129,0.1)',
+                        color: '#10b981',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 8px',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ★ Set Main
                     </button>
                   )}
                   <button
