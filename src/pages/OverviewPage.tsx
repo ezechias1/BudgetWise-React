@@ -21,6 +21,7 @@ import {
 import { BudgetRing } from '@/components/overview/BudgetRing';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
+import { OnboardingTour } from '@/components/OnboardingTour';
 
 /** Greeting based on current hour (ported from vanilla welcome banner). */
 function greeting(): string {
@@ -779,6 +780,8 @@ export default function OverviewPage() {
           </div>
         </div>
       </section>
+
+      <OnboardingTour />
 
       <ExpenseModal
         open={modalOpen}

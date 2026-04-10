@@ -207,6 +207,46 @@ export default function ExpensesPage() {
     return out;
   }, [budgetLimits, currentMonthSpendByCategory]);
 
+  // Recurring expense detection — if the same description+category appears
+  // in 3+ different months, suggest marking it as recurring.
+  const [dismissedRecurring, setDismissedRecurring] = useState<Set<string>>(new Set());
+  const recurringSuggestions = useMemo(() => {
+    // Group expenses by description+category key
+    const map = new Map<string, Set<string>>();
+    for (const e of expenses) {
+      if (e.recurring !== 'no') continue; // already marked
+      const key = `${e.description.toLowerCase().trim()}|${e.category}`;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(e.date.slice(0, 7)); // month key YYYY-MM
+    }
+    const suggestions: Array<{ description: string; category: string; months: number }> = [];
+    map.forEach((months, key) => {
+      if (months.size >= 3 && !dismissedRecurring.has(key)) {
+        const [desc, cat] = key.split('|');
+        suggestions.push({ description: desc, category: cat, months: months.size });
+      }
+    });
+    return suggestions;
+  }, [expenses, dismissedRecurring]);
+
+  const markAsRecurring = async (description: string, category: string) => {
+    // Find the most recent matching expense and update it
+    const match = expenses.find(
+      (e) =>
+        e.description.toLowerCase().trim() === description &&
+        e.category === category &&
+        e.recurring === 'no',
+    );
+    if (match) {
+      await updateExpense(match.id, { recurring: 'monthly' });
+    }
+    setDismissedRecurring((prev) => new Set(prev).add(`${description}|${category}`));
+  };
+
+  const dismissRecurring = (description: string, category: string) => {
+    setDismissedRecurring((prev) => new Set(prev).add(`${description}|${category}`));
+  };
+
   const editTarget = editTargetId
     ? expenses.find((e) => e.id === editTargetId) ?? null
     : null;
@@ -376,6 +416,40 @@ export default function ExpensesPage() {
             </div>
           )}
 
+          {/* Recurring expense detection banners */}
+          {recurringSuggestions.map((s) => (
+            <div className="recurring-suggestion" key={`${s.description}|${s.category}`}>
+              <span className="recurring-suggestion-icon">🔄</span>
+              <div className="recurring-suggestion-text">
+                <strong>{s.description}</strong> ({s.category}) has appeared in{' '}
+                <strong>{s.months} months</strong>. Mark it as recurring?
+              </div>
+              <div className="recurring-suggestion-actions">
+                <button
+                  className="btn-primary"
+                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                  onClick={() => markAsRecurring(s.description, s.category)}
+                >
+                  Yes, monthly
+                </button>
+                <button
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.75rem',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.5)',
+                    border: 'none',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => dismissRecurring(s.description, s.category)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+
           <div className="table-wrap">
             {error && (
               <p className="auth-error" style={{ padding: 16 }}>
@@ -422,7 +496,29 @@ export default function ExpensesPage() {
                   {filtered.map((e) => {
                     const color = CATEGORY_COLORS[e.category] ?? '#6b7280';
                     return (
-                      <tr key={e.id}>
+                      <tr
+                        key={e.id}
+                        className="swipe-row"
+                        onTouchStart={(ev) => {
+                          const tr = ev.currentTarget;
+                          tr.dataset.startX = String(ev.touches[0].clientX);
+                        }}
+                        onTouchMove={(ev) => {
+                          const tr = ev.currentTarget;
+                          const sx = parseFloat(tr.dataset.startX || '0');
+                          const diff = Math.max(-80, Math.min(80, ev.touches[0].clientX - sx));
+                          tr.style.transform = `translateX(${diff}px)`;
+                          tr.style.transition = 'none';
+                        }}
+                        onTouchEnd={(ev) => {
+                          const tr = ev.currentTarget;
+                          const diff = (parseFloat(tr.style.transform.replace(/[^-\d.]/g, '')) || 0);
+                          tr.style.transition = 'transform 0.3s ease';
+                          tr.style.transform = 'translateX(0)';
+                          if (diff < -50) handleDelete(e.id);
+                          else if (diff > 50) setEditTargetId(e.id);
+                        }}
+                      >
                         <td>{e.date}</td>
                         <td>
                           <span
