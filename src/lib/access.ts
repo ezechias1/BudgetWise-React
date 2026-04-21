@@ -13,7 +13,10 @@ import type { User } from '@supabase/supabase-js';
 
 export const ENABLE_PRO_SYSTEM = false;
 
-export const ADMIN_EMAILS = ['ezechiasmulamba@gmail.com'];
+export const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || '')
+  .split(',')
+  .map((e: string) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 export function isAdmin(user: User | null | undefined): boolean {
   if (!user?.email) return false;
