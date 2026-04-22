@@ -16,6 +16,7 @@ export function AddKidModal({ onClose, onAdded }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const canSubmit =
     name.trim().length > 0 && /^\d{4}$/.test(pin) && !submitting;
@@ -68,22 +69,80 @@ export function AddKidModal({ onClose, onAdded }: Props) {
     }
   };
 
+  const handleCopyLink = async () => {
+    if (!loginUrl) return;
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select the input so the user can copy manually
+      const input = document.getElementById('kid-login-url-input') as HTMLInputElement | null;
+      input?.select();
+    }
+  };
+
   if (loginUrl) {
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <h2>🎉 {name} is ready</h2>
+          <div className="modal-header">
+            <h2>{name} is ready</h2>
+            <button
+              className="modal-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
           <p>Share this link with your child. They&apos;ll enter their PIN on that page.</p>
-          <input
-            readOnly
-            value={loginUrl}
-            onFocus={(e) => e.currentTarget.select()}
-            style={{ width: '100%', padding: 10, fontFamily: 'monospace', fontSize: '0.85rem' }}
-          />
-          <p style={{ marginTop: 16 }}>
-            <strong>PIN:</strong> <code style={{ fontSize: '1.2rem' }}>{pin}</code>
-          </p>
-          <button onClick={onClose} className="btn-primary" style={{ marginTop: 20 }}>
+          <div className="field">
+            <label htmlFor="kid-login-url-input">Login link</label>
+            <input
+              id="kid-login-url-input"
+              readOnly
+              value={loginUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="btn-primary"
+            style={{ marginTop: 8, width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            {copied ? (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy link
+              </>
+            )}
+          </button>
+          <div className="field" style={{ marginTop: 16 }}>
+            <label>PIN</label>
+            <p style={{ margin: 0 }}>
+              <code style={{ fontSize: '1.4rem', letterSpacing: '0.4rem', fontWeight: 700 }}>
+                {pin}
+              </code>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ marginTop: 20, width: '100%' }}
+          >
             Done
           </button>
         </div>
@@ -94,36 +153,56 @@ export function AddKidModal({ onClose, onAdded }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Add a kid</h2>
+        <div className="modal-header">
+          <h2>Add a kid</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
         <form onSubmit={handleSubmit}>
-          <label>Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
-
-          <label>4-digit PIN
+          <div className="field">
+            <label htmlFor="kid-name">Name</label>
             <input
+              id="kid-name"
+              type="text"
+              required
+              placeholder="e.g. Sarah"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="kid-pin">4-digit PIN</label>
+            <input
+              id="kid-pin"
               type="tel"
               inputMode="numeric"
               maxLength={4}
               pattern="\d{4}"
+              placeholder="e.g. 4721"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               required
             />
-          </label>
+          </div>
 
-          <label>Age (optional)
+          <div className="field">
+            <label htmlFor="kid-age">Age (optional)</label>
             <input
+              id="kid-age"
               type="number"
               min={4}
               max={18}
+              placeholder="Optional"
               value={age}
               onChange={(e) => setAge(e.target.value)}
             />
-          </label>
+          </div>
 
-          <label>Avatar colour
-            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          <div className="field">
+            <label>Avatar colour</label>
+            <div className="color-picker-row">
               {COLORS.map((c) => (
                 <button
                   type="button"
@@ -136,19 +215,22 @@ export function AddKidModal({ onClose, onAdded }: Props) {
                     background: c,
                     border: color === c ? '3px solid #1f2937' : '2px solid transparent',
                     cursor: 'pointer',
+                    padding: 0,
                   }}
                   aria-label={`Pick colour ${c}`}
                 />
               ))}
             </div>
-          </label>
+          </div>
 
           {error && (
             <p style={{ color: '#dc2626', fontWeight: 600 }}>{error}</p>
           )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
             <button type="submit" disabled={!canSubmit} className="btn-primary">
               {submitting ? 'Adding…' : 'Add kid'}
             </button>
