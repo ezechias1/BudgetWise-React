@@ -149,7 +149,16 @@ export default function MembersPage() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!confirm('Remove this family member?')) return;
+    const target = members.find((m) => m.id === id);
+    const isJuniorKid = target?.role === 'child' && !!target?.auth_user_id;
+    const prompt = isJuniorKid
+      ? `Remove ${target.name}?\n\nThis will permanently delete:\n• Their Junior login (PIN reset won't bring it back)\n• All their IOU ledger history (paid and unpaid)\n• All their chore progress, missions, streak, and goal assignments\n\nThis cannot be undone. Type "delete" in the next prompt to confirm.`
+      : `Remove ${target?.name ?? 'this family member'}?`;
+    if (!confirm(prompt)) return;
+    if (isJuniorKid) {
+      const typed = window.prompt(`Type "delete" to permanently remove ${target!.name}:`);
+      if (typed?.toLowerCase() !== 'delete') return;
+    }
     await supabase.from('family_members').delete().eq('id', id);
     setMembers((prev) => prev.filter((m) => m.id !== id));
   };
