@@ -55,6 +55,7 @@ export default function FamilyGoalsPage() {
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -109,19 +110,31 @@ export default function FamilyGoalsPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return; // AUDIT Imp #14.
+    // AUDIT Imp #21: reject NaN / non-positive targets.
+    const parsedTarget = parseFloat(target);
+    if (!Number.isFinite(parsedTarget) || parsedTarget <= 0) {
+      alert('Enter a target amount greater than 0.');
+      return;
+    }
+    setSubmitting(true);
     const goal = {
       user_id: user.id,
       name: name.trim(),
-      target: parseFloat(target),
+      target: parsedTarget,
       saved: 0,
       deadline: deadline || null,
     };
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('family_goals')
       .insert(goal)
       .select()
       .single();
+    if (error) {
+      alert(`Could not create goal: ${error.message}`);
+      setSubmitting(false);
+      return;
+    }
     if (data) {
       setGoals((prev) => [
         ...prev,
@@ -132,6 +145,7 @@ export default function FamilyGoalsPage() {
     setTarget('');
     setDeadline('');
     setShowModal(false);
+    setSubmitting(false);
   };
 
   const contribute = async (goal: FamilyGoal) => {
@@ -148,16 +162,26 @@ export default function FamilyGoalsPage() {
       return;
     }
     const amount = prompt('How much to contribute?');
-    if (!amount || isNaN(parseFloat(amount))) return;
+    if (!amount) return;
     const amt = parseFloat(amount);
+    // AUDIT Imp #21: reject NaN / infinite / non-positive contributions.
+    if (!Number.isFinite(amt) || amt <= 0) {
+      alert('Enter a valid positive amount.');
+      return;
+    }
     const member = members[idx];
     if (!user) return;
-    const nextSaved = goal.saved + amt;
-    await supabase
+    // AUDIT Imp #11: cents math to avoid JS float drift across many adds.
+    const nextSaved = Math.round((goal.saved + amt) * 100) / 100;
+    const { error: updErr } = await supabase
       .from('family_goals')
       .update({ saved: nextSaved })
       .eq('id', goal.id)
       .eq('user_id', user.id);
+    if (updErr) {
+      alert(`Could not record contribution: ${updErr.message}`);
+      return;
+    }
     await supabase.from('family_goal_contributions').insert({
       goal_id: goal.id,
       member_id: member.id,
@@ -177,12 +201,18 @@ export default function FamilyGoalsPage() {
   const deleteGoal = async (id: string) => {
     if (!user) return;
     if (!confirm('Delete this family goal?')) return;
-    await supabase
+    // AUDIT Imp #9: optimistic + rollback.
+    const snapshot = goals;
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    const { error } = await supabase
       .from('family_goals')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id);
-    setGoals((prev) => prev.filter((g) => g.id !== id));
+    if (error) {
+      setGoals(snapshot);
+      alert(`Could not delete goal: ${error.message}`);
+    }
   };
 
   const sym = symbolFor(currency);
@@ -329,6 +359,7 @@ export default function FamilyGoalsPage() {
                 <input
                   type="text"
                   required
+                  maxLength={120}
                   placeholder="e.g. Family Vacation"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -358,8 +389,9 @@ export default function FamilyGoalsPage() {
                 type="submit"
                 className="btn-primary"
                 style={{ width: '100%' }}
+                disabled={submitting}
               >
-                Create Goal
+                {submitting ? 'Creating…' : 'Create Goal'}
               </button>
             </form>
           </div>

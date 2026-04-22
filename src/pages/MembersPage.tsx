@@ -64,6 +64,7 @@ export default function MembersPage() {
   const [age, setAge] = useState('');
   const [color, setColor] = useState('#8b5cf6');
   const [allowance, setAllowance] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -108,10 +109,12 @@ export default function MembersPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return; // AUDIT Imp #14: double-submit guard.
+    setSubmitting(true);
 
     if (editingMember) {
-      // Update existing member
+      // Update existing member (AUDIT Imp #9: rollback optimistic update
+      // if the write fails).
       const updates = {
         name: name.trim(),
         role,
@@ -119,17 +122,20 @@ export default function MembersPage() {
         color,
         allowance: Number(allowance) || 0,
       };
+      const snapshot = members;
+      setMembers((prev) =>
+        prev.map((m) => (m.id === editingMember.id ? { ...m, ...updates } : m)),
+      );
       const { error } = await supabase
         .from('family_members')
         .update(updates)
         .eq('id', editingMember.id)
         .eq('user_id', user.id);
-      if (!error) {
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.id === editingMember.id ? { ...m, ...updates } : m,
-          ),
-        );
+      if (error) {
+        setMembers(snapshot);
+        alert(`Could not save changes: ${error.message}`);
+        setSubmitting(false);
+        return;
       }
     } else {
       // Insert new member
@@ -143,16 +149,22 @@ export default function MembersPage() {
         spent: 0,
         earned: 0,
       };
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('family_members')
         .insert(member)
         .select()
         .single();
+      if (error) {
+        alert(`Could not add member: ${error.message}`);
+        setSubmitting(false);
+        return;
+      }
       if (data) setMembers((prev) => [...prev, data as FamilyMember]);
     }
 
     resetForm();
     setShowModal(false);
+    setSubmitting(false);
   };
 
   const handleRemove = async (id: string) => {
@@ -167,12 +179,18 @@ export default function MembersPage() {
       const typed = window.prompt(`Type "delete" to permanently remove ${target!.name}:`);
       if (typed?.toLowerCase() !== 'delete') return;
     }
-    await supabase
+    // AUDIT Imp #9: rollback if the delete fails instead of lying.
+    const snapshot = members;
+    setMembers((prev) => prev.filter((m) => m.id !== id));
+    const { error } = await supabase
       .from('family_members')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id);
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+    if (error) {
+      setMembers(snapshot);
+      alert(`Could not remove member: ${error.message}`);
+    }
   };
 
   const sym = symbolFor(currency);
@@ -356,6 +374,7 @@ export default function MembersPage() {
                 <input
                   type="text"
                   required
+                  maxLength={80}
                   placeholder="e.g. Sarah"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -413,8 +432,9 @@ export default function MembersPage() {
                 type="submit"
                 className="btn-primary"
                 style={{ width: '100%' }}
+                disabled={submitting}
               >
-                {editingMember ? 'Save Changes' : 'Add Member'}
+                {submitting ? 'Saving…' : editingMember ? 'Save Changes' : 'Add Member'}
               </button>
             </form>
           </div>

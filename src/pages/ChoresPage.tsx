@@ -58,6 +58,7 @@ export default function ChoresPage() {
   const [assignee, setAssignee] = useState('');
   const [reward, setReward] = useState('');
   const [frequency, setFrequency] = useState('once');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -89,7 +90,7 @@ export default function ChoresPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return; // AUDIT Imp #14: double-submit guard.
 
     // Gate: if the assignee is a Junior kid and already at the free chore
     // limit, show the upgrade modal instead of inserting.
@@ -105,36 +106,49 @@ export default function ChoresPage() {
       }
     }
 
+    setSubmitting(true);
     const chore = {
       user_id: user.id,
       name: name.trim(),
       assignee: assignee || null,
-      reward: parseFloat(reward) || 0,
+      // AUDIT Imp #21: NaN-safe parse + clamp to 0.
+      reward: Number.isFinite(parseFloat(reward)) ? Math.max(0, parseFloat(reward)) : 0,
       frequency,
       completed: false,
       pending_approval: false,
     };
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('family_chores')
       .insert(chore)
       .select()
       .single();
+    if (error) {
+      alert(`Could not add chore: ${error.message}`);
+      setSubmitting(false);
+      return;
+    }
     if (data) setChores((prev) => [...prev, data as Chore]);
     setName('');
     setAssignee('');
     setReward('');
     setFrequency('once');
     setShowModal(false);
+    setSubmitting(false);
   };
 
   /** Child marks chore done → goes to pending_approval. */
   const markDone = async (chore: Chore) => {
     if (!user) return;
-    await supabase
+    // AUDIT Imp #9: verify success before flipping state.
+    const { error } = await supabase
       .from('family_chores')
       .update({ pending_approval: true })
       .eq('id', chore.id)
       .eq('user_id', user.id);
+    if (error) {
+      alert(`Could not mark done: ${error.message}`);
+      return;
+    }
     setChores((prev) =>
       prev.map((c) =>
         c.id === chore.id ? { ...c, pending_approval: true } : c,
@@ -252,12 +266,18 @@ export default function ChoresPage() {
 
   const deleteChore = async (id: string) => {
     if (!user) return;
-    await supabase
+    // AUDIT Imp #9: optimistic + rollback.
+    const snapshot = chores;
+    setChores((prev) => prev.filter((c) => c.id !== id));
+    const { error } = await supabase
       .from('family_chores')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id);
-    setChores((prev) => prev.filter((c) => c.id !== id));
+    if (error) {
+      setChores(snapshot);
+      alert(`Could not delete chore: ${error.message}`);
+    }
   };
 
   const sym = symbolFor(currency);
@@ -408,6 +428,7 @@ export default function ChoresPage() {
                 <input
                   type="text"
                   required
+                  maxLength={120}
                   placeholder="e.g. Clean bedroom"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -455,8 +476,9 @@ export default function ChoresPage() {
                 type="submit"
                 className="btn-primary"
                 style={{ width: '100%' }}
+                disabled={submitting}
               >
-                Add Chore
+                {submitting ? 'Adding…' : 'Add Chore'}
               </button>
             </form>
           </div>
