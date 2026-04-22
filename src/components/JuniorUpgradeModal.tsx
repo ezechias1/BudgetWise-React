@@ -30,7 +30,7 @@ export function JuniorUpgradeModal({ reason, current, limit, onClose }: Props) {
         </div>
         <p>{copy}</p>
         <p style={{ marginTop: 16 }}>
-          Pro is <strong>R79/month</strong> (or R659/year — save 30%) and unlocks:
+          Pro is <strong>$4.99</strong> (30 days) and unlocks:
         </p>
         <ul>
           <li>Unlimited Junior kids</li>

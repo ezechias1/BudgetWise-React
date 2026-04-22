@@ -3,6 +3,7 @@
 // (rather than document.write) so the print dialog is invoked automatically.
 
 import type { Expense } from '@/types';
+import { todayIso } from './format';
 
 function csvSafe(value: string | number): string {
   const s = String(value ?? '');
@@ -44,7 +45,7 @@ export function exportExpensesToCSV(expenses: Expense[]): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `budgetwise-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `budgetwise-expenses-${todayIso()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

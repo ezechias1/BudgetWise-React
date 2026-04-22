@@ -1,19 +1,22 @@
 import { supabase } from '@/lib/supabase';
 
+// AUDIT Minor #12: compute the ISO week key in LOCAL time to match the
+// local-time Sunday check in maybeFireSundayReminder. Previously mixed
+// local `getDay()` with UTC isoWeek, which let the reminder double-fire
+// across the SA Sun/Mon midnight boundary.
 function isoWeek(d: Date): string {
-  const target = new Date(d);
-  target.setUTCHours(0, 0, 0, 0);
-  target.setUTCDate(target.getUTCDate() + 3 - ((target.getUTCDay() + 6) % 7));
-  const week1 = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7));
+  const week1 = new Date(target.getFullYear(), 0, 4);
   const weekNum =
     1 +
     Math.round(
       ((target.getTime() - week1.getTime()) / 86400000 -
         3 +
-        ((week1.getUTCDay() + 6) % 7)) /
+        ((week1.getDay() + 6) % 7)) /
         7,
     );
-  return `${target.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+  return `${target.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
 export async function maybeFireSundayReminder(

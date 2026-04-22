@@ -173,7 +173,7 @@ export default function StokvelPage() {
     if (groups.length === 0 || !user) return;
 
     const lastReminder = localStorage.getItem('budgetwise-stokvel-reminder');
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIso();
     if (lastReminder === today) return; // Only remind once per day
 
     // Check if any group has a contribution due this month

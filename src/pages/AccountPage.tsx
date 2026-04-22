@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, todayIso } from '@/lib/format';
 import { CURRENCIES } from '@/lib/currencies';
 import { ENABLE_PRO_SYSTEM, isAdmin, isProUser } from '@/lib/access';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
@@ -283,7 +283,7 @@ export default function AccountPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `budgetwise-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `budgetwise-backup-${todayIso()}.json`;
       a.click();
       URL.revokeObjectURL(url);
       alert('Backup downloaded successfully');

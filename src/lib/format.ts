@@ -19,9 +19,14 @@ export function formatCurrency(amount: number, currency: string): string {
   );
 }
 
-/** ISO date for an `<input type="date">` default value. */
+/** ISO date for an `<input type="date">` default value.
+ *  AUDIT Imp #12: compute from local year/month/day. `toISOString()` uses
+ *  UTC, which rolls over to "tomorrow" after 22:00 SA time and silently
+ *  mis-dates any expense added late in the evening.
+ */
 export function todayIso(): string {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Month key used by the vanilla app for filtering, e.g. "2026-04". */

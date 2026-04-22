@@ -32,6 +32,9 @@
   z-index: 100;
 }
 
+/* AUDIT Minor #3: JuniorLayout renders NavLink (<a>) not <button>.
+   Target both so the designed pill applies regardless of element. */
+.junior-bottom-nav a,
 .junior-bottom-nav button {
   background: none;
   border: 0;
@@ -39,6 +42,7 @@
   padding: 8px 12px;
   border-radius: 12px;
   color: #6b7280;
+  text-decoration: none;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -47,6 +51,7 @@
   gap: 2px;
 }
 
+.junior-bottom-nav a.active,
 .junior-bottom-nav button.active {
   color: #10b981;
   background: rgba(16, 185, 129, 0.1);
