@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -506,27 +506,30 @@ export default function AccountPage() {
   /**
    * Longest current streak of consecutive days with at least one logged
    * expense, ending today. Walks backwards from today one day at a time.
+   *
+   * AUDIT Imp #16: memoize — this ran on every render (including every
+   * keystroke in the settings form), each iteration constructing Dates
+   * and formatting strings up to 365x. Only re-run when expenses change.
+   *
+   * AUDIT Imp #13: use local-time day keys instead of toISOString().slice
+   * so day comparison doesn't skip or double-count around local midnight.
    */
-  const streakDays = (() => {
+  const streakDays = useMemo(() => {
     if (expenses.length === 0) return 0;
     const dayKeys = new Set(expenses.map((e) => e.date?.slice(0, 10)).filter(Boolean) as string[]);
+    const localKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     let streak = 0;
     const cursor = new Date();
-    // Allow today OR yesterday as the starting point (a single skipped day
-    // shouldn't nuke the streak if it's the current day and the user hasn't
-    // logged yet).
-    const today = cursor.toISOString().slice(0, 10);
-    if (!dayKeys.has(today)) cursor.setDate(cursor.getDate() - 1);
-    // Walk back
+    if (!dayKeys.has(localKey(cursor))) cursor.setDate(cursor.getDate() - 1);
     while (true) {
-      const key = cursor.toISOString().slice(0, 10);
-      if (!dayKeys.has(key)) break;
+      if (!dayKeys.has(localKey(cursor))) break;
       streak++;
       cursor.setDate(cursor.getDate() - 1);
       if (streak > 365) break; // safety cap
     }
     return streak;
-  })();
+  }, [expenses]);
 
   // Achievement context
   const now = new Date();
