@@ -804,7 +804,11 @@ Leave every child `<Route ...>` inside the dashboard block exactly as it current
             </Route>
 ```
 
-Keep the existing `ProtectedRoute` import in `App.tsx` — `AdminRoute` (which still uses it) is part of the AdminPage route and unchanged in Phase 1.
+**Remove** the `ProtectedRoute` name from `App.tsx`'s import of `@/components/ProtectedRoute` (keep `AdminRoute`). Although `AdminRoute` internally uses the same auth-gate logic as `ProtectedRoute`, it's exported separately from the same file; App.tsx itself has no direct reference to `ProtectedRoute` after Change A, and `noUnusedLocals: true` in `tsconfig.json` will otherwise flag the import as an error.
+
+```tsx
+import { AdminRoute } from '@/components/ProtectedRoute';
+```
 
 - [ ] **Step 4.3: Typecheck.**
 
