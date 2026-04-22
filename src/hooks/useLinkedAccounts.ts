@@ -92,13 +92,15 @@ export function useLinkedAccounts() {
         await supabase
           .from('linked_accounts')
           .update({ is_primary: false })
-          .in('id', modeIds);
+          .in('id', modeIds)
+          .eq('user_id', user.id);
       }
       // Set the new primary
       await supabase
         .from('linked_accounts')
         .update({ is_primary: true })
-        .eq('id', accountId);
+        .eq('id', accountId)
+        .eq('user_id', user.id);
       await load();
     },
     [user, accounts, load],
@@ -106,6 +108,7 @@ export function useLinkedAccounts() {
 
   const updateBalance = useCallback(
     async (accountId: string, newBalance: number) => {
+      if (!user) return;
       await supabase
         .from('linked_accounts')
         .update({
@@ -113,10 +116,11 @@ export function useLinkedAccounts() {
           balance_available: newBalance,
           last_synced: new Date().toISOString(),
         })
-        .eq('id', accountId);
+        .eq('id', accountId)
+        .eq('user_id', user.id);
       await load();
     },
-    [load],
+    [user, load],
   );
 
   // Detect cross-mode accounts: same institution_name + mask in multiple modes
