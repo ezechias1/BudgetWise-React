@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface TourStep {
   target: string; // CSS selector for the element to highlight
   title: string;
   text: string;
+  openMenu?: boolean; // if true, opens the mobile sidebar before highlighting
 }
 
 const STEPS: TourStep[] = [
@@ -13,19 +14,14 @@ const STEPS: TourStep[] = [
     text: 'See your income, spending, balance, and savings at a glance. These update in real time as you add expenses.',
   },
   {
-    target: '.quick-add-bar, .stats-grid + div + div',
-    title: 'Quick Add',
-    text: 'Log expenses instantly — pick a category, type the amount, and hit Add. No need to open the full form.',
-  },
-  {
     target: '.btn-add',
     title: 'Add Expense',
-    text: 'For more detail, tap here to open the full expense form with date, category, recurring options, and more.',
+    text: 'Tap here to open the full expense form with date, category, recurring options, and more.',
   },
   {
     target: '.btn-scan',
     title: 'Scan Receipts',
-    text: 'Snap a photo of any receipt and we\'ll read it using OCR — the total, store name, and category are auto-filled.',
+    text: "Snap a photo of any receipt and we'll read it using OCR — the total, store name, and category are auto-filled.",
   },
   {
     target: '.budget-ring-container, .chart-card',
@@ -38,9 +34,15 @@ const STEPS: TourStep[] = [
     text: 'BudgetWise has three modes: Personal, Business, and Family. Each has its own budget, categories, and features.',
   },
   {
-    target: '.nav-items, nav ul',
+    target: '.menu-toggle',
+    title: 'Menu',
+    text: 'Tap this button to open the navigation menu and access all features.',
+  },
+  {
+    target: '.sidebar-nav',
     title: 'Explore Features',
     text: 'Use the sidebar to navigate — Expenses, Savings Goals, Bank Connect, Currency Converter, and more.',
+    openMenu: true,
   },
 ];
 
@@ -48,32 +50,60 @@ const STORAGE_KEY = 'budgetwise-onboarded';
 
 /**
  * Onboarding tour overlay — shows step-by-step highlights for first-time users.
- * Uses the existing .tour-overlay / .tour-tooltip / .tour-spotlight CSS.
- * Skips if user has already completed or dismissed the tour.
+ * Scrolls elements into view, handles mobile menu, and positions tooltip smartly.
  */
 export function OnboardingTour() {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0, height: 0 });
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    // Only show for first-time users
     if (localStorage.getItem(STORAGE_KEY)) return;
-    // Small delay so DOM elements are rendered
-    const timer = setTimeout(() => setVisible(true), 800);
+    const timer = setTimeout(() => setVisible(true), 1200);
     return () => clearTimeout(timer);
   }, []);
 
   const positionTooltip = useCallback((stepIndex: number) => {
     const s = STEPS[stepIndex];
     if (!s) return;
-    // Try each selector (some steps have fallbacks separated by comma)
-    const selectors = s.target.split(',').map((s) => s.trim());
+
+    // Open mobile menu if this step requires it
+    if (s.openMenu) {
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar && !sidebar.classList.contains('open')) {
+        const menuBtn = document.querySelector('.menu-toggle') as HTMLButtonElement | null;
+        menuBtn?.click();
+      }
+      // Wait for sidebar animation
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(() => measureAndScroll(stepIndex), 350);
+      return;
+    }
+
+    // Close mobile menu if open and step doesn't need it
+    if (!s.openMenu) {
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar?.classList.contains('open')) {
+        const overlay = document.querySelector('.sidebar-overlay') as HTMLElement | null;
+        overlay?.click();
+      }
+    }
+
+    measureAndScroll(stepIndex);
+  }, []);
+
+  const measureAndScroll = useCallback((stepIndex: number) => {
+    const s = STEPS[stepIndex];
+    if (!s) return;
+
+    const selectors = s.target.split(',').map((sel) => sel.trim());
     let el: Element | null = null;
     for (const sel of selectors) {
       el = document.querySelector(sel);
       if (el) break;
     }
+
     if (!el) {
       // Element not found — skip to next or finish
       if (stepIndex < STEPS.length - 1) {
@@ -83,22 +113,39 @@ export function OnboardingTour() {
       }
       return;
     }
-    const rect = el.getBoundingClientRect();
-    setPos({
-      top: rect.top + window.scrollY,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-      height: rect.height,
-    });
-    // Scroll element into view
+
+    // Scroll element into view first, then measure after scroll completes
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      const rect = el!.getBoundingClientRect();
+      setPos({
+        top: rect.top + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+        height: rect.height,
+      });
+    }, 400);
   }, []);
 
   useEffect(() => {
     if (visible) positionTooltip(step);
+    return () => clearTimeout(scrollTimeoutRef.current);
   }, [step, visible, positionTooltip]);
 
+  // Reposition on resize/scroll
+  useEffect(() => {
+    if (!visible) return;
+    const handler = () => positionTooltip(step);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [visible, step, positionTooltip]);
+
   const finish = () => {
+    // Close sidebar if open
+    const overlay = document.querySelector('.sidebar-overlay') as HTMLElement | null;
+    if (overlay?.classList.contains('active')) overlay.click();
     localStorage.setItem(STORAGE_KEY, 'true');
     localStorage.setItem('budgetwise-tour-complete', 'true');
     setVisible(false);
@@ -120,8 +167,15 @@ export function OnboardingTour() {
   if (!current) return null;
 
   // Position tooltip below or above the highlighted element
-  const tooltipTop = pos.top + pos.height + 16;
-  const tooltipLeft = Math.max(16, Math.min(pos.left, window.innerWidth - 320));
+  const viewportHeight = window.innerHeight;
+  const elBottom = pos.top + pos.height - window.scrollY;
+  const spaceBelow = viewportHeight - elBottom;
+  const placeAbove = spaceBelow < 200 && pos.top - window.scrollY > 200;
+
+  const tooltipTop = placeAbove
+    ? pos.top - 16 // tooltip will use transform to go above
+    : pos.top + pos.height + 16;
+  const tooltipLeft = Math.max(12, Math.min(pos.left, window.innerWidth - 320));
 
   return (
     <>
@@ -141,6 +195,8 @@ export function OnboardingTour() {
           top: tooltipTop,
           left: tooltipLeft,
           position: 'absolute',
+          maxWidth: 'calc(100vw - 24px)',
+          ...(placeAbove ? { transform: 'translateY(-100%)' } : {}),
         }}
       >
         <h3>{current.title}</h3>
