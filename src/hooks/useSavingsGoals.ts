@@ -36,9 +36,29 @@ export function useSavingsGoals() {
     setLoading(false);
   }, [user, mode]);
 
+  // Cancelled-flag effect (AUDIT Imp #10).
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      let query = supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('user_id', user.id);
+      query =
+        mode === 'personal'
+          ? query.or('account_mode.is.null,account_mode.eq.personal')
+          : query.eq('account_mode', mode);
+      const { data, error: err } = await query.order('created_at', { ascending: false });
+      if (cancelled) return;
+      if (err) setError(err.message);
+      else setGoals((data ?? []) as SavingsGoal[]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user, mode]);
 
   const addGoal = useCallback(
     async (input: NewSavingsGoal): Promise<{ error: string | null }> => {

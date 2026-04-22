@@ -59,9 +59,26 @@ export function useUserSettings() {
     setLoading(false);
   }, [user]);
 
+  // Cancelled-flag effect (AUDIT Imp #10) — kept in addition to `load`
+  // so refresh() still works imperatively without a cancellation handle.
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from('user_settings')
+        .select(
+          'user_id, currency, avatar_url, is_pro, company_name, family_name, income, savings_goal, biz_income, biz_savings_goal, fam_income, fam_savings_goal',
+        )
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setRow((data as UserSettingsRow | null) ?? null);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Pick the right pair of columns for the current mode.
   const income =
@@ -96,7 +113,11 @@ export function useUserSettings() {
         else patch.savings_goal = input.savings_goal;
       }
 
-      const { error } = await supabase.from('user_settings').upsert(patch);
+      // AUDIT Imp — explicit onConflict so upsert merges on user_id instead
+      // of creating a duplicate row when patch omits id.
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert(patch, { onConflict: 'user_id' });
       if (error) return { error: error.message };
       await load();
       return { error: null };
