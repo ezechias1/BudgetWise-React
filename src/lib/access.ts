@@ -42,3 +42,41 @@ export function isProUser(
   if (!ENABLE_PRO_SYSTEM) return true;
   return isProFromSettings;
 }
+
+/**
+ * A "kid user" is an authenticated Supabase user whose auth_user_id matches
+ * a family_members row. The helper is async because we have to ask the DB —
+ * you can't tell from the JWT alone (we could put it in user_metadata but
+ * metadata is user-editable and shouldn't be trusted for routing).
+ *
+ * Prefer the useKidProfile hook in components; this raw helper is for places
+ * the hook can't reach (e.g. one-off scripts).
+ */
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export interface KidMemberRow {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  age: number | null;
+  date_of_birth: string | null;
+  allowance: number;
+  earned: number;
+  spent: number;
+  jar_split: { save: number; spend: number; give: number };
+  role: string;
+}
+
+export async function fetchKidMemberForUser(
+  client: SupabaseClient,
+  userId: string,
+): Promise<KidMemberRow | null> {
+  const { data, error } = await client
+    .from('family_members')
+    .select('id, user_id, name, color, age, date_of_birth, allowance, earned, spent, jar_split, role')
+    .eq('auth_user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as KidMemberRow) ?? null;
+}
