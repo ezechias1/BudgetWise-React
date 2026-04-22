@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -11,36 +11,71 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ModeProvider } from '@/contexts/ModeContext';
 
+/**
+ * Wrap dynamic imports so a chunk-not-found after a deploy doesn't brick
+ * a stale tab. Vite produces hashed filenames (FamilyGoalsPage-abc123.js)
+ * and Vercel purges the old hashes when a new deploy lands. Any tab that
+ * had the OLD /index.html referenced still tries to import the now-404
+ * old hash and throws "Failed to fetch dynamically imported module".
+ * On that specific error, force a full reload — fresh /index.html
+ * references the current chunks, so recovery is automatic.
+ */
+function lazyWithRetry<T extends ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>,
+): ReturnType<typeof lazy<T>> {
+  return lazy(() =>
+    factory().catch((err: Error) => {
+      const msg = err?.message ?? '';
+      if (
+        msg.includes('Failed to fetch dynamically imported module') ||
+        msg.includes('Importing a module script failed')
+      ) {
+        // One-shot reload guard via session storage so we don't loop forever
+        // if the chunk genuinely is gone.
+        const key = 'budgetwise-chunk-retry';
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          window.location.reload();
+          // Return a never-resolving promise so React doesn't render
+          // before the reload takes over.
+          return new Promise(() => {}) as Promise<{ default: T }>;
+        }
+      }
+      throw err;
+    }),
+  );
+}
+
 // Lazy-loaded page components — each becomes its own chunk
-const AuthPage = lazy(() => import('@/pages/AuthPage'));
-const OverviewPage = lazy(() => import('@/pages/OverviewPage'));
-const ExpensesPage = lazy(() => import('@/pages/ExpensesPage'));
-const SavingsPage = lazy(() => import('@/pages/SavingsPage'));
-const AccountPage = lazy(() => import('@/pages/AccountPage'));
-const CurrencyPage = lazy(() => import('@/pages/CurrencyPage'));
-const AdvicePage = lazy(() => import('@/pages/AdvicePage'));
-const BankPage = lazy(() => import('@/pages/BankPage'));
-const StokvelPage = lazy(() => import('@/pages/StokvelPage'));
-const LoadSheddingPage = lazy(() => import('@/pages/LoadSheddingPage'));
-const InvoicesPage = lazy(() => import('@/pages/InvoicesPage'));
-const ClientsPage = lazy(() => import('@/pages/ClientsPage'));
-const PnLPage = lazy(() => import('@/pages/PnLPage'));
-const TaxPage = lazy(() => import('@/pages/TaxPage'));
-const MembersPage = lazy(() => import('@/pages/MembersPage'));
-const AllowancesPage = lazy(() => import('@/pages/AllowancesPage'));
-const ChoresPage = lazy(() => import('@/pages/ChoresPage'));
-const FamilyGoalsPage = lazy(() => import('@/pages/FamilyGoalsPage'));
-const SpendingTrackerPage = lazy(() => import('@/pages/SpendingTrackerPage'));
-const JuniorDashboardPage = lazy(() => import('@/pages/JuniorDashboardPage'));
-const HelpPage = lazy(() => import('@/pages/HelpPage'));
-const AdminPage = lazy(() => import('@/pages/AdminPage'));
-const JuniorHomePage = lazy(() => import('@/pages/junior/JuniorHomePage'));
-const JuniorChoresPage = lazy(() => import('@/pages/junior/JuniorChoresPage'));
-const JuniorMissionsPage = lazy(() => import('@/pages/junior/JuniorMissionsPage'));
-const JuniorMissionPlayer = lazy(() => import('@/pages/junior/JuniorMissionPlayer'));
-const JuniorJarsPage = lazy(() => import('@/pages/junior/JuniorJarsPage'));
-const JuniorLoginPage = lazy(() => import('@/pages/junior/JuniorLoginPage'));
-const JuniorLayout = lazy(() =>
+const AuthPage = lazyWithRetry(() => import('@/pages/AuthPage'));
+const OverviewPage = lazyWithRetry(() => import('@/pages/OverviewPage'));
+const ExpensesPage = lazyWithRetry(() => import('@/pages/ExpensesPage'));
+const SavingsPage = lazyWithRetry(() => import('@/pages/SavingsPage'));
+const AccountPage = lazyWithRetry(() => import('@/pages/AccountPage'));
+const CurrencyPage = lazyWithRetry(() => import('@/pages/CurrencyPage'));
+const AdvicePage = lazyWithRetry(() => import('@/pages/AdvicePage'));
+const BankPage = lazyWithRetry(() => import('@/pages/BankPage'));
+const StokvelPage = lazyWithRetry(() => import('@/pages/StokvelPage'));
+const LoadSheddingPage = lazyWithRetry(() => import('@/pages/LoadSheddingPage'));
+const InvoicesPage = lazyWithRetry(() => import('@/pages/InvoicesPage'));
+const ClientsPage = lazyWithRetry(() => import('@/pages/ClientsPage'));
+const PnLPage = lazyWithRetry(() => import('@/pages/PnLPage'));
+const TaxPage = lazyWithRetry(() => import('@/pages/TaxPage'));
+const MembersPage = lazyWithRetry(() => import('@/pages/MembersPage'));
+const AllowancesPage = lazyWithRetry(() => import('@/pages/AllowancesPage'));
+const ChoresPage = lazyWithRetry(() => import('@/pages/ChoresPage'));
+const FamilyGoalsPage = lazyWithRetry(() => import('@/pages/FamilyGoalsPage'));
+const SpendingTrackerPage = lazyWithRetry(() => import('@/pages/SpendingTrackerPage'));
+const JuniorDashboardPage = lazyWithRetry(() => import('@/pages/JuniorDashboardPage'));
+const HelpPage = lazyWithRetry(() => import('@/pages/HelpPage'));
+const AdminPage = lazyWithRetry(() => import('@/pages/AdminPage'));
+const JuniorHomePage = lazyWithRetry(() => import('@/pages/junior/JuniorHomePage'));
+const JuniorChoresPage = lazyWithRetry(() => import('@/pages/junior/JuniorChoresPage'));
+const JuniorMissionsPage = lazyWithRetry(() => import('@/pages/junior/JuniorMissionsPage'));
+const JuniorMissionPlayer = lazyWithRetry(() => import('@/pages/junior/JuniorMissionPlayer'));
+const JuniorJarsPage = lazyWithRetry(() => import('@/pages/junior/JuniorJarsPage'));
+const JuniorLoginPage = lazyWithRetry(() => import('@/pages/junior/JuniorLoginPage'));
+const JuniorLayout = lazyWithRetry(() =>
   import('@/components/junior/JuniorLayout').then((m) => ({ default: m.JuniorLayout }))
 );
 
