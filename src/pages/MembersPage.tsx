@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { AddKidModal } from '@/components/AddKidModal';
 import { ShowKidLinkModal } from '@/components/ShowKidLinkModal';
+import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { checkJuniorGate, isProUser, JUNIOR_FREE_LIMITS } from '@/lib/access';
 
 /**
  * Ports #page-members from dashboard.html (line 1730) and
@@ -47,10 +50,13 @@ function symbolFor(currency: string): string {
 
 export default function MembersPage() {
   const { user } = useAuth();
+  const { isProFromSettings } = useUserSettings();
+  const isPro = isProUser(isProFromSettings, user);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
   const [showKidModal, setShowKidModal] = useState(false);
+  const [kidGateBlocked, setKidGateBlocked] = useState<{ current: number; limit: number } | null>(null);
   const [linkForMember, setLinkForMember] = useState<FamilyMember | null>(null);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [name, setName] = useState('');
@@ -58,6 +64,7 @@ export default function MembersPage() {
   const [age, setAge] = useState('');
   const [color, setColor] = useState('#8b5cf6');
   const [allowance, setAllowance] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -102,10 +109,12 @@ export default function MembersPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return; // AUDIT Imp #14: double-submit guard.
+    setSubmitting(true);
 
     if (editingMember) {
-      // Update existing member
+      // Update existing member (AUDIT Imp #9: rollback optimistic update
+      // if the write fails).
       const updates = {
         name: name.trim(),
         role,
@@ -113,16 +122,20 @@ export default function MembersPage() {
         color,
         allowance: Number(allowance) || 0,
       };
+      const snapshot = members;
+      setMembers((prev) =>
+        prev.map((m) => (m.id === editingMember.id ? { ...m, ...updates } : m)),
+      );
       const { error } = await supabase
         .from('family_members')
         .update(updates)
-        .eq('id', editingMember.id);
-      if (!error) {
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.id === editingMember.id ? { ...m, ...updates } : m,
-          ),
-        );
+        .eq('id', editingMember.id)
+        .eq('user_id', user.id);
+      if (error) {
+        setMembers(snapshot);
+        alert(`Could not save changes: ${error.message}`);
+        setSubmitting(false);
+        return;
       }
     } else {
       // Insert new member
@@ -136,19 +149,26 @@ export default function MembersPage() {
         spent: 0,
         earned: 0,
       };
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('family_members')
         .insert(member)
         .select()
         .single();
+      if (error) {
+        alert(`Could not add member: ${error.message}`);
+        setSubmitting(false);
+        return;
+      }
       if (data) setMembers((prev) => [...prev, data as FamilyMember]);
     }
 
     resetForm();
     setShowModal(false);
+    setSubmitting(false);
   };
 
   const handleRemove = async (id: string) => {
+    if (!user) return;
     const target = members.find((m) => m.id === id);
     const isJuniorKid = target?.role === 'child' && !!target?.auth_user_id;
     const prompt = isJuniorKid
@@ -159,8 +179,18 @@ export default function MembersPage() {
       const typed = window.prompt(`Type "delete" to permanently remove ${target!.name}:`);
       if (typed?.toLowerCase() !== 'delete') return;
     }
-    await supabase.from('family_members').delete().eq('id', id);
+    // AUDIT Imp #9: rollback if the delete fails instead of lying.
+    const snapshot = members;
     setMembers((prev) => prev.filter((m) => m.id !== id));
+    const { error } = await supabase
+      .from('family_members')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      setMembers(snapshot);
+      alert(`Could not remove member: ${error.message}`);
+    }
   };
 
   const sym = symbolFor(currency);
@@ -192,7 +222,17 @@ export default function MembersPage() {
         <button
           type="button"
           className="btn-primary"
-          onClick={() => setShowKidModal(true)}
+          onClick={() => {
+            const juniorKidCount = members.filter(
+              (m) => m.role === 'child' && !!m.auth_user_id,
+            ).length;
+            const gate = checkJuniorGate(isPro, 'kids', juniorKidCount);
+            if (gate) {
+              setKidGateBlocked({ current: gate.current, limit: gate.limit });
+              return;
+            }
+            setShowKidModal(true);
+          }}
           style={{ marginLeft: 12 }}
         >
           <svg
@@ -334,6 +374,7 @@ export default function MembersPage() {
                 <input
                   type="text"
                   required
+                  maxLength={80}
                   placeholder="e.g. Sarah"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -391,8 +432,9 @@ export default function MembersPage() {
                 type="submit"
                 className="btn-primary"
                 style={{ width: '100%' }}
+                disabled={submitting}
               >
-                {editingMember ? 'Save Changes' : 'Add Member'}
+                {submitting ? 'Saving…' : editingMember ? 'Save Changes' : 'Add Member'}
               </button>
             </form>
           </div>
@@ -415,6 +457,15 @@ export default function MembersPage() {
           memberId={linkForMember.id}
           kidName={linkForMember.name}
           onClose={() => setLinkForMember(null)}
+        />
+      )}
+
+      {kidGateBlocked && (
+        <JuniorUpgradeModal
+          reason="kids"
+          current={kidGateBlocked.current}
+          limit={kidGateBlocked.limit ?? JUNIOR_FREE_LIMITS.maxKids}
+          onClose={() => setKidGateBlocked(null)}
         />
       )}
     </section>

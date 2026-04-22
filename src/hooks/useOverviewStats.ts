@@ -30,18 +30,14 @@ interface OverviewStats {
   monthCompareText: string | null;
 }
 
-/** Dedupe consecutive identical entries — ports dedupeRecent() from app.js. */
+/**
+ * Recent expenses — no dedup by category|description|amount (AUDIT Imp #26:
+ * two genuine same-day same-shop purchases would collapse to one, making
+ * users think the second didn't save). Each row is already unique by id;
+ * we just keep insertion order.
+ */
 function dedupeRecent(list: Expense[]): Expense[] {
-  const seen = new Set<string>();
-  const out: Expense[] = [];
-  for (const e of list) {
-    const key = `${e.category}|${e.description}|${e.amount}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(e);
-    }
-  }
-  return out;
+  return list;
 }
 
 /**

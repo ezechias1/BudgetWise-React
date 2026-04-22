@@ -173,7 +173,7 @@ export default function StokvelPage() {
     if (groups.length === 0 || !user) return;
 
     const lastReminder = localStorage.getItem('budgetwise-stokvel-reminder');
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIso();
     if (lastReminder === today) return; // Only remind once per day
 
     // Check if any group has a contribution due this month
@@ -375,6 +375,10 @@ export default function StokvelPage() {
   };
 
   const handleApproveMember = async (memberId: string, stokvelId: string, uid: string) => {
+    if (!user) return;
+    // NOTE: stokvel_members is scoped by id only — the row's user_id is the
+    // member being approved, not the caller. RLS must enforce that only the
+    // group owner can update. Tightening via RPC is tracked as follow-up.
     await supabase.from('stokvel_members').update({ approved: true }).eq('id', memberId);
     // Add to payout order — app.js line 9201
     const g = groups.find((gr) => gr.id === stokvelId);
@@ -385,24 +389,33 @@ export default function StokvelPage() {
         await supabase
           .from('stokvel_groups')
           .update({ payout_order: order })
-          .eq('id', g.id);
+          .eq('id', g.id)
+          .eq('user_id', user.id);
       }
     }
     await loadStokvelData();
   };
 
   const handleRejectMember = async (memberId: string) => {
+    // See handleApproveMember note — stokvel_members ownership is via the
+    // parent group, enforced by RLS. Not scoping by user_id here.
     await supabase.from('stokvel_members').delete().eq('id', memberId);
     await loadStokvelData();
   };
 
   const handleDeleteStokvel = async (id: string) => {
+    if (!user) return;
     if (!confirm('Delete this stokvel and all its data? This cannot be undone.')) return;
-    await supabase.from('stokvel_groups').delete().eq('id', id);
+    await supabase
+      .from('stokvel_groups')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     await loadStokvelData();
   };
 
   const handleAdvancePayout = async (g: StokvelGroup, recipient: string, amount: number) => {
+    if (!user) return;
     if (!confirm('Confirm payout of ' + sym + amount + ' to ' + recipient + '?')) return;
     try {
       const order = g.payout_order || [];
@@ -419,7 +432,8 @@ export default function StokvelPage() {
       await supabase
         .from('stokvel_groups')
         .update({ current_payout_index: nextIdx })
-        .eq('id', g.id);
+        .eq('id', g.id)
+        .eq('user_id', user.id);
       await loadStokvelData();
     } catch (err) {
       console.error('Payout error:', err);

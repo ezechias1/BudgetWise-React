@@ -89,8 +89,13 @@ export default function ClientsPage() {
   };
 
   const deleteClient = async (id: string) => {
+    if (!user) return;
     if (!confirm('Delete this client? Their invoices will remain.')) return;
-    await supabase.from('clients').delete().eq('id', id);
+    await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     loadClients();
   };
 

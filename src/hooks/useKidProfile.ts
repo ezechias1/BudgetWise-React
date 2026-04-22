@@ -42,7 +42,10 @@ export function useKidProfile() {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+    // AUDIT Minor #9: depend on user?.id (stable) not user (new identity on
+    // every session refresh), so hourly token refreshes don't trigger a
+    // refetch that flashes the loading overlay.
+  }, [user?.id, authLoading]);
 
   return {
     member,

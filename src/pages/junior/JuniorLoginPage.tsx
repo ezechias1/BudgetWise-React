@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { signInAsKid } from '@/lib/junior-auth';
+import { supabase } from '@/lib/supabase';
+import { listDeviceKids, rememberDeviceKid } from '@/lib/junior-device-kids';
 
 export default function JuniorLoginPage() {
   const [params] = useSearchParams();
@@ -9,6 +11,8 @@ export default function JuniorLoginPage() {
   const [pin, setPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const deviceKids = listDeviceKids();
 
   const canSubmit = /^\d{4}$/.test(pin) && memberId.length > 0 && !submitting;
 
@@ -17,22 +21,90 @@ export default function JuniorLoginPage() {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const { error: err } = await signInAsKid(memberId, pin);
-    if (err) {
-      setError('Wrong PIN. Try again.');
+    const { status } = await signInAsKid(memberId, pin);
+    if (status !== 'ok') {
+      // AUDIT Imp #4 / #5: branch on rate-limit, and after a couple of
+      // failures hint that the link itself might be dead.
+      setAttempts((n) => n + 1);
+      if (status === 'rate_limited') {
+        setError('Too many tries — wait a minute and try again.');
+      } else if (attempts + 1 >= 3) {
+        setError('Still not working? Ask your parent for a fresh link.');
+      } else {
+        setError('Wrong PIN. Try again.');
+      }
       setPin('');
       setSubmitting(false);
       return;
+    }
+    const { data: member } = await supabase
+      .from('family_members')
+      .select('name, color')
+      .eq('id', memberId)
+      .maybeSingle();
+    if (member?.name && member?.color) {
+      rememberDeviceKid({ memberId, name: member.name, color: member.color });
     }
     navigate('/junior/home', { replace: true });
   };
 
   if (!memberId) {
+    if (deviceKids.length === 0) {
+      return (
+        <div className="junior-shell">
+          <main className="junior-main">
+            <h1 style={{ color: '#dc2626' }}>Link missing</h1>
+            <p>Ask your parent for your login link again.</p>
+          </main>
+        </div>
+      );
+    }
     return (
       <div className="junior-shell">
         <main className="junior-main">
-          <h1 style={{ color: '#dc2626' }}>Link missing</h1>
-          <p>Ask your parent for your login link again.</p>
+          <section className="junior-hero">
+            <h1>Who's signing in?</h1>
+            <p>Tap your name.</p>
+          </section>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 16, marginTop: 20 }}>
+            {deviceKids.map((k) => (
+              <button
+                key={k.memberId}
+                type="button"
+                onClick={() => navigate(`/junior/login?as=${k.memberId}`)}
+                style={{
+                  background: 'white',
+                  border: 0,
+                  borderRadius: 16,
+                  padding: 20,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: k.color,
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.5rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {k.name.charAt(0).toUpperCase()}
+                </div>
+                <strong>{k.name}</strong>
+              </button>
+            ))}
+          </div>
         </main>
       </div>
     );

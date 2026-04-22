@@ -50,9 +50,32 @@ export function useExpenses() {
     setLoading(false);
   }, [user, mode]);
 
+  // Cancelled-flag pattern — rapid mode switches can land results in the
+  // wrong order and overwrite the correct mode's data. Latest mount wins.
+  // (AUDIT Imp #10.) `load` is kept for manual refresh() callers where
+  // cancellation doesn't matter.
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      let query = supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id);
+      query =
+        mode === 'personal'
+          ? query.or('account_mode.is.null,account_mode.eq.personal')
+          : query.eq('account_mode', mode);
+      const { data, error: err } = await query.order('date', { ascending: false });
+      if (cancelled) return;
+      if (err) setError(err.message);
+      else setExpenses((data ?? []) as Expense[]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user, mode]);
 
   const addExpense = useCallback(
     async (input: NewExpense): Promise<{ error: string | null }> => {

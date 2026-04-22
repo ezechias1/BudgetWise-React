@@ -64,27 +64,48 @@ export default function AllowancesPage() {
   }, [load]);
 
   const logSpend = async (m: FamilyMember) => {
+    if (!user) return;
     const amount = prompt('How much was spent?');
-    if (!amount || isNaN(parseFloat(amount))) return;
-    const next = (m.spent || 0) + parseFloat(amount);
-    await supabase
-      .from('family_members')
-      .update({ spent: next })
-      .eq('id', m.id);
+    if (!amount) return;
+    const parsed = parseFloat(amount);
+    // AUDIT Imp #21: reject NaN / infinite / non-positive / absurdly large.
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1_000_000) {
+      alert('Enter a valid positive amount.');
+      return;
+    }
+    // AUDIT Imp #11: cents math to avoid float drift on accumulated spend.
+    const next = Math.round(((m.spent || 0) + parsed) * 100) / 100;
+    const snapshot = members;
     setMembers((prev) =>
       prev.map((p) => (p.id === m.id ? { ...p, spent: next } : p)),
     );
+    const { error } = await supabase
+      .from('family_members')
+      .update({ spent: next })
+      .eq('id', m.id)
+      .eq('user_id', user.id);
+    if (error) {
+      setMembers(snapshot);
+      alert(`Could not log spending: ${error.message}`);
+    }
   };
 
   const resetAllowance = async (m: FamilyMember) => {
+    if (!user) return;
     if (!confirm('Reset this allowance to 0 spent?')) return;
-    await supabase
-      .from('family_members')
-      .update({ spent: 0, earned: 0 })
-      .eq('id', m.id);
+    const snapshot = members;
     setMembers((prev) =>
       prev.map((p) => (p.id === m.id ? { ...p, spent: 0, earned: 0 } : p)),
     );
+    const { error } = await supabase
+      .from('family_members')
+      .update({ spent: 0, earned: 0 })
+      .eq('id', m.id)
+      .eq('user_id', user.id);
+    if (error) {
+      setMembers(snapshot);
+      alert(`Could not reset allowance: ${error.message}`);
+    }
   };
 
   const sym = symbolFor(currency);

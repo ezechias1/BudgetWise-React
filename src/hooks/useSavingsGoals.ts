@@ -36,9 +36,29 @@ export function useSavingsGoals() {
     setLoading(false);
   }, [user, mode]);
 
+  // Cancelled-flag effect (AUDIT Imp #10).
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      let query = supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('user_id', user.id);
+      query =
+        mode === 'personal'
+          ? query.or('account_mode.is.null,account_mode.eq.personal')
+          : query.eq('account_mode', mode);
+      const { data, error: err } = await query.order('created_at', { ascending: false });
+      if (cancelled) return;
+      if (err) setError(err.message);
+      else setGoals((data ?? []) as SavingsGoal[]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user, mode]);
 
   const addGoal = useCallback(
     async (input: NewSavingsGoal): Promise<{ error: string | null }> => {
@@ -58,33 +78,40 @@ export function useSavingsGoals() {
 
   const fundGoal = useCallback(
     async (goalId: string, amount: number): Promise<{ error: string | null }> => {
+      if (!user) return { error: 'Not signed in' };
       const goal = goals.find((g) => g.id === goalId);
       if (!goal) return { error: 'Goal not found' };
       const newSaved = goal.saved_amount + amount;
       const { error: err } = await supabase
         .from('savings_goals')
         .update({ saved_amount: newSaved })
-        .eq('id', goalId);
+        .eq('id', goalId)
+        .eq('user_id', user.id);
       if (err) return { error: err.message };
       await load();
       return { error: null };
     },
-    [goals, load],
+    [user, goals, load],
   );
 
   const deleteGoal = useCallback(
     async (goalId: string): Promise<{ error: string | null }> => {
+      if (!user) return { error: 'Not signed in' };
       // Optimistic
       const snapshot = goals;
       setGoals((g) => g.filter((x) => x.id !== goalId));
-      const { error: err } = await supabase.from('savings_goals').delete().eq('id', goalId);
+      const { error: err } = await supabase
+        .from('savings_goals')
+        .delete()
+        .eq('id', goalId)
+        .eq('user_id', user.id);
       if (err) {
         setGoals(snapshot);
         return { error: err.message };
       }
       return { error: null };
     },
-    [goals],
+    [user, goals],
   );
 
   return { goals, loading, error, refresh: load, addGoal, fundGoal, deleteGoal };

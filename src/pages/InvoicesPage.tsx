@@ -76,12 +76,22 @@ export default function InvoicesPage() {
   }, [invoices]);
 
   const markPaid = async (id: string) => {
-    await supabase.from('invoices').update({ status: 'paid' }).eq('id', id);
+    if (!user) return;
+    await supabase
+      .from('invoices')
+      .update({ status: 'paid' })
+      .eq('id', id)
+      .eq('user_id', user.id);
     loadInvoices();
   };
 
   const deleteInvoice = async (id: string) => {
-    await supabase.from('invoices').delete().eq('id', id);
+    if (!user) return;
+    await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     loadInvoices();
   };
 

@@ -383,7 +383,7 @@ export default function BankPage() {
         const match = data.accounts.find(
           (a: { account_id: string }) => a.account_id === acc.account_id
         );
-        if (match) {
+        if (match && user) {
           await supabase
             .from('linked_accounts')
             .update({
@@ -391,7 +391,8 @@ export default function BankPage() {
               balance_available: match.balances.available,
               last_synced: new Date().toISOString(),
             })
-            .eq('id', acc.id);
+            .eq('id', acc.id)
+            .eq('user_id', user.id);
         }
       }
       await loadLinkedAccounts();
@@ -401,6 +402,7 @@ export default function BankPage() {
   };
 
   const handleUpdateBalance = async (acc: LinkedAccount) => {
+    if (!user) return;
     const newBalance = prompt('Enter updated balance:');
     if (newBalance === null || isNaN(parseFloat(newBalance))) return;
     await supabase
@@ -410,13 +412,19 @@ export default function BankPage() {
         balance_available: parseFloat(newBalance),
         last_synced: new Date().toISOString(),
       })
-      .eq('id', acc.id);
+      .eq('id', acc.id)
+      .eq('user_id', user.id);
     await loadLinkedAccounts();
   };
 
   const handleRemove = async (acc: LinkedAccount) => {
+    if (!user) return;
     if (!confirm('Remove this account? Transaction history will be kept.')) return;
-    await supabase.from('linked_accounts').delete().eq('id', acc.id);
+    await supabase
+      .from('linked_accounts')
+      .delete()
+      .eq('id', acc.id)
+      .eq('user_id', user.id);
     await loadLinkedAccounts();
   };
 

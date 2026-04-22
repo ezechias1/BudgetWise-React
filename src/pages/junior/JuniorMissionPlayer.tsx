@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { type KidMission } from '@/hooks/useKidMissions';
+import { useParentProForKid } from '@/hooks/useParentProForKid';
+import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
+import { checkJuniorGate } from '@/lib/access';
+import { enqueueApprovalNudge } from '@/lib/junior-notifications';
 
 interface HookStep { type: 'hook'; title: string; body: string; }
 interface ConceptStep { type: 'concept'; title: string; body: string; }
@@ -15,11 +19,13 @@ export default function JuniorMissionPlayer() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { member } = useKidProfile();
+  const { isPro } = useParentProForKid(member?.user_id);
   const [mission, setMission] = useState<KidMission | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [quizPick, setQuizPick] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [missionGateBlocked, setMissionGateBlocked] = useState<{ current: number; limit: number } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +47,24 @@ export default function JuniorMissionPlayer() {
     if (!member || !mission) return;
     setSubmitting(true);
     setError(null);
+
+    // Freemium gate: count existing completed missions for this kid. If over
+    // the free limit and parent isn't Pro, show the upgrade modal and bail
+    // before writing progress. The mission has NOT been completed yet so
+    // re-entering after upgrade is fine.
+    const { count } = await supabase
+      .from('kid_mission_progress')
+      .select('mission_id', { count: 'exact', head: true })
+      .eq('member_id', member.id)
+      .eq('status', 'completed');
+    const completedCount = count ?? 0;
+    const gate = checkJuniorGate(isPro, 'missions', completedCount);
+    if (gate) {
+      setMissionGateBlocked({ current: gate.current, limit: gate.limit });
+      setSubmitting(false);
+      return;
+    }
+
     const completedAt = new Date().toISOString();
     // Upsert progress row. The DB trigger writes the kid_ledger reward.
     const { error: err } = await supabase
@@ -60,9 +84,17 @@ export default function JuniorMissionPlayer() {
       setError(err.message);
       return;
     }
+    // Enqueue approval nudge for the parent. Fire-and-forget.
+    void enqueueApprovalNudge(
+      member.user_id,
+      member.name,
+      'mission',
+      mission.title,
+      '/dashboard/junior',
+    );
     // Proceed to the done step
     setStepIdx((i) => i + 1);
-  }, [member, mission]);
+  }, [member, mission, isPro]);
 
   if (error) return <p style={{ color: '#dc2626' }}>Couldn&apos;t load mission: {error}</p>;
   if (!mission) return <p>Loading…</p>;
@@ -156,6 +188,18 @@ export default function JuniorMissionPlayer() {
         >
           {submitting ? 'Saving…' : step.type === 'tie_in' ? 'Finish' : 'Next'}
         </button>
+      )}
+
+      {missionGateBlocked && (
+        <JuniorUpgradeModal
+          reason="missions"
+          current={missionGateBlocked.current}
+          limit={missionGateBlocked.limit}
+          onClose={() => {
+            setMissionGateBlocked(null);
+            navigate('/junior/missions');
+          }}
+        />
       )}
     </>
   );

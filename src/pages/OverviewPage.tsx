@@ -100,7 +100,12 @@ export default function OverviewPage() {
 
     setScanning(true);
     try {
-      const parsed = await scanReceipt(file);
+      // AUDIT Imp #15 / #25: 60s timeout so a hung Tesseract load on a slow
+      // connection doesn't leave the scanning overlay forever.
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('OCR timed out after 60s')), 60_000),
+      );
+      const parsed = await Promise.race([scanReceipt(file), timeout]);
       setScanDefaults(parsed);
       setModalOpen(true);
       if (!parsed.amount && !parsed.description) {
@@ -109,9 +114,8 @@ export default function OverviewPage() {
       }
     } catch (err) {
       console.error('Receipt scan failed:', err);
-      alert(
-        'Could not scan the receipt (OCR library failed to load). Opening manual entry instead.',
-      );
+      const msg = err instanceof Error ? err.message : 'OCR library failed to load';
+      alert(`Could not scan the receipt (${msg}). Opening manual entry instead.`);
       setScanDefaults(undefined);
       setModalOpen(true);
     } finally {
@@ -520,7 +524,9 @@ export default function OverviewPage() {
             value={quickDesc}
             onChange={(ev) => setQuickDesc(ev.target.value)}
             onKeyDown={(ev) => {
-              if (ev.key === 'Enter') handleQuickAdd();
+              // AUDIT Imp #14: rapid Enter presses bypassed the quickBusy
+              // guard on the button. Gate by the same state here.
+              if (ev.key === 'Enter' && !quickBusy) handleQuickAdd();
             }}
           />
           <button

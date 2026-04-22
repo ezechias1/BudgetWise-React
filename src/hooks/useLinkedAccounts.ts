@@ -46,23 +46,27 @@ export function useLinkedAccounts() {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    try {
-      // Fetch current mode accounts
-      const { data, error } = await supabase
-        .from('linked_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('account_mode', mode)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setAccounts((data ?? []) as LinkedAccount[]);
-    } catch {
-      // Fallback if account_mode column doesn't exist
-      const { data } = await supabase
-        .from('linked_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+    // Narrowed fallback (AUDIT Imp #15): only fall back to all-modes fetch
+    // if the error indicates a missing column (Postgres code 42703). Any
+    // other error (RLS denial, transient 500) should NOT merge all modes.
+    const { data, error } = await supabase
+      .from('linked_accounts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('account_mode', mode)
+      .order('created_at', { ascending: false });
+    if (error) {
+      if ((error as { code?: string }).code === '42703') {
+        const { data: fallback } = await supabase
+          .from('linked_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        setAccounts((fallback ?? []) as LinkedAccount[]);
+      } else {
+        setAccounts([]);
+      }
+    } else {
       setAccounts((data ?? []) as LinkedAccount[]);
     }
 
@@ -77,9 +81,45 @@ export function useLinkedAccounts() {
     setLoading(false);
   }, [user, mode]);
 
+  // Cancelled-flag effect (AUDIT Imp #10).
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from('linked_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('account_mode', mode)
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        if ((error as { code?: string }).code === '42703') {
+          const { data: fallback } = await supabase
+            .from('linked_accounts')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (cancelled) return;
+          setAccounts((fallback ?? []) as LinkedAccount[]);
+        } else {
+          setAccounts([]);
+        }
+      } else {
+        setAccounts((data ?? []) as LinkedAccount[]);
+      }
+      const { data: all } = await supabase
+        .from('linked_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+      setAllAccounts((all ?? []) as LinkedAccount[]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user, mode]);
 
   const primaryAccount = accounts.find((a) => a.is_primary) || null;
 
@@ -92,13 +132,15 @@ export function useLinkedAccounts() {
         await supabase
           .from('linked_accounts')
           .update({ is_primary: false })
-          .in('id', modeIds);
+          .in('id', modeIds)
+          .eq('user_id', user.id);
       }
       // Set the new primary
       await supabase
         .from('linked_accounts')
         .update({ is_primary: true })
-        .eq('id', accountId);
+        .eq('id', accountId)
+        .eq('user_id', user.id);
       await load();
     },
     [user, accounts, load],
@@ -106,6 +148,7 @@ export function useLinkedAccounts() {
 
   const updateBalance = useCallback(
     async (accountId: string, newBalance: number) => {
+      if (!user) return;
       await supabase
         .from('linked_accounts')
         .update({
@@ -113,10 +156,11 @@ export function useLinkedAccounts() {
           balance_available: newBalance,
           last_synced: new Date().toISOString(),
         })
-        .eq('id', accountId);
+        .eq('id', accountId)
+        .eq('user_id', user.id);
       await load();
     },
-    [load],
+    [user, load],
   );
 
   // Detect cross-mode accounts: same institution_name + mask in multiple modes

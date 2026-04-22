@@ -35,12 +35,14 @@ function buildAdvice(goal: SavingsGoal, currency: string): string {
   }
   const remaining = goal.target_amount - goal.saved_amount;
   if (goal.deadline) {
-    const deadline = new Date(goal.deadline);
+    // AUDIT Imp #13: parse YYYY-MM-DD explicitly to avoid new Date(str)'s
+    // UTC interpretation rolling the month boundary for western timezones.
+    const [dy, dm] = goal.deadline.split('-').map(Number);
     const now = new Date();
     const monthsUntil = Math.max(
       0,
-      (deadline.getFullYear() - now.getFullYear()) * 12 +
-        deadline.getMonth() -
+      (dy - now.getFullYear()) * 12 +
+        (dm - 1) -
         now.getMonth(),
     );
     const needed = remaining / Math.max(1, monthsUntil);
