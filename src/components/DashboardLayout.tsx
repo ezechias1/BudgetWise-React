@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { setupParentNotificationPolling } from '@/lib/junior-notifications';
+import { maybeFireSundayReminder } from '@/lib/junior-sunday-reminder';
 
 /**
  * Shell for every /dashboard/* route. Renders the sidebar, the mobile header,
@@ -19,6 +20,9 @@ import { setupParentNotificationPolling } from '@/lib/junior-notifications';
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [permissionDismissed, setPermissionDismissed] = useState(false);
+  const [sundayBanner, setSundayBanner] = useState<
+    { totalOwedCents: number; kidsCount: number } | null
+  >(null);
   const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user } = useAuth();
@@ -42,6 +46,11 @@ export function DashboardLayout() {
   useEffect(() => {
     if (!user || kidLoading || isChild) return;
     const cleanup = setupParentNotificationPolling(user.id);
+    maybeFireSundayReminder(user.id).then(({ fired, totalOwedCents, kidsCount }) => {
+      if (fired && totalOwedCents > 0) {
+        setSundayBanner({ totalOwedCents, kidsCount });
+      }
+    });
     return cleanup;
   }, [user, kidLoading, isChild]);
 
@@ -104,6 +113,29 @@ export function DashboardLayout() {
       </div>
 
       <main className="main-content loaded">
+        {sundayBanner && (
+          <div
+            role="alert"
+            style={{
+              background: '#fef3c7',
+              border: '1px solid #fbbf24',
+              borderRadius: 12,
+              padding: '14px 18px',
+              margin: '12px 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <strong>Sunday settle-up</strong>
+              <br />
+              You owe R{(sundayBanner.totalOwedCents / 100).toFixed(2)} across {sundayBanner.kidsCount} {sundayBanner.kidsCount === 1 ? 'child' : 'children'}.
+              <a href="/dashboard/junior" style={{ marginLeft: 8 }}>Open Junior →</a>
+            </div>
+            <button onClick={() => setSundayBanner(null)} aria-label="Dismiss">×</button>
+          </div>
+        )}
         {showPermissionBanner && (
           <div
             style={{
