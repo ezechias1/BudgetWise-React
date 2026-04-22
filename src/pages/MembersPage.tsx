@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { AddKidModal } from '@/components/AddKidModal';
+import { ShowKidLinkModal } from '@/components/ShowKidLinkModal';
 
 /**
  * Ports #page-members from dashboard.html (line 1730) and
@@ -21,6 +22,7 @@ interface FamilyMember {
   allowance: number;
   spent: number;
   earned: number;
+  auth_user_id?: string | null;
 }
 
 const AVATAR_COLORS = [
@@ -49,6 +51,7 @@ export default function MembersPage() {
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
   const [showKidModal, setShowKidModal] = useState(false);
+  const [linkForMember, setLinkForMember] = useState<FamilyMember | null>(null);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('parent');
@@ -262,6 +265,29 @@ export default function MembersPage() {
                   </div>
                 </div>
                 <div className="member-actions">
+                  {m.role === 'child' && m.auth_user_id && (
+                    <button
+                      className="btn-edit-member"
+                      onClick={() => setLinkForMember(m)}
+                      title={`Show ${m.name}'s login link`}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ verticalAlign: 'middle', marginRight: 4 }}
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                      Link
+                    </button>
+                  )}
                   <button
                     className="btn-edit-member"
                     onClick={() => openEdit(m)}
@@ -372,6 +398,14 @@ export default function MembersPage() {
             // stays mounted so the parent can copy the share URL + PIN before dismissing.
             load();
           }}
+        />
+      )}
+
+      {linkForMember && (
+        <ShowKidLinkModal
+          memberId={linkForMember.id}
+          kidName={linkForMember.name}
+          onClose={() => setLinkForMember(null)}
         />
       )}
     </section>
