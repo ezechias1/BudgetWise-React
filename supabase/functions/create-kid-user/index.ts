@@ -6,16 +6,30 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+// Origin allowlist — only BudgetWise's own origins can call this endpoint.
+// Fixes AUDIT.md C3 (was Access-Control-Allow-Origin: "*" which let any
+// website the parent visits call this authenticated function via their JWT).
+const ALLOWED_ORIGINS = new Set([
+  "https://budget-wise-react.vercel.app",
+  "https://budget-wise-ruby.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
 
-function json(status: number, body: unknown) {
+function corsHeadersFor(origin: string | null): Record<string, string> {
+  const allow = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    Vary: "Origin",
+  };
+}
+
+function json(origin: string | null, status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeadersFor(origin), "Content-Type": "application/json" },
   });
 }
 
@@ -27,11 +41,12 @@ function derivePassword(pin: string, memberId: string): string {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get("Origin");
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeadersFor(origin) });
   }
   if (req.method !== "POST") {
-    return json(405, { error: "POST only" });
+    return json(origin, 405, { error: "POST only" });
   }
 
   try {
@@ -41,7 +56,7 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: parent } } = await anonClient.auth.getUser();
-    if (!parent) return json(401, { error: "Not signed in" });
+    if (!parent) return json(origin, 401, { error: "Not signed in" });
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -52,7 +67,7 @@ serve(async (req) => {
         .select("id")
         .eq("auth_user_id", parent.id)
         .maybeSingle();
-      if (kidRow) return json(403, { error: "Only parents can add kids" });
+      if (kidRow) return json(origin, 403, { error: "Only parents can add kids" });
     }
 
     const body = await req.json();
@@ -73,10 +88,10 @@ serve(async (req) => {
     };
 
     if (!name || !pin) {
-      return json(400, { error: "name and pin are required" });
+      return json(origin, 400, { error: "name and pin are required" });
     }
     if (!/^\d{4}$/.test(pin)) {
-      return json(400, { error: "pin must be exactly 4 digits" });
+      return json(origin, 400, { error: "pin must be exactly 4 digits" });
     }
 
     // Either create a new family_members row or update the one provided
@@ -90,10 +105,10 @@ serve(async (req) => {
         .eq("id", member_id)
         .eq("user_id", parent.id)
         .maybeSingle();
-      if (error) return json(500, { error: error.message });
-      if (!data) return json(404, { error: "Member not found or not owned by caller" });
+      if (error) return json(origin, 500, { error: error.message });
+      if (!data) return json(origin, 404, { error: "Member not found or not owned by caller" });
       if (data.auth_user_id) {
-        return json(409, { error: "Member already has credentials" });
+        return json(origin, 409, { error: "Member already has credentials" });
       }
       memberRow = { id: data.id };
     } else {
@@ -111,7 +126,7 @@ serve(async (req) => {
         })
         .select("id")
         .single();
-      if (error) return json(500, { error: error.message });
+      if (error) return json(origin, 500, { error: error.message });
       memberRow = { id: data!.id };
       createdNewMember = true;
     }
@@ -131,7 +146,7 @@ serve(async (req) => {
       if (createdNewMember) {
         await admin.from("family_members").delete().eq("id", memberRow.id);
       }
-      return json(500, { error: userErr.message });
+      return json(origin, 500, { error: userErr.message });
     }
 
     // Wire the child's auth_user_id back onto the family_members row
@@ -150,14 +165,14 @@ serve(async (req) => {
         await admin.from("family_members").delete().eq("id", memberRow.id);
         await admin.auth.admin.deleteUser(userData.user!.id);
       }
-      return json(500, { error: updErr.message });
+      return json(origin, 500, { error: updErr.message });
     }
 
-    return json(200, {
+    return json(origin, 200, {
       member_id: memberRow.id,
       child_email: internalEmail,
     });
   } catch (err) {
-    return json(500, { error: (err as Error).message });
+    return json(origin, 500, { error: (err as Error).message });
   }
 });
