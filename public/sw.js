@@ -2,7 +2,7 @@
 // always gets fresh HTML (and therefore fresh hashed JS bundles). Falls
 // back to cached shell only when offline. Static assets are cache-first.
 
-const CACHE = 'budgetwise-react-v4';
+const CACHE = 'budgetwise-react-v5';
 const SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -51,24 +51,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static same-origin GETs: cache-first with background refresh.
-  event.respondWith(
-    caches.match(event.request).then(
-      (cached) =>
-        cached ??
-        fetch(event.request).then((response) => {
-          if (
-            event.request.method === 'GET' &&
-            response.status === 200 &&
-            url.origin === self.location.origin
-          ) {
+  // Static same-origin GETs: network-first with cache fallback.
+  if (event.request.method === 'GET' && url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
             const clone = response.clone();
             caches.open(CACHE).then((c) => c.put(event.request, clone));
           }
           return response;
-        }),
-    ),
-  );
+        })
+        .catch(() => caches.match(event.request).then((c) => c || Response.error())),
+    );
+  }
 });
 
 // Push notification handler — for bill reminders, stokvel, trial expiry
