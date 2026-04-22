@@ -5,7 +5,7 @@ import { useParticleBackground } from '@/hooks/useParticleBackground';
 import { PasswordInput } from '@/components/PasswordInput';
 import type { Mode } from '@/types';
 
-type Tab = 'login' | 'signup' | 'forgot';
+type Tab = 'login' | 'signup' | 'forgot' | 'reset';
 
 // Auto-detect country from timezone — ported from `auth.js` lines 89-103.
 const TZ_TO_COUNTRY: Record<string, string> = {
@@ -55,11 +55,27 @@ const TYPE_DESC: Record<Mode, string> = {
 };
 
 export default function AuthPage() {
-  const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const {
+    user,
+    loading,
+    passwordRecovery,
+    clearPasswordRecovery,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    resetPassword,
+    updatePassword,
+  } = useAuth();
   const navigate = useNavigate();
   const canvasRef = useParticleBackground();
 
-  const [tab, setTab] = useState<Tab>('login');
+  // Task #35: when Supabase fires PASSWORD_RECOVERY after the user clicks the
+  // email reset link, force the reset tab. Previously the app bounced them
+  // straight to /dashboard without ever showing a change-password form.
+  const [tab, setTab] = useState<Tab>(passwordRecovery ? 'reset' : 'login');
+  useEffect(() => {
+    if (passwordRecovery) setTab('reset');
+  }, [passwordRecovery]);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -113,6 +129,11 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
 
+  // Reset-password form state (Task #35)
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
+  const [resetError, setResetError] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
 
   // Auto-populate country from timezone on mount (matches vanilla behavior)
@@ -129,7 +150,10 @@ export default function AuthPage() {
   const typeDesc = TYPE_DESC[signupType];
 
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  // Task #35: don't short-circuit to /dashboard while in password recovery —
+  // Supabase already signed the user in via the reset link but the point is
+  // to show the change-password form before letting them in.
+  if (user && !passwordRecovery) return <Navigate to="/dashboard" replace />;
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -180,6 +204,28 @@ export default function AuthPage() {
     const { error } = await signInWithGoogle();
     setSubmitting(false);
     if (error) setLoginError(error);
+  };
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    if (resetPasswordValue.length < 6) {
+      setResetError('Password must be at least 6 characters.');
+      return;
+    }
+    if (resetPasswordValue !== resetPasswordConfirm) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await updatePassword(resetPasswordValue);
+    setSubmitting(false);
+    if (error) {
+      setResetError(error);
+      return;
+    }
+    clearPasswordRecovery();
+    navigate('/dashboard', { replace: true });
   };
 
   return (
@@ -235,32 +281,69 @@ export default function AuthPage() {
 
         <div className="auth-right">
           <div className="auth-card">
-            <div className="auth-tabs">
-              <button
-                type="button"
-                className={`tab-btn ${tab === 'login' ? 'active' : ''}`}
-                onClick={() => {
-                  setTab('login');
-                  setLoginError('');
-                  setSignupError('');
-                  setForgotError('');
-                }}
-              >
-                Log In
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${tab === 'signup' ? 'active' : ''}`}
-                onClick={() => {
-                  setTab('signup');
-                  setLoginError('');
-                  setSignupError('');
-                  setForgotError('');
-                }}
-              >
-                Sign Up
-              </button>
-            </div>
+            {tab !== 'reset' && (
+              <div className="auth-tabs">
+                <button
+                  type="button"
+                  className={`tab-btn ${tab === 'login' ? 'active' : ''}`}
+                  onClick={() => {
+                    setTab('login');
+                    setLoginError('');
+                    setSignupError('');
+                    setForgotError('');
+                  }}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${tab === 'signup' ? 'active' : ''}`}
+                  onClick={() => {
+                    setTab('signup');
+                    setLoginError('');
+                    setSignupError('');
+                    setForgotError('');
+                  }}
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
+
+            {tab === 'reset' && (
+              <form className="auth-form" onSubmit={handleResetPassword}>
+                <h2 style={{ marginBottom: 12 }}>Set a new password</h2>
+                <p className="forgot-desc">
+                  Choose a new password for your account. You'll be signed in after saving.
+                </p>
+                <div className="field">
+                  <label>New password</label>
+                  <PasswordInput
+                    id="resetPassword"
+                    value={resetPasswordValue}
+                    onChange={setResetPasswordValue}
+                    placeholder="Min 6 characters"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="field">
+                  <label>Confirm new password</label>
+                  <PasswordInput
+                    id="resetPasswordConfirm"
+                    value={resetPasswordConfirm}
+                    onChange={setResetPasswordConfirm}
+                    placeholder="Re-enter password"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Saving…' : 'Save new password'}
+                </button>
+                {resetError && <p className="auth-error">{resetError}</p>}
+              </form>
+            )}
 
             {tab === 'login' && (
               <form className="auth-form" onSubmit={handleLogin}>
@@ -450,10 +533,13 @@ export default function AuthPage() {
               </form>
             )}
 
-            <div className="divider">
-              <span>or</span>
-            </div>
+            {tab !== 'reset' && (
+              <div className="divider">
+                <span>or</span>
+              </div>
+            )}
 
+            {tab !== 'reset' && (
             <button
               type="button"
               className="btn-google"
@@ -480,6 +566,7 @@ export default function AuthPage() {
               </svg>
               <span>Continue with Google</span>
             </button>
+            )}
           </div>
         </div>
       </div>
