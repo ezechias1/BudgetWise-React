@@ -14,10 +14,15 @@ The app is feature-dense and works end-to-end. All 4 Critical issues are now res
 
 **Severity counts (consolidated):**
 - Critical: **4** (all fixed; C4 has 1 subset open pending RPC)
-- Important: **28** (17 fixed, 3 partially fixed, 8 open)
+- Important: **28** (22 fixed, 3 partially fixed, 3 open)
 - Minor: **26** (7 fixed, 19 open — most low-priority polish)
 - Nice-to-have: **14** (unchanged — long-term)
 - Confirmed safe: **20+**
+
+**Project follow-up tasks also closed this pass:**
+- Task #22 — parent can reset a kid's forgotten PIN (`reset-kid-pin` edge function + MembersPage button)
+- Task #23 — `delete-kid-user` edge function stops leaving orphan `auth.users` rows
+- Task #35 — password recovery now shows a "Set a new password" form via `PASSWORD_RECOVERY` handler instead of silently dropping user on /dashboard
 
 **Shipped fix commits (in order):**
 - `3d4c5aa` — C3 CORS allowlist
@@ -64,7 +69,7 @@ Commits `bf80fbe` + `5fe93a6` + `b76c13e`. Added `.eq('user_id', user.id)` defen
 1. **✅ FIXED (commit `f2a9348`).** Dropped `bcryptHashSync` from `create-kid-user` entirely — pin_hash was write-only, real auth is via the derived-password Supabase auth user. Removes the V8-blocking DoS surface.
 2. **✅ FIXED (commit `f2a9348`).** All error-path returns in `create-kid-user` now log the raw error to `console.error` with context and return a generic user-safe message.
 3. **`kid_ledger` child-read policy could expose cross-family data if `member_id` is ever reused.** **OPEN (requires new migration).**
-4. **`useParentProForKid` fails open when RLS blocks the read.** Safe while `ENABLE_PRO_SYSTEM=false`. **OPEN — needs schema work (cross-scope RLS or dedicated edge function) before Pro flips on.**
+4. **✅ FIXED (commit `879a10b`).** New `kid-pro-status` edge function returns parent's `is_pro` to a signed-in kid via service role. `useParentProForKid` now fails CLOSED (isPro=false) on any error.
 5. **Notification dedup relies on localStorage — parent can forge.** Low risk (user's own reminder). **OPEN (low priority).**
 6. **Two new `security definer` DB triggers have no logging.** **OPEN (requires new migration; low priority).**
 
@@ -83,13 +88,13 @@ Commits `bf80fbe` + `5fe93a6` + `b76c13e`. Added `.eq('user_id', user.id)` defen
 14. **✅ FIXED (commit `e774aa1`, `48c3e6e`).** Double-submit guards on `MembersPage`, `ChoresPage`, `FamilyGoalsPage`. `OverviewPage.handleQuickAdd` Enter handler now gates on `quickBusy`.
 15. **✅ FIXED (commit `d69bf86`).** `useLinkedAccounts` fallback now only triggers on Postgres code 42703 (missing column) instead of any error. `StokvelPage` open.
 16. **Google OAuth `redirectTo: /dashboard` flashes parent UI before role gate.** Kids don't sign in via Google today, but latent. **OPEN (latent).**
-17. **Password reset `redirectTo: origin/` breaks on preview deploys.** Hardcode production origin or env-gate. **OPEN (needs env-var decision).**
-18. **Password recovery UX itself is broken.** Tracked as #35 — reset link signs user in but doesn't show change-password form. **OPEN (feature).**
+17. **✅ FIXED (commit `b3ab513`).** `AuthContext.resetPassword` now anchors redirectTo to the canonical production origin (localhost in dev); preview deploys no longer bake dead URLs into reset emails.
+18. **✅ FIXED (commit `b3ab513`).** Task #35 — AuthContext listens for `PASSWORD_RECOVERY` and flips a flag; AuthPage shows a "Set a new password" form with confirm-match + min-length, calls `updatePassword`, navigates to /dashboard on success.
 19. **✅ FIXED (commit `e774aa1`).** `maxLength` added to critical text inputs (MembersPage name, ChoresPage name, FamilyGoalsPage name). Other inputs remain as low-priority cleanup.
 20. **Inputs not trimmed on submit.** ExpenseModal still relevant. Family pages already call `.trim()`. **OPEN (minor).**
 21. **✅ FIXED (commit `e774aa1`).** NaN-safe parseFloat + positive-amount clamping added to `ChoresPage` reward, `FamilyGoalsPage.contribute`, `AllowancesPage.logSpend`. SavingsPage/StokvelPage remain open.
 22. **62 `alert()`/`confirm()`/`prompt()` calls — styled-modal replacement.** **OPEN (UX rewrite, not a bug fix — ~4 hours work deferred).**
-23. **`window.location.reload()` used as refresh hammer.** `AccountPage:214, 355, 377`. **OPEN — ultra-surgical fix needs per-site analysis.**
+23. **✅ FIXED (commit `dde8978`).** AccountPage replaced all 3 `window.location.reload()` with `refreshSettings/refreshExpenses/refreshGoals` calls — no more clobbering state in other tabs after avatar upload, restore, or delete-all.
 24. **`budget_limits` fallback silently loses data between sessions.** `ExpensesPage:104-157`. **OPEN (data-model decision).**
 25. **✅ FIXED (commit `48c3e6e`).** OCR/receipt scan now has a 60s timeout so a hung Tesseract load can't leave the scanning overlay stuck.
 26. **✅ FIXED (commit `48c3e6e`).** `dedupeRecent` is now a no-op passthrough — list is id-unique already.
