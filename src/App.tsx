@@ -36,6 +36,8 @@ const HelpPage = lazy(() => import('@/pages/HelpPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const JuniorHomePage = lazy(() => import('@/pages/junior/JuniorHomePage'));
 const JuniorChoresPage = lazy(() => import('@/pages/junior/JuniorChoresPage'));
+const JuniorMissionsPage = lazy(() => import('@/pages/junior/JuniorMissionsPage'));
+const JuniorMissionPlayer = lazy(() => import('@/pages/junior/JuniorMissionPlayer'));
 const JuniorLoginPage = lazy(() => import('@/pages/junior/JuniorLoginPage'));
 const JuniorLayout = lazy(() =>
   import('@/components/junior/JuniorLayout').then((m) => ({ default: m.JuniorLayout }))
@@ -124,6 +126,8 @@ export default function App() {
             >
               <Route path="home" element={<JuniorHomePage />} />
               <Route path="chores" element={<JuniorChoresPage />} />
+              <Route path="missions" element={<JuniorMissionsPage />} />
+              <Route path="mission/:id" element={<JuniorMissionPlayer />} />
               <Route index element={<Navigate to="home" replace />} />
             </Route>
 
