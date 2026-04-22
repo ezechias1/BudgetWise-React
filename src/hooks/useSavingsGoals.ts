@@ -81,7 +81,8 @@ export function useSavingsGoals() {
       if (!user) return { error: 'Not signed in' };
       const goal = goals.find((g) => g.id === goalId);
       if (!goal) return { error: 'Goal not found' };
-      const newSaved = goal.saved_amount + amount;
+      // AUDIT Imp #11: cents math to avoid JS float drift across many fundings.
+      const newSaved = Math.round((goal.saved_amount + amount) * 100) / 100;
       const { error: err } = await supabase
         .from('savings_goals')
         .update({ saved_amount: newSaved })

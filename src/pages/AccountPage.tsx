@@ -66,8 +66,8 @@ const AUTOMATIONS: AutomationDef[] = [
 export default function AccountPage() {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { expenses } = useExpenses();
-  const { goals } = useSavingsGoals();
+  const { expenses, refresh: refreshExpenses } = useExpenses();
+  const { goals, refresh: refreshGoals } = useSavingsGoals();
   const {
     currency,
     income,
@@ -75,6 +75,7 @@ export default function AccountPage() {
     avatarUrl,
     isProFromSettings,
     updateSettings,
+    refresh: refreshSettings,
   } = useUserSettings();
   const navigate = useNavigate();
 
@@ -210,8 +211,9 @@ export default function AccountPage() {
         .update({ avatar_url: dataUrl })
         .eq('user_id', user.id);
       if (error) throw error;
-      // Force a settings refresh so the sidebar + profile pick up the new image
-      window.location.reload();
+      // AUDIT Imp #23: refresh settings in place instead of reloading the whole
+      // tab — avoids nuking unsaved state elsewhere in the app.
+      await refreshSettings();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       alert(`Upload failed: ${msg}`);
@@ -397,9 +399,10 @@ export default function AccountPage() {
           `Restore completed with errors — your data may be partial:\n\n${errs.join('\n')}`,
         );
       } else {
-        alert('Restore complete. Reloading…');
+        alert('Restore complete.');
       }
-      window.location.reload();
+      // AUDIT Imp #23: refresh the three affected hooks in place.
+      await Promise.all([refreshExpenses(), refreshGoals(), refreshSettings()]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       alert(`Restore failed: ${msg}`);
@@ -429,7 +432,8 @@ export default function AccountPage() {
       return;
     }
     alert('All expenses and savings goals deleted.');
-    window.location.reload();
+    // AUDIT Imp #23: refresh in place.
+    await Promise.all([refreshExpenses(), refreshGoals()]);
   };
 
   const handleLogout = async () => {

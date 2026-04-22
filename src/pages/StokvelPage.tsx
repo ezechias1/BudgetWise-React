@@ -342,7 +342,16 @@ export default function StokvelPage() {
     if (!user || !contribTarget) return;
     setContribBusy(true);
     try {
-      const amt = parseFloat(contribAmount);
+      // AUDIT Imp #21: NaN-safe + positive check instead of writing garbage.
+      const parsed = parseFloat(contribAmount);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        alert('Enter a valid positive amount.');
+        setContribBusy(false);
+        return;
+      }
+      // AUDIT Imp #11: round to cents before persisting so repeated small
+      // contributions don't drift the running totals.
+      const amt = Math.round(parsed * 100) / 100;
       const group = groups.find((g) => g.id === contribTarget.id);
       const groupName = group ? group.name : 'Stokvel';
 
