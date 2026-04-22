@@ -1,20 +1,21 @@
 # BudgetWise-React — Consolidated Whole-App Audit
 
 **Date:** 2026-04-22
+**Last updated:** 2026-04-22 (Tier 1 remediation shipped)
 **Scope:** Full React app + Supabase backend + Junior feature (Phases 1–4)
 **Methodology:** Synthesized three 2026-04-22 audit reports (archived at `~/Desktop/BudgetWise-audit-archive/2026-04-22/`) with cross-references to new Phase 2/3/4 code.
-**Status:** Read-only consolidation. Fixes proposed at bottom; approval required before auto-fix.
+**Status:** Tier 1 items shipped. Tier 2–4 and C4-subset follow-ups still open.
 
 ---
 
 ## Executive summary
 
-The app is feature-dense and works end-to-end. Two Critical issues from the original audits are **already fixed** in a prior session (credentials scrubbed from git history; `kid_mission_progress` RLS tightened). Two Critical issues remain that need action: the wildcard CORS on the `create-kid-user` edge function, and a systemic defense-in-depth gap on ~40 Supabase mutations that scope by `id` only without `user_id`. Most Important issues are UX polish with real user impact (double-submits, race conditions on mode switch, money-as-float rounding drift, timezone midnight bugs on date strings, forms that lie about success on silent failure). Phase 2/3/4 code mostly landed cleanly but introduces its own small items: `useParentProForKid` fails open intentionally (OK today while Pro is disabled; must tighten when flipped on), notification polling uses localStorage TTL that's trivially forgeable by the signed-in parent, and two new `security definer` triggers need log lines for observability.
+The app is feature-dense and works end-to-end. All 4 Critical issues are now resolved (C1 credentials scrubbed; C2 `kid_mission_progress` RLS tightened; C3 CORS allowlist shipped; C4 user_id defense-in-depth shipped across all owner-scoped tables — 1 subset still awaiting an ownership-check RPC). Two Tier 1 Important data-loss fixes have shipped (Imp #7 honest Delete-All scope + partial-failure surfacing; Imp #8 safer Restore validation). Remaining Important issues are mostly UX polish with real user impact (double-submits, race conditions on mode switch, money-as-float rounding drift, timezone midnight bugs on date strings, forms that lie about success on silent failure). Phase 2/3/4 code mostly landed cleanly but introduces its own small items: `useParentProForKid` fails open intentionally (OK today while Pro is disabled; must tighten when flipped on), notification polling uses localStorage TTL that's trivially forgeable by the signed-in parent, and two new `security definer` triggers need log lines for observability.
 
 **Severity counts (consolidated):**
-- Critical: **4** (2 already fixed, 2 open)
-- Important: **28**
-- Minor: **24**
+- Critical: **4** (all fixed; C4 has 1 subset open pending RPC)
+- Important: **28** (2 fixed — Imp #7, Imp #8 — 26 open)
+- Minor: **26** (+2 new from Phase 4 sanity check)
 - Nice-to-have: **14**
 - Confirmed safe: **20+**
 
@@ -28,39 +29,17 @@ The app is feature-dense and works end-to-end. Two Critical issues from the orig
 ### ✅ C2. Child can self-award any `kid_mission_progress.reward_amount_cents` — FIXED
 `supabase/migrations/20260422000004_tighten_mission_progress_rls.sql` replaced the blanket `for all` kid policy with `for select` + constrained INSERT/UPDATE that rejects `reward_amount_cents != null`. Parent keeps unrestricted access via the pre-existing `parent manages own children progress` policy. **No further action needed.**
 
-### 🔴 C3. `create-kid-user` edge function uses `Access-Control-Allow-Origin: *` — OPEN
-`supabase/functions/create-kid-user/index.ts:9-13`. Any webpage a signed-in parent visits can call the endpoint with their Supabase JWT (set via `Authorization` header, not cookie — SameSite doesn't help). Attacker can create nuisance child rows, lock out existing kid rows by binding PINs, or read the generated `member_id`/`child_email` from the response. **Fix: origin allowlist.**
+### ✅ C3. `create-kid-user` edge function `Access-Control-Allow-Origin: *` — FIXED
+Commit `3d4c5aa`. `supabase/functions/create-kid-user/index.ts` now uses `ALLOWED_ORIGINS` (react prod alias + ruby alias + localhost 5173/4173), `Vary: Origin`, and sends an empty `Access-Control-Allow-Origin` for non-allowlisted origins so the browser preflight denies the request. `admin-actions` in the vanilla repo still needs the same treatment — tracked as separate follow-up.
 
-```ts
-const ALLOWED_ORIGINS = new Set([
-  "https://budget-wise-react.vercel.app",
-  "https://budget-wise-ruby.vercel.app",
-  "http://localhost:5173",
-]);
-function buildCorsHeaders(origin: string | null) {
-  const allow = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
-  return {
-    "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    Vary: "Origin",
-  };
-}
-```
+### 🟡 C4. Client mutations scoped by `id` only — FIXED for owner-scoped tables; 1 subset still open
+Commits `bf80fbe` + `5fe93a6` + `b76c13e`. Added `.eq('user_id', user.id)` defense-in-depth to every mutation on directly user-owned tables:
+- `useSavingsGoals` · `useLinkedAccounts`
+- `MembersPage` · `AllowancesPage` · `FamilyGoalsPage` · `ChoresPage` (markDone, approve, reject, toggle un-complete, delete)
+- `StokvelPage.stokvel_groups` (3 sites) · `SpendingTrackerPage.family_links` (own-row: unlink, saveSharing)
+- `ClientsPage` · `InvoicesPage` · `BankPage.linked_accounts` (sync, updateBalance, remove)
 
-Reject body parse if origin not in allowlist. Apply the same fix to `admin-actions` in the vanilla repo (same Supabase project).
-
-### 🔴 C4. ~40 client mutations scope by `id` only — defense-in-depth gap — OPEN
-Any mutation not scoped by `.eq('user_id', user.id)` would leak data the moment any RLS policy is misconfigured or a new table is added without the right policy. `useExpenses` does this correctly; ~40 other call sites don't. Full list from the parent-side audit:
-- `useSavingsGoals.ts:67, 80`
-- `MembersPage.tsx:119, 162`
-- `ChoresPage.tsx:110, 122, 140, 154, 172, 190`
-- `AllowancesPage.tsx:72, 83`
-- `FamilyGoalsPage.tsx:157, 177`
-- `StokvelPage.tsx:378, 395, 401, 421`
-- `BankPage.tsx:388–395, 407–414, 419`
-- `useLinkedAccounts.ts:99–101, 110–116`
-
-**Fix:** add `.eq('user_id', user.id)` to each mutation. Low effort (~30 one-liners), high payoff.
+**Still open (C4 subset):** `stokvel_members` approve/reject and `family_links` approve/remove operate on ANOTHER user's row — row's `user_id` is the target, not the caller. Adding `.eq('user_id', caller.id)` would break these flows. Correct fix is a server-side RPC that verifies group/parent ownership before the mutation. Ownership is currently enforced by RLS only. Inline comments added at the call sites. Tracked as separate follow-up.
 
 ---
 
@@ -77,8 +56,8 @@ Any mutation not scoped by `.eq('user_id', user.id)` would leak data the moment 
 
 ### Data loss / integrity
 
-7. **`AccountPage` "Delete All My Data" has no transaction, no rollback.** Two sequential `.delete()` calls; if second fails, user is half-wiped. Also doesn't delete `family_*`, `stokvel_*`, `linked_accounts`, `user_settings`, `login_events`, `kid_*` — misleading label. Move to an edge function in a transaction; fix the label.
-8. **`AccountPage` "Restore from Backup" deletes BEFORE it inserts.** If inserts fail, user has lost everything. Use a staging table or verify insert succeeds before delete. Backup version check `!backup.version` is too weak.
+7. **✅ FIXED (commit `54fd55a`).** `AccountPage` "Delete All My Data" was misleading (only 2 tables deleted). Renamed button + confirm copy to "Delete Expenses & Savings" to match actual scope, and added per-table error surfacing so partial-delete is visible. Full-account purge via transactional edge function remains a future improvement.
+8. **✅ FIXED (commit `54fd55a`).** `AccountPage` "Restore from Backup" now validates shape strictly (version must equal 1, expenses must be array), rejects cross-account restore unless double-confirmed, and surfaces per-step insert/upsert errors with a partial-failure summary instead of claiming success silently.
 9. **Optimistic UI updates that don't rollback on server failure.** `ChoresPage.markDone/approve/reject/delete`, `MembersPage.handleRemove/handleSubmit`, `AllowancesPage`, `FamilyGoalsPage`. UI lies until refresh. Copy the rollback pattern from `useExpenses.ts:72-111`.
 10. **Race conditions on mode switch.** Most data hooks lack the `let cancelled = false` pattern. Mode switch Personal → Business → Personal can let the first (stale) fetch resolve last and overwrite the correct data. Files: `useExpenses`, `useSavingsGoals`, `useUserSettings`, `useLinkedAccounts`, `MembersPage`, `ChoresPage`, `AllowancesPage`, `FamilyGoalsPage`, `StokvelPage`, `AdminPage`. This is very likely the root cause of bug #36 (deep-link-from-website shows personal data).
 11. **Money as JS float.** `useSavingsGoals`, `ChoresPage` chore rewards, `StokvelPage` contributions, `AllowancesPage` spent totals. 0.1+0.2 rounding drift accumulates. Short-term: `Math.round((a+b)*100)/100`. Long-term: integer cents.
@@ -105,7 +84,7 @@ Any mutation not scoped by `.eq('user_id', user.id)` would leak data the moment 
 
 ---
 
-## Minor (24 items — top 10 only, rest in archive)
+## Minor (26 items — top 12, rest in archive)
 
 1. Rate-limit 429 on repeated wrong PINs collapses to "Wrong PIN." Branch on `error.status === 429`.
 2. Dead-link `/junior/login?as=<bad-uuid>` shows misleading "Wrong PIN". Add cheap existence check.
@@ -117,6 +96,8 @@ Any mutation not scoped by `.eq('user_id', user.id)` would leak data the moment 
 8. `fetchKidMemberForUser` errors swallowed by `useKidProfile` — `AuthRoleGate` silently treats them as "parent".
 9. `useKidProfile` deps `[user, authLoading]` refetches on every token refresh; should be `[user?.id, authLoading]`.
 10. Edge function missing logging — no `console.info` on success, no `console.error` with context on failure.
+11. **NEW (Phase 4 review):** `JuniorUpgradeModal.tsx:32-34` shows "R79/month (or R659/year)" while the upgrade CTA links to the same USD $4.99 PayPal page as the existing Pro flow. Inconsistent display price — users see ZAR-denominated prices then checkout in USD. Either align display to `$4.99` or mint a ZAR PayPal page at the correct rate.
+12. **NEW (Phase 4 review):** `junior-sunday-reminder.ts` checks Sunday via `new Date().getDay() !== 0` (local time) but dedups with `isoWeek(now)` which is UTC-based. At 22:00–23:59 SA time Sunday, local-day says "fire" while UTC has rolled into Monday → the dedup key lives in next week's slot, so the reminder can fire twice across the SA Sun/Mon boundary. Use local-time week key or local-time isoWeek.
 
 ---
 
@@ -147,11 +128,12 @@ Any mutation not scoped by `.eq('user_id', user.id)` would leak data the moment 
 
 ## Fix plan (proposed priority)
 
-### Tier 1 — Ship-blocking (fix before any merge to main)
+### Tier 1 — Ship-blocking (✅ SHIPPED)
 
-- **C3 (CORS allowlist on `create-kid-user`)** — 10 min. Immediate risk to signed-in parents.
-- **C4 (add `user_id` scoping to all ~40 mutations)** — 2 hours. Mechanical. Huge defense-in-depth payoff.
-- **Important #7 (Delete All My Data) + #8 (Restore from Backup)** — 2 hours. Real data-loss risk.
+- ✅ **C3 (CORS allowlist on `create-kid-user`)** — commit `3d4c5aa`.
+- ✅ **C4 (add `user_id` scoping to mutations)** — commits `bf80fbe`, `5fe93a6`, `b76c13e`. 13 handlers across 11 files. **Open subset:** `stokvel_members` approve/reject + `family_links` approve/remove — caller is mutating ANOTHER user's row, so needs an ownership-verification RPC. Inline comments flag the sites.
+- ✅ **Important #7 + #8 (Delete All My Data / Restore from Backup)** — commit `54fd55a`. Delete-All scope honestly named + partial-failure surfaced; Restore strictly validates and surfaces per-step errors.
+- ✅ **Phase 2 regression — adult chore credit** — commit `5fe93a6`. `ChoresPage.approveChore` else-branch restored so non-Junior members still get `earned`/`allowance` credit.
 
 ### Tier 2 — High-impact UX (next sprint)
 
