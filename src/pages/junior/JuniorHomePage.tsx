@@ -9,7 +9,7 @@ interface Streak {
 
 interface Goal {
   id: string;
-  title: string;
+  name: string;
   target: number;
   saved: number;
 }
@@ -37,8 +37,7 @@ export default function JuniorHomePage() {
           .maybeSingle(),
         supabase
           .from('family_goals')
-          .select('id, title, target, saved')
-          .eq('assignee', member.id)
+          .select('id, name, target, saved')
           .order('created_at')
           .limit(1)
           .maybeSingle(),
@@ -107,7 +106,7 @@ export default function JuniorHomePage() {
           <p style={{ margin: 0, opacity: 0.7 }}>Goal</p>
           {goal ? (
             <>
-              <p style={{ fontSize: '1rem', fontWeight: 600, margin: '4px 0 2px' }}>{goal.title}</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600, margin: '4px 0 2px' }}>{goal.name}</p>
               <small>R{remaining.toFixed(2)} to go</small>
               <div
                 style={{
