@@ -2425,8 +2425,15 @@ body.light .account-value {
         min-width: 100%;
     }
 
+    #page-currency .chart-card {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 16px;
+    }
+
     .converter-grid {
         flex-direction: column;
+        width: 100%;
     }
 
     .converter-arrow {
@@ -2435,7 +2442,8 @@ body.light .account-value {
     }
 
     .converter-side {
-        min-width: 100%;
+        min-width: 0;
+        width: 100%;
     }
 
     .converter-side input,
@@ -7802,8 +7810,12 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
 /* Scan button: on small screens hide the label, keep the icon. */
 @media (max-width: 640px) {
     .btn-scan {
-        padding: 0 12px !important;
+        padding: 8px 12px !important;
         gap: 0 !important;
+        min-height: 44px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
     }
     .btn-scan .btn-scan-label {
         display: none;
