@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAllKidsLedger } from '@/hooks/useKidLedger';
+import { SettleUpModal } from '@/components/SettleUpModal';
 
 interface KidRow {
   id: string;
@@ -25,7 +26,8 @@ export default function JuniorDashboardPage() {
   const [kids, setKids] = useState<KidRow[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [loading, setLoading] = useState(true);
-  const { perKid } = useAllKidsLedger();
+  const { perKid, refresh: refreshLedger } = useAllKidsLedger();
+  const [settleKid, setSettleKid] = useState<KidRow | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -130,7 +132,7 @@ export default function JuniorDashboardPage() {
                   type="button"
                   className="btn-primary"
                   disabled={totals.owed_cents === 0}
-                  onClick={() => alert('Settle-up modal wired in P2-T4')}
+                  onClick={() => setSettleKid(k)}
                 >
                   {totals.owed_cents === 0 ? 'Nothing owed' : 'Mark as paid'}
                 </button>
@@ -139,6 +141,18 @@ export default function JuniorDashboardPage() {
           );
         })}
       </div>
+
+      {settleKid && (
+        <SettleUpModal
+          kid={settleKid}
+          currencySymbol={sym}
+          onClose={() => setSettleKid(null)}
+          onPaid={() => {
+            refreshLedger();
+            load();
+          }}
+        />
+      )}
     </section>
   );
 }
