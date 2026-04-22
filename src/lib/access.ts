@@ -9,7 +9,7 @@
  * the Admin nav item or any admin-only surface.
  */
 
-import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 export const ENABLE_PRO_SYSTEM = false;
 
@@ -52,8 +52,6 @@ export function isProUser(
  * Prefer the useKidProfile hook in components; this raw helper is for places
  * the hook can't reach (e.g. one-off scripts).
  */
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 export interface KidMemberRow {
   id: string;
   user_id: string;
