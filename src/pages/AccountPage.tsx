@@ -302,17 +302,49 @@ export default function AccountPage() {
     if (!file || !user) return;
     try {
       const text = await file.text();
-      const backup = JSON.parse(text) as {
-        version?: number;
+      // AUDIT Imp #8: strict shape validation before any destructive action.
+      let backup: {
+        version?: number | string;
+        user_id?: string;
         timestamp?: string;
-        expenses?: Array<Record<string, unknown>>;
-        savings_goals?: Array<Record<string, unknown>>;
-        user_settings?: Array<Record<string, unknown>>;
+        expenses?: unknown;
+        savings_goals?: unknown;
+        user_settings?: unknown;
       };
-      if (!backup.version || !backup.expenses) {
-        alert('Invalid backup file. Missing required data.');
+      try {
+        backup = JSON.parse(text);
+      } catch {
+        alert('Invalid backup file: not valid JSON.');
         return;
       }
+      if (Number(backup.version) !== 1) {
+        alert('Invalid backup file: unsupported version (expected 1).');
+        return;
+      }
+      if (!Array.isArray(backup.expenses)) {
+        alert('Invalid backup file: expenses must be an array.');
+        return;
+      }
+      if (backup.savings_goals != null && !Array.isArray(backup.savings_goals)) {
+        alert('Invalid backup file: savings_goals must be an array.');
+        return;
+      }
+      if (backup.user_settings != null && !Array.isArray(backup.user_settings)) {
+        alert('Invalid backup file: user_settings must be an array.');
+        return;
+      }
+      // Reject cross-account restore by default — if the caller really wants
+      // to, they need to confirm a second time.
+      if (backup.user_id && backup.user_id !== user.id) {
+        if (
+          !confirm(
+            'This backup was exported by a different account. Restoring will overwrite your data with theirs. Continue?',
+          )
+        ) {
+          return;
+        }
+      }
+
       const stamp = backup.timestamp
         ? new Date(backup.timestamp).toLocaleDateString()
         : 'unknown date';
@@ -324,34 +356,49 @@ export default function AccountPage() {
         return;
 
       const uid = user.id;
-      await supabase.from('expenses').delete().eq('user_id', uid);
-      await supabase.from('savings_goals').delete().eq('user_id', uid);
+      const errs: string[] = [];
+      const { error: delExpErr } = await supabase.from('expenses').delete().eq('user_id', uid);
+      if (delExpErr) errs.push(`clear expenses: ${delExpErr.message}`);
+      const { error: delGoalErr } = await supabase.from('savings_goals').delete().eq('user_id', uid);
+      if (delGoalErr) errs.push(`clear savings_goals: ${delGoalErr.message}`);
 
-      if (backup.user_settings && backup.user_settings.length > 0) {
-        const settings = { ...backup.user_settings[0] } as Record<string, unknown>;
+      const settingsArr = backup.user_settings as Array<Record<string, unknown>> | undefined;
+      if (settingsArr && settingsArr.length > 0) {
+        const settings = { ...settingsArr[0] };
         delete settings.id;
         settings.user_id = uid;
-        await supabase.from('user_settings').upsert(settings, { onConflict: 'user_id' });
+        const { error } = await supabase.from('user_settings').upsert(settings, { onConflict: 'user_id' });
+        if (error) errs.push(`restore user_settings: ${error.message}`);
       }
-      if (backup.expenses.length > 0) {
-        const exps = backup.expenses.map((e) => {
+      const expensesArr = backup.expenses as Array<Record<string, unknown>>;
+      if (expensesArr.length > 0) {
+        const exps = expensesArr.map((e) => {
           const copy = { ...e };
           delete copy.id;
           copy.user_id = uid;
           return copy;
         });
-        await supabase.from('expenses').insert(exps);
+        const { error } = await supabase.from('expenses').insert(exps);
+        if (error) errs.push(`restore expenses: ${error.message}`);
       }
-      if (backup.savings_goals && backup.savings_goals.length > 0) {
-        const gs = backup.savings_goals.map((g) => {
+      const goalsArr = backup.savings_goals as Array<Record<string, unknown>> | undefined;
+      if (goalsArr && goalsArr.length > 0) {
+        const gs = goalsArr.map((g) => {
           const copy = { ...g };
           delete copy.id;
           copy.user_id = uid;
           return copy;
         });
-        await supabase.from('savings_goals').insert(gs);
+        const { error } = await supabase.from('savings_goals').insert(gs);
+        if (error) errs.push(`restore savings_goals: ${error.message}`);
       }
-      alert('Restore complete. Reloading…');
+      if (errs.length > 0) {
+        alert(
+          `Restore completed with errors — your data may be partial:\n\n${errs.join('\n')}`,
+        );
+      } else {
+        alert('Restore complete. Reloading…');
+      }
       window.location.reload();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -365,14 +412,22 @@ export default function AccountPage() {
     if (!user) return;
     if (
       !confirm(
-        'This will permanently delete ALL your expenses and savings goals. Are you sure?',
+        'This will permanently delete all your expenses and savings goals (family, chores, and bank links are kept). Are you sure?',
       )
     )
       return;
     if (!confirm('This cannot be undone. Click OK to confirm.')) return;
     const uid = user.id;
-    await supabase.from('expenses').delete().eq('user_id', uid);
-    await supabase.from('savings_goals').delete().eq('user_id', uid);
+    // AUDIT Imp #7: surface partial-failure so user knows if one step died.
+    const errs: string[] = [];
+    const { error: expErr } = await supabase.from('expenses').delete().eq('user_id', uid);
+    if (expErr) errs.push(`expenses: ${expErr.message}`);
+    const { error: goalErr } = await supabase.from('savings_goals').delete().eq('user_id', uid);
+    if (goalErr) errs.push(`savings_goals: ${goalErr.message}`);
+    if (errs.length > 0) {
+      alert(`Deletion partially failed — some data may remain:\n\n${errs.join('\n')}`);
+      return;
+    }
     alert('All expenses and savings goals deleted.');
     window.location.reload();
   };
@@ -1056,7 +1111,7 @@ export default function AccountPage() {
               Sign Out
             </button>
             <button type="button" className="btn-danger" onClick={handleDeleteAll}>
-              Delete All My Data
+              Delete Expenses &amp; Savings
             </button>
           </div>
         </div>
