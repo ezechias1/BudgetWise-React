@@ -1,0 +1,86 @@
+/* ─── BudgetWise Junior — kid-first layout ─────────────────────────── */
+
+.junior-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%);
+  color: #1f2937;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding-bottom: 84px; /* space for bottom nav */
+}
+
+.junior-shell.dark {
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  color: #f9fafb;
+}
+
+.junior-main {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px 20px 32px;
+}
+
+.junior-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #fde68a;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-around;
+  z-index: 100;
+}
+
+.junior-bottom-nav button {
+  background: none;
+  border: 0;
+  font: inherit;
+  padding: 8px 12px;
+  border-radius: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.78rem;
+  gap: 2px;
+}
+
+.junior-bottom-nav button.active {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  font-weight: 600;
+}
+
+.junior-hero {
+  background: #10b981;
+  color: white;
+  border-radius: 24px;
+  padding: 28px 24px;
+  box-shadow: 0 20px 40px -16px rgba(16, 185, 129, 0.5);
+}
+
+.junior-hero h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.junior-hero p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 1rem;
+}
+
+.junior-signout {
+  margin-top: 24px;
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}

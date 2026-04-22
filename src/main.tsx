@@ -8,6 +8,7 @@ import App from './App';
 // React app is visually identical to the vanilla app by construction.
 import './styles-auth.css';
 import './styles-dashboard.css';
+import '@/styles-junior.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
