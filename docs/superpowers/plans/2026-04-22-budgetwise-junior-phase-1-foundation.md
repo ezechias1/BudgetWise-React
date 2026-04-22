@@ -22,7 +22,8 @@
 supabase --version
 # Expect: v1.x.x or similar
 supabase link --project-ref trkdlwukjyupvvcyzebf
-# May prompt for access token — use [REVOKED_PAT]
+# May prompt for access token — generate one at https://supabase.com/dashboard/account/tokens
+# Export it as SUPABASE_ACCESS_TOKEN before running `supabase link` to avoid the prompt.
 ```
 
 - [ ] **Step P2: Confirm you can run the dev server and log in as the parent account.**
@@ -32,7 +33,7 @@ cd ~/Desktop/BudgetWise-React
 npm run dev
 ```
 
-Open `http://localhost:5173/`, log in as `ezechiasmulamba@gmail.com` / `[REDACTED_PASSWORD]`. Confirm the dashboard loads. Leave it running in another terminal tab — most tasks will use it.
+Open `http://localhost:5173/`, log in as the parent account (credentials in your password manager — never commit them here). Confirm the dashboard loads. Leave it running in another terminal tab — most tasks will use it.
 
 - [ ] **Step P3: Confirm `typecheck` is clean before starting.**
 
@@ -1432,7 +1433,7 @@ Confirm every piece works together. If any step fails, stop and fix before commi
 npm run dev
 ```
 
-Visit `http://localhost:5173/` and sign in as the parent (`ezechiasmulamba@gmail.com` / `[REDACTED_PASSWORD]`).
+Visit `http://localhost:5173/` and sign in as the parent (credentials from your password manager).
 
 - [ ] **Step 8.2: Create a test kid.**
 

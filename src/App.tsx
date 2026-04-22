@@ -31,9 +31,11 @@ const AllowancesPage = lazy(() => import('@/pages/AllowancesPage'));
 const ChoresPage = lazy(() => import('@/pages/ChoresPage'));
 const FamilyGoalsPage = lazy(() => import('@/pages/FamilyGoalsPage'));
 const SpendingTrackerPage = lazy(() => import('@/pages/SpendingTrackerPage'));
+const JuniorDashboardPage = lazy(() => import('@/pages/JuniorDashboardPage'));
 const HelpPage = lazy(() => import('@/pages/HelpPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const JuniorHomePage = lazy(() => import('@/pages/junior/JuniorHomePage'));
+const JuniorChoresPage = lazy(() => import('@/pages/junior/JuniorChoresPage'));
 const JuniorLoginPage = lazy(() => import('@/pages/junior/JuniorLoginPage'));
 const JuniorLayout = lazy(() =>
   import('@/components/junior/JuniorLayout').then((m) => ({ default: m.JuniorLayout }))
@@ -92,6 +94,7 @@ export default function App() {
 
               {/* Family module */}
               <Route path="members" element={<MembersPage />} />
+              <Route path="junior" element={<JuniorDashboardPage />} />
               <Route path="allowances" element={<AllowancesPage />} />
               <Route path="chores" element={<ChoresPage />} />
               <Route path="family-goals" element={<FamilyGoalsPage />} />
@@ -120,6 +123,7 @@ export default function App() {
               }
             >
               <Route path="home" element={<JuniorHomePage />} />
+              <Route path="chores" element={<JuniorChoresPage />} />
               <Route index element={<Navigate to="home" replace />} />
             </Route>
 

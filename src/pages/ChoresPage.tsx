@@ -16,6 +16,8 @@ interface FamilyMember {
   color: string;
   allowance: number;
   earned: number;
+  role?: string;
+  auth_user_id?: string | null;
 }
 
 interface Chore {
@@ -27,6 +29,8 @@ interface Chore {
   frequency: string;
   completed: boolean;
   pending_approval: boolean;
+  approved_at?: string | null;
+  rejected_at?: string | null;
 }
 
 function symbolFor(currency: string): string {
@@ -115,48 +119,62 @@ export default function ChoresPage() {
     );
   };
 
-  /** Parent approves → completed + reward credited. */
+  /** Parent approves → completed + audit timestamp + ledger row (for Junior kids). */
   const approveChore = async (chore: Chore) => {
-    await supabase
+    if (!user) return;
+    const assigneeMember = members.find((m) => m.id === chore.assignee);
+    const approvedAt = new Date().toISOString();
+
+    const { error: updErr } = await supabase
       .from('family_chores')
-      .update({ completed: true, pending_approval: false })
+      .update({
+        completed: true,
+        pending_approval: false,
+        approved_at: approvedAt,
+      })
       .eq('id', chore.id);
+    if (updErr) return;
+
+    // Junior-only: write an IOU ledger row. A Junior kid has role='child' AND auth_user_id set.
+    const isJuniorKid =
+      assigneeMember?.role === 'child' && !!assigneeMember?.auth_user_id;
+    if (isJuniorKid && chore.reward > 0) {
+      await supabase.from('kid_ledger').insert({
+        user_id: user.id,
+        member_id: assigneeMember.id,
+        amount_cents: Math.round(chore.reward * 100),
+        source_type: 'chore',
+        source_id: chore.id,
+        status: 'owed',
+        notes: chore.name,
+      });
+    }
+
     setChores((prev) =>
       prev.map((c) =>
         c.id === chore.id
-          ? { ...c, completed: true, pending_approval: false }
+          ? { ...c, completed: true, pending_approval: false, approved_at: approvedAt }
           : c,
       ),
     );
-    // Credit assignee
-    if (chore.assignee) {
-      const member = members.find((m) => m.id === chore.assignee);
-      if (member) {
-        const earned = (member.earned || 0) + chore.reward;
-        const allowance = (member.allowance || 0) + chore.reward;
-        await supabase
-          .from('family_members')
-          .update({ earned, allowance })
-          .eq('id', member.id);
-        setMembers((prev) =>
-          prev.map((p) =>
-            p.id === member.id ? { ...p, earned, allowance } : p,
-          ),
-        );
-      }
-    }
   };
 
   /** Parent rejects → back to not done. */
   const rejectChore = async (chore: Chore) => {
-    await supabase
+    const rejectedAt = new Date().toISOString();
+    const { error: updErr } = await supabase
       .from('family_chores')
-      .update({ pending_approval: false, completed: false })
+      .update({
+        pending_approval: false,
+        completed: false,
+        rejected_at: rejectedAt,
+      })
       .eq('id', chore.id);
+    if (updErr) return;
     setChores((prev) =>
       prev.map((c) =>
         c.id === chore.id
-          ? { ...c, pending_approval: false, completed: false }
+          ? { ...c, pending_approval: false, completed: false, rejected_at: rejectedAt }
           : c,
       ),
     );
