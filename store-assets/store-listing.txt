@@ -59,6 +59,16 @@ TITHE TRACKER
 - Business (Pro): Invoices, clients, P&L, tax reports
 - Family (Pro): Shared budgets, allowances, chores & rewards
 
+BUDGETWISE JUNIOR (Pro — coming soon):
+- Teach your kids (ages 10-13) to budget from inside the same app
+- Parents assign chores with rand rewards, approve completed ones
+- Kids get their own PIN login and kid-friendly home screen
+- Real IOU ledger — "You owe Sarah R85" — no fake money, no forgotten allowance
+- Save / Spend / Give jars teach saving habits at point of payment
+- Daily 3-minute money lessons sourced from leading financial-literacy curricula
+- Multi-child support; each kid has their own goal, streak, and progress
+- Included in existing Pro subscription — no extra fee
+
 BANK SYNC (Pro):
 - Connect your bank account for automatic transaction import
 - Supports banks in USA, South Africa, Europe, and 50+ countries
@@ -88,6 +98,19 @@ business expenses, South Africa, ZAR, currency converter, financial goals,
 money saving app, budget app
 
 --------------------------------------------------------------
+
+COMING SOON (v2.1 — BudgetWise Junior):
+- BudgetWise Junior — teach kids (ages 10-13) to budget inside Family mode
+- PIN-based child login with kid-first UI
+- Parent-assigned chores and money lessons with rand rewards
+- Save / Spend / Give jar allocation model
+- IOU ledger with "mark as paid" settle-up flow
+- Weekly Sunday settle-up reminders for parents
+- 12 seeded money lessons adapted from FSCA and Khan Academy Kids
+- Multi-child support; freemium (1 child + 3 chores + 5 lessons) or Pro (unlimited)
+
+(Store listing is being actively updated as BudgetWise Junior ships. Further
+changes to this listing are expected in the coming weeks.)
 
 WHAT'S NEW (v2.0 — React Rebuild):
 - Completely rebuilt in React for faster performance
