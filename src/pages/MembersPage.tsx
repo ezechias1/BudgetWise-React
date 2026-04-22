@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { AddKidModal } from '@/components/AddKidModal';
 
 /**
  * Ports #page-members from dashboard.html (line 1730) and
@@ -47,6 +48,7 @@ export default function MembersPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
+  const [showKidModal, setShowKidModal] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('parent');
@@ -174,6 +176,13 @@ export default function MembersPage() {
             <path d="M12 5v14m-7-7h14" />
           </svg>
           Add Member
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowKidModal(true)}
+          style={{ marginLeft: 12 }}
+        >
+          Add kid (Junior) 🧒
         </button>
       </div>
       <div className="members-grid" id="membersGrid">
@@ -337,6 +346,17 @@ export default function MembersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {showKidModal && (
+        <AddKidModal
+          onClose={() => setShowKidModal(false)}
+          onAdded={() => {
+            // Reload the list only; AddKidModal manages its own "success view" and
+            // stays mounted so the parent can copy the share URL + PIN before dismissing.
+            load();
+          }}
+        />
       )}
     </section>
   );
