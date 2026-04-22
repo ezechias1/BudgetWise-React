@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hashSync as bcryptHashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+// AUDIT Imp #1: bcryptHashSync blocked the V8 isolate at cost-10 for hundreds
+// of ms per call, a DoS vector. pin_hash was also never read — real auth goes
+// through the derived-password Supabase auth user. Dropping bcrypt entirely.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -105,7 +107,11 @@ serve(async (req) => {
         .eq("id", member_id)
         .eq("user_id", parent.id)
         .maybeSingle();
-      if (error) return json(origin, 500, { error: error.message });
+      if (error) {
+        // AUDIT Imp #2: log detail server-side, return sanitized message.
+        console.error("[create-kid-user] lookup member failed", { parent: parent.id, member_id, error });
+        return json(origin, 500, { error: "Could not verify member ownership." });
+      }
       if (!data) return json(origin, 404, { error: "Member not found or not owned by caller" });
       if (data.auth_user_id) {
         return json(origin, 409, { error: "Member already has credentials" });
@@ -126,14 +132,16 @@ serve(async (req) => {
         })
         .select("id")
         .single();
-      if (error) return json(origin, 500, { error: error.message });
+      if (error) {
+        console.error("[create-kid-user] insert member failed", { parent: parent.id, error });
+        return json(origin, 500, { error: "Could not create member. Try again." });
+      }
       memberRow = { id: data!.id };
       createdNewMember = true;
     }
 
     const internalEmail = `kid-${memberRow.id}@budgetwise.app`;
     const password = derivePassword(pin, memberRow.id);
-    const pinHash = bcryptHashSync(pin);
 
     // Create the child's Supabase auth user
     const { data: userData, error: userErr } = await admin.auth.admin.createUser({
@@ -143,36 +151,46 @@ serve(async (req) => {
       user_metadata: { kind: "child", parent_id: parent.id, member_id: memberRow.id },
     });
     if (userErr) {
+      console.error("[create-kid-user] createUser failed", { parent: parent.id, member: memberRow.id, error: userErr });
       if (createdNewMember) {
         await admin.from("family_members").delete().eq("id", memberRow.id);
       }
-      return json(origin, 500, { error: userErr.message });
+      return json(origin, 500, { error: "Could not create child account. Try again." });
     }
 
-    // Wire the child's auth_user_id back onto the family_members row
+    // Wire the child's auth_user_id back onto the family_members row.
+    // pin_hash intentionally omitted (AUDIT Imp #1 — unused column).
     const { error: updErr } = await admin
       .from("family_members")
       .update({
         auth_user_id: userData.user!.id,
-        pin_hash: pinHash,
         role: "child",
         date_of_birth: date_of_birth || null,
       })
       .eq("id", memberRow.id);
     if (updErr) {
+      console.error("[create-kid-user] link auth_user_id failed", { parent: parent.id, member: memberRow.id, error: updErr });
+      // Always delete the freshly-created auth user on rollback to avoid
+      // orphans; also clean the family_members row if we created it.
+      await admin.auth.admin.deleteUser(userData.user!.id);
       if (createdNewMember) {
-        // Roll back BOTH: the family_members row and the auth user we just created.
         await admin.from("family_members").delete().eq("id", memberRow.id);
-        await admin.auth.admin.deleteUser(userData.user!.id);
+      } else {
+        // Clear the stale auth_user_id pointer on the existing row.
+        await admin
+          .from("family_members")
+          .update({ auth_user_id: null })
+          .eq("id", memberRow.id);
       }
-      return json(origin, 500, { error: updErr.message });
+      return json(origin, 500, { error: "Could not finalise child account." });
     }
 
+    console.info("[create-kid-user] ok", { parent: parent.id, member: memberRow.id });
     return json(origin, 200, {
       member_id: memberRow.id,
-      child_email: internalEmail,
     });
   } catch (err) {
-    return json(origin, 500, { error: (err as Error).message });
+    console.error("[create-kid-user] unhandled", err);
+    return json(origin, 500, { error: "Unexpected error. Try again." });
   }
 });
