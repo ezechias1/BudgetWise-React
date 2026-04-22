@@ -188,22 +188,27 @@ export default function StokvelPage() {
         (c) => monthKey(new Date(c.date)) === currentMonth,
       );
       if (!paidThisMonth && g.monthly_amount > 0) {
-        // Show notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Stokvel Reminder', {
-            body: `Your ${g.name} contribution of ${sym}${g.monthly_amount.toFixed(2)} is due this month.`,
-            icon: '/icons/icon-192.png',
-          });
-        } else if ('Notification' in window && Notification.permission !== 'denied') {
-          Notification.requestPermission().then((perm) => {
-            if (perm === 'granted') {
-              new Notification('Stokvel Reminder', {
+        // Show notification via ServiceWorker (mobile-safe)
+        const showReminder = () => {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((reg) => {
+              reg.showNotification('Stokvel Reminder', {
                 body: `Your ${g.name} contribution of ${sym}${g.monthly_amount.toFixed(2)} is due this month.`,
                 icon: '/icons/icon-192.png',
+                tag: `bw-stokvel-${g.id}`,
               });
-            }
-          });
-        }
+            });
+          }
+        };
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            showReminder();
+          } else if ('Notification' in window && Notification.permission !== 'denied') {
+            Notification.requestPermission().then((perm) => {
+              if (perm === 'granted') showReminder();
+            });
+          }
+        } catch { /* Notification API unavailable on this device */ }
         localStorage.setItem('budgetwise-stokvel-reminder', today);
         break; // One reminder per day is enough
       }
