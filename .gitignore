@@ -23,3 +23,7 @@ android/.cxx/
 
 # Vercel
 .vercel
+*.local
+
+# Supabase CLI scratch state
+supabase/.temp/
