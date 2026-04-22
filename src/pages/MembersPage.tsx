@@ -352,8 +352,9 @@ export default function MembersPage() {
         <AddKidModal
           onClose={() => setShowKidModal(false)}
           onAdded={() => {
+            // Reload the list only; AddKidModal manages its own "success view" and
+            // stays mounted so the parent can copy the share URL + PIN before dismissing.
             load();
-            setShowKidModal(false);
           }}
         />
       )}
