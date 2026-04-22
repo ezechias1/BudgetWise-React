@@ -255,9 +255,13 @@ export default function SpendingTrackerPage() {
   };
 
   const unlink = async () => {
-    if (!myLink) return;
+    if (!user || !myLink) return;
     if (!confirm('Unlink from this family?')) return;
-    await supabase.from('family_links').delete().eq('id', myLink.id);
+    await supabase
+      .from('family_links')
+      .delete()
+      .eq('id', myLink.id)
+      .eq('user_id', user.id);
     setMyLink(null);
     loadState();
   };
@@ -269,7 +273,7 @@ export default function SpendingTrackerPage() {
   };
 
   const saveSharing = async () => {
-    if (!myLink) return;
+    if (!user || !myLink) return;
     await supabase
       .from('family_links')
       .update({
@@ -277,11 +281,15 @@ export default function SpendingTrackerPage() {
         share_all: shareScope === 'all',
         share_categories: shareScope === 'selected' ? shareCategories : null,
       })
-      .eq('id', myLink.id);
+      .eq('id', myLink.id)
+      .eq('user_id', user.id);
     alert('Sharing preferences saved');
   };
 
-  // TODO: approve/reject flow for pending family_links (parent side)
+  // Approve/remove mutations below operate on a DIFFERENT user's link row —
+  // the row's user_id is the member being approved/removed, not the caller.
+  // Ownership is enforced by RLS via the parent relationship; tightening
+  // via an RPC is tracked as follow-up (AUDIT C4 subset).
   const approveMember = async (link: FamilyLink) => {
     await supabase
       .from('family_links')
