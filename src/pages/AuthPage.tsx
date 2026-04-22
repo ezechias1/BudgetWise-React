@@ -68,6 +68,38 @@ export default function AuthPage() {
 
   // Signup form state
   const [signupType, setSignupType] = useState<Mode>('personal');
+
+  // Update page accent colours when account type changes — mirrors auth.js lines 126-147
+  useEffect(() => {
+    const root = document.body.style;
+    if (signupType === 'business') {
+      root.setProperty('--accent', '#3b82f6');
+      root.setProperty('--accent-dark', '#2563eb');
+      root.setProperty('--accent-alt', '#60a5fa');
+      root.setProperty('--accent-shadow', 'rgba(59, 130, 246, 0.3)');
+      root.setProperty('--accent-glow', 'rgba(59, 130, 246, 0.15)');
+    } else if (signupType === 'family') {
+      root.setProperty('--accent', '#8b5cf6');
+      root.setProperty('--accent-dark', '#7c3aed');
+      root.setProperty('--accent-alt', '#a78bfa');
+      root.setProperty('--accent-shadow', 'rgba(139, 92, 246, 0.3)');
+      root.setProperty('--accent-glow', 'rgba(139, 92, 246, 0.15)');
+    } else {
+      root.setProperty('--accent', '#10b981');
+      root.setProperty('--accent-dark', '#059669');
+      root.setProperty('--accent-alt', '#06b6d4');
+      root.setProperty('--accent-shadow', 'rgba(16, 185, 129, 0.3)');
+      root.setProperty('--accent-glow', 'rgba(16, 185, 129, 0.15)');
+    }
+    return () => {
+      // Reset to personal green when leaving auth page
+      root.setProperty('--accent', '#10b981');
+      root.setProperty('--accent-dark', '#059669');
+      root.setProperty('--accent-alt', '#06b6d4');
+      root.setProperty('--accent-shadow', 'rgba(16, 185, 129, 0.3)');
+      root.setProperty('--accent-glow', 'rgba(16, 185, 129, 0.15)');
+    };
+  }, [signupType]);
   const [signupName, setSignupName] = useState('');
   const [signupCompany, setSignupCompany] = useState('');
   const [signupFamilyName, setSignupFamilyName] = useState('');
@@ -312,6 +344,7 @@ export default function AuthPage() {
                       <button
                         key={t}
                         type="button"
+                        data-type={t}
                         className={`type-btn ${signupType === t ? 'active' : ''}`}
                         onClick={() => setSignupType(t)}
                       >
