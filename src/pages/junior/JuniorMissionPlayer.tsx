@@ -6,6 +6,7 @@ import { type KidMission } from '@/hooks/useKidMissions';
 import { useParentProForKid } from '@/hooks/useParentProForKid';
 import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
 import { checkJuniorGate } from '@/lib/access';
+import { enqueueApprovalNudge } from '@/lib/junior-notifications';
 
 interface HookStep { type: 'hook'; title: string; body: string; }
 interface ConceptStep { type: 'concept'; title: string; body: string; }
@@ -83,6 +84,14 @@ export default function JuniorMissionPlayer() {
       setError(err.message);
       return;
     }
+    // Enqueue approval nudge for the parent. Fire-and-forget.
+    void enqueueApprovalNudge(
+      member.user_id,
+      member.name,
+      'mission',
+      mission.title,
+      '/dashboard/junior',
+    );
     // Proceed to the done step
     setStepIdx((i) => i + 1);
   }, [member, mission, isPro]);

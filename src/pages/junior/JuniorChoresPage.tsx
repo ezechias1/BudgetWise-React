@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useKidProfile } from '@/hooks/useKidProfile';
+import { enqueueApprovalNudge } from '@/lib/junior-notifications';
 
 interface Chore {
   id: string;
@@ -39,10 +40,21 @@ export default function JuniorChoresPage() {
   const markDone = async (chore: Chore) => {
     if (marking) return;
     setMarking(chore.id);
-    await supabase
+    const { error } = await supabase
       .from('family_chores')
       .update({ pending_approval: true })
       .eq('id', chore.id);
+    if (!error && member) {
+      // Enqueue a notification for the parent to approve. Fire-and-forget —
+      // failure here shouldn't block the kid's UI feedback.
+      void enqueueApprovalNudge(
+        member.user_id,
+        member.name,
+        'chore',
+        chore.name,
+        '/dashboard/chores',
+      );
+    }
     setChores((prev) =>
       prev.map((c) => (c.id === chore.id ? { ...c, pending_approval: true } : c)),
     );

@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useKidProfile } from '@/hooks/useKidProfile';
+import { useNotificationPermission } from '@/hooks/useNotificationPermission';
+import { setupParentNotificationPolling } from '@/lib/junior-notifications';
 
 /**
  * Shell for every /dashboard/* route. Renders the sidebar, the mobile header,
@@ -14,8 +18,12 @@ import { useTheme } from '@/contexts/ThemeContext';
  */
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [permissionDismissed, setPermissionDismissed] = useState(false);
   const location = useLocation();
   const { toggleTheme } = useTheme();
+  const { user } = useAuth();
+  const { isChild, loading: kidLoading } = useKidProfile();
+  const { permission, request } = useNotificationPermission();
 
   // Close drawer on navigation + scroll to top of the new page.
   // Mobile browsers otherwise keep the previous scroll offset, which looks
@@ -28,6 +36,17 @@ export function DashboardLayout() {
     const main = document.querySelector('.main-content');
     if (main) main.scrollTop = 0;
   }, [location.pathname]);
+
+  // Parent-only: poll for approval nudges queued by kids. Kids shouldn't
+  // poll their parent's notifications (nor would RLS let them).
+  useEffect(() => {
+    if (!user || kidLoading || isChild) return;
+    const cleanup = setupParentNotificationPolling(user.id);
+    return cleanup;
+  }, [user, kidLoading, isChild]);
+
+  const showPermissionBanner =
+    user && !kidLoading && !isChild && permission === 'default' && !permissionDismissed;
 
   return (
     <>
@@ -85,6 +104,57 @@ export function DashboardLayout() {
       </div>
 
       <main className="main-content loaded">
+        {showPermissionBanner && (
+          <div
+            style={{
+              background: '#eef2ff',
+              border: '1px solid #c7d2fe',
+              borderRadius: 12,
+              padding: '12px 16px',
+              margin: '0 0 16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: '0.95rem' }}>
+              Want reminders when the kids need approval?
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void request()}
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 0,
+                  borderRadius: 8,
+                  padding: '8px 14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Allow
+              </button>
+              <button
+                type="button"
+                onClick={() => setPermissionDismissed(true)}
+                style={{
+                  background: 'transparent',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 8,
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        )}
         <Outlet />
       </main>
     </>
