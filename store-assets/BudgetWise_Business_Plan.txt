@@ -2,7 +2,12 @@
                          BUDGETWISE - BUSINESS PLAN
                          By Ezechias Mulamba
                          Prepared: March 2026
+                         Last updated: April 2026
 ================================================================================
+
+NOTE: This document is being actively revised as BudgetWise Junior (kids'
+budgeting feature) comes online. Sections 2, 10, and 11 have new content
+as of April 2026. More changes are expected over the coming weeks.
 
 
 1. EXECUTIVE SUMMARY
@@ -59,6 +64,13 @@ PRO FEATURES (PAID):
 - Push notifications — budget alerts (80%, 90%, 100%), inactivity reminders
 - Business mode — invoices, clients, P&L statements, tax reports
 - Family mode — shared budgets, allowances, chores & rewards, family goals
+- BudgetWise Junior — teach kids (ages 10-13) to budget from inside the
+  same app. Parents assign chores and lessons with rand rewards; kids get
+  their own PIN login and kid-friendly UI with Save/Spend/Give jars, a
+  savings goal, and daily money lessons sourced from financial-literacy
+  curricula. Parent approves every chore and settles up in cash or EFT —
+  BudgetWise tracks who owes what, never moves money. See Section 11 for
+  roadmap. (Launching Q2 2026 as part of existing Pro tier.)
 - Unlimited savings goals
 - Export reports (CSV & PDF)
 - Priority support
@@ -439,6 +451,12 @@ SUMMARY — WHAT YOU PAY TO LAUNCH:
     * Stokvel group savings with rotating payouts and invite codes
     * SA expense categories (airtime, taxi, school fees)
     * SMS/USSD expense tracking (coming soon)
+- BudgetWise Junior (coming Q2 2026): the only adult budgeting app in SA
+  that doubles as a kids' financial-literacy tool. Parents already paying
+  for Pro get a full earn-save-spend-give platform for their children, at
+  no extra cost. Direct competition (Greenlight, GoHenry) charges $5-10/mo
+  per child and requires a debit card; we teach the same habits with no
+  card, no banking partnership, and included in the existing Pro tier.
 - Global reach: 15+ currencies, 50+ countries via Salt Edge
 - Lightweight PWA: No app store required, works offline, installs instantly
 - Offline-first: Queue actions offline, auto-sync when reconnected
@@ -469,7 +487,14 @@ PHASE 1 — LAUNCHED (March 2026):
 - Offline-first PWA with background sync
 - Country-based feature detection (SA users see SA features)
 
-PHASE 2 — Q2 2026:
+PHASE 2 — Q2 2026 (in progress):
+- BudgetWise Junior — launch kids' budgeting feature inside Family mode:
+  PIN-based child login, chore assignment with parent approval, IOU ledger
+  ("parents owe you"), 12 seeded money lessons sourced from FSCA / Khan
+  Academy Kids curricula, Save/Spend/Give jar model, per-child savings
+  goal, parent settle-up flow, web push notifications. Multi-child
+  support from day one. Included in existing R79 Pro tier (freemium:
+  first child + 3 chores + 5 lessons free). Spec written April 2026.
 - Activate bank sync (pay for Stitch API)
 - Auto-categorize bank transactions
 - Stokvel auto-debit via Ozow/PayFast
@@ -483,6 +508,9 @@ PHASE 3 — Q3 2026:
 - Advanced AI insights (spending predictions, saving recommendations)
 - USSD menu for feature phone users
 - Multi-language support (isiZulu, isiXhosa, Afrikaans, Setswana)
+- BudgetWise Junior v1.1: mission tree visualisation, cosmetic rewards
+  (avatar items, badges), daily "you owe" digest notification, giving-
+  jar linked to real charity options
 
 PHASE 4 — Q4 2026:
 - Expand to Nigeria, Kenya, Ghana (Mono bank integration)
@@ -505,5 +533,5 @@ Website:    budget-wise-ruby.vercel.app
 
 
 ================================================================================
-                    END OF BUSINESS PLAN — Updated March 2026
+                    END OF BUSINESS PLAN — Updated April 2026
 ================================================================================
