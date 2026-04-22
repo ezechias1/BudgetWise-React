@@ -11,6 +11,7 @@ export default function JuniorLoginPage() {
   const [pin, setPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
   const deviceKids = listDeviceKids();
 
   const canSubmit = /^\d{4}$/.test(pin) && memberId.length > 0 && !submitting;
@@ -20,9 +21,18 @@ export default function JuniorLoginPage() {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const { error: err } = await signInAsKid(memberId, pin);
-    if (err) {
-      setError('Wrong PIN. Try again.');
+    const { status } = await signInAsKid(memberId, pin);
+    if (status !== 'ok') {
+      // AUDIT Imp #4 / #5: branch on rate-limit, and after a couple of
+      // failures hint that the link itself might be dead.
+      setAttempts((n) => n + 1);
+      if (status === 'rate_limited') {
+        setError('Too many tries — wait a minute and try again.');
+      } else if (attempts + 1 >= 3) {
+        setError('Still not working? Ask your parent for a fresh link.');
+      } else {
+        setError('Wrong PIN. Try again.');
+      }
       setPin('');
       setSubmitting(false);
       return;
