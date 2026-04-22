@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAllKidsLedger } from '@/hooks/useKidLedger';
 import { SettleUpModal } from '@/components/SettleUpModal';
+import { MissionRewardsModal } from '@/components/MissionRewardsModal';
 
 interface KidRow {
   id: string;
@@ -28,6 +29,7 @@ export default function JuniorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const { perKid, refresh: refreshLedger } = useAllKidsLedger();
   const [settleKid, setSettleKid] = useState<KidRow | null>(null);
+  const [showRewards, setShowRewards] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -85,6 +87,12 @@ export default function JuniorDashboardPage() {
         <h1>Junior</h1>
         <p>Your kids, their IOUs, and settle-up.</p>
       </header>
+
+      <div style={{ marginBottom: 16 }}>
+        <button type="button" onClick={() => setShowRewards(true)}>
+          Configure mission rewards
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
         {kids.map((k) => {
@@ -153,6 +161,8 @@ export default function JuniorDashboardPage() {
           }}
         />
       )}
+
+      {showRewards && <MissionRewardsModal onClose={() => setShowRewards(false)} />}
     </section>
   );
 }
