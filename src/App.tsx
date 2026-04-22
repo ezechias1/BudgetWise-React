@@ -5,7 +5,8 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
-import { AdminRoute, ProtectedRoute } from '@/components/ProtectedRoute';
+import { AdminRoute } from '@/components/ProtectedRoute';
+import { AuthRoleGate } from '@/components/AuthRoleGate';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ModeProvider } from '@/contexts/ModeContext';
@@ -32,6 +33,11 @@ const FamilyGoalsPage = lazy(() => import('@/pages/FamilyGoalsPage'));
 const SpendingTrackerPage = lazy(() => import('@/pages/SpendingTrackerPage'));
 const HelpPage = lazy(() => import('@/pages/HelpPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
+const JuniorHomePage = lazy(() => import('@/pages/junior/JuniorHomePage'));
+const JuniorLoginPage = lazy(() => import('@/pages/junior/JuniorLoginPage'));
+const JuniorLayout = lazy(() =>
+  import('@/components/junior/JuniorLayout').then((m) => ({ default: m.JuniorLayout }))
+);
 
 /**
  * Top-level router + provider tree.
@@ -60,9 +66,9 @@ export default function App() {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <AuthRoleGate role="parent">
                   <DashboardLayout />
-                </ProtectedRoute>
+                </AuthRoleGate>
               }
             >
               <Route index element={<OverviewPage />} />
@@ -101,6 +107,20 @@ export default function App() {
                   </AdminRoute>
                 }
               />
+            </Route>
+
+            {/* Junior (kid-only) */}
+            <Route path="/junior/login" element={<JuniorLoginPage />} />
+            <Route
+              path="/junior"
+              element={
+                <AuthRoleGate role="child">
+                  <JuniorLayout />
+                </AuthRoleGate>
+              }
+            >
+              <Route path="home" element={<JuniorHomePage />} />
+              <Route index element={<Navigate to="home" replace />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
