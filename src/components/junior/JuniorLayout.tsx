@@ -41,6 +41,14 @@ export function JuniorLayout() {
           </svg>
           Chores
         </NavLink>
+        <NavLink to="/junior/jars" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="7" width="5" height="14" rx="1" />
+            <rect x="10" y="4" width="5" height="17" rx="1" />
+            <rect x="17" y="10" width="5" height="11" rx="1" />
+          </svg>
+          Jars
+        </NavLink>
       </nav>
     </div>
   );
