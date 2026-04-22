@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { checkJuniorGate, isProUser } from '@/lib/access';
 
 /**
  * Ports #page-chores from dashboard.html (line 1795) and
@@ -44,10 +47,13 @@ function symbolFor(currency: string): string {
 
 export default function ChoresPage() {
   const { user } = useAuth();
+  const { isProFromSettings } = useUserSettings();
+  const isPro = isProUser(isProFromSettings, user);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
+  const [choreGateBlocked, setChoreGateBlocked] = useState<{ current: number; limit: number } | null>(null);
   const [name, setName] = useState('');
   const [assignee, setAssignee] = useState('');
   const [reward, setReward] = useState('');
@@ -84,6 +90,21 @@ export default function ChoresPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Gate: if the assignee is a Junior kid and already at the free chore
+    // limit, show the upgrade modal instead of inserting.
+    const assigneeMember = members.find((m) => m.id === assignee);
+    const isJuniorKid =
+      assigneeMember?.role === 'child' && !!assigneeMember?.auth_user_id;
+    if (isJuniorKid) {
+      const existingForKid = chores.filter((c) => c.assignee === assignee).length;
+      const gate = checkJuniorGate(isPro, 'chores', existingForKid);
+      if (gate) {
+        setChoreGateBlocked({ current: gate.current, limit: gate.limit });
+        return;
+      }
+    }
+
     const chore = {
       user_id: user.id,
       name: name.trim(),
@@ -329,6 +350,15 @@ export default function ChoresPage() {
           })
         )}
       </div>
+
+      {choreGateBlocked && (
+        <JuniorUpgradeModal
+          reason="chores"
+          current={choreGateBlocked.current}
+          limit={choreGateBlocked.limit}
+          onClose={() => setChoreGateBlocked(null)}
+        />
+      )}
 
       {showModal && (
         <div className="modal-overlay" id="choreModal">

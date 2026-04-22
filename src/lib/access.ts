@@ -78,3 +78,33 @@ export async function fetchKidMemberForUser(
   if (error) throw error;
   return (data as KidMemberRow) ?? null;
 }
+
+/**
+ * Junior freemium tier limits, per the design spec.
+ * When ENABLE_PRO_SYSTEM=false these don't kick in since everyone is Pro.
+ */
+export const JUNIOR_FREE_LIMITS = {
+  maxKids: 1,
+  maxChoresPerKid: 3,
+  maxCompletedMissions: 5,
+} as const;
+
+export interface JuniorGateReason {
+  kind: 'kids' | 'chores' | 'missions';
+  limit: number;
+  current: number;
+}
+
+/** Returns null if the action is allowed, or a reason object if blocked. */
+export function checkJuniorGate(
+  isPro: boolean,
+  kind: 'kids' | 'chores' | 'missions',
+  current: number,
+): JuniorGateReason | null {
+  if (isPro) return null;
+  const limit =
+    kind === 'kids' ? JUNIOR_FREE_LIMITS.maxKids :
+    kind === 'chores' ? JUNIOR_FREE_LIMITS.maxChoresPerKid :
+    JUNIOR_FREE_LIMITS.maxCompletedMissions;
+  return current >= limit ? { kind, limit, current } : null;
+}

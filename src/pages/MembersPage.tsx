@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { AddKidModal } from '@/components/AddKidModal';
 import { ShowKidLinkModal } from '@/components/ShowKidLinkModal';
+import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { checkJuniorGate, isProUser, JUNIOR_FREE_LIMITS } from '@/lib/access';
 
 /**
  * Ports #page-members from dashboard.html (line 1730) and
@@ -47,10 +50,13 @@ function symbolFor(currency: string): string {
 
 export default function MembersPage() {
   const { user } = useAuth();
+  const { isProFromSettings } = useUserSettings();
+  const isPro = isProUser(isProFromSettings, user);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
   const [showKidModal, setShowKidModal] = useState(false);
+  const [kidGateBlocked, setKidGateBlocked] = useState<{ current: number; limit: number } | null>(null);
   const [linkForMember, setLinkForMember] = useState<FamilyMember | null>(null);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [name, setName] = useState('');
@@ -192,7 +198,17 @@ export default function MembersPage() {
         <button
           type="button"
           className="btn-primary"
-          onClick={() => setShowKidModal(true)}
+          onClick={() => {
+            const juniorKidCount = members.filter(
+              (m) => m.role === 'child' && !!m.auth_user_id,
+            ).length;
+            const gate = checkJuniorGate(isPro, 'kids', juniorKidCount);
+            if (gate) {
+              setKidGateBlocked({ current: gate.current, limit: gate.limit });
+              return;
+            }
+            setShowKidModal(true);
+          }}
           style={{ marginLeft: 12 }}
         >
           <svg
@@ -415,6 +431,15 @@ export default function MembersPage() {
           memberId={linkForMember.id}
           kidName={linkForMember.name}
           onClose={() => setLinkForMember(null)}
+        />
+      )}
+
+      {kidGateBlocked && (
+        <JuniorUpgradeModal
+          reason="kids"
+          current={kidGateBlocked.current}
+          limit={kidGateBlocked.limit ?? JUNIOR_FREE_LIMITS.maxKids}
+          onClose={() => setKidGateBlocked(null)}
         />
       )}
     </section>
