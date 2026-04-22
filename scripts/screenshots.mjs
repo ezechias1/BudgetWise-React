@@ -22,9 +22,15 @@ const ROOT = path.resolve(__dirname, '..');
 const STORE_DIR = path.join(ROOT, 'store-assets', 'screenshots');
 const MARKETING_DIR = path.resolve(ROOT, '..', 'budgetwise-website', 'assets');
 
-const BASE_URL = 'https://budget-wise-ruby.vercel.app';
-const EMAIL = 'ezechiasmulamba@gmail.com';
-const PASSWORD = '[REDACTED_PASSWORD]';
+const BASE_URL = process.env.BUDGETWISE_URL || 'https://budget-wise-react.vercel.app';
+const EMAIL = process.env.BUDGETWISE_EMAIL;
+const PASSWORD = process.env.BUDGETWISE_PASSWORD;
+
+if (!EMAIL || !PASSWORD) {
+  console.error('Missing BUDGETWISE_EMAIL or BUDGETWISE_PASSWORD env vars.');
+  console.error('Set them in your shell or a .env.local file before running this script.');
+  process.exit(1);
+}
 
 const PHONE = { width: 1290, height: 2796 };     // Play Store phone (iPhone 15 Pro Max)
 const DESKTOP = { width: 1440, height: 900 };    // Marketing hero desktop shot
