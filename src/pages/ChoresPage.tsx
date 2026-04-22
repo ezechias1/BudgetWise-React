@@ -129,10 +129,12 @@ export default function ChoresPage() {
 
   /** Child marks chore done → goes to pending_approval. */
   const markDone = async (chore: Chore) => {
+    if (!user) return;
     await supabase
       .from('family_chores')
       .update({ pending_approval: true })
-      .eq('id', chore.id);
+      .eq('id', chore.id)
+      .eq('user_id', user.id);
     setChores((prev) =>
       prev.map((c) =>
         c.id === chore.id ? { ...c, pending_approval: true } : c,
@@ -153,7 +155,8 @@ export default function ChoresPage() {
         pending_approval: false,
         approved_at: approvedAt,
       })
-      .eq('id', chore.id);
+      .eq('id', chore.id)
+      .eq('user_id', user.id);
     if (updErr) return;
 
     // Junior-only: write an IOU ledger row. A Junior kid has role='child' AND auth_user_id set.
@@ -169,6 +172,24 @@ export default function ChoresPage() {
         status: 'owed',
         notes: chore.name,
       });
+    } else if (!isJuniorKid && assigneeMember && chore.reward > 0) {
+      // Legacy (pre-Junior) flow for adult/teen family members: credit the
+      // reward onto their family_members.earned (and bump allowance).
+      // Tracked in audit's Phase 2/3/4 section as a regression if dropped.
+      const nextEarned = Math.round(((assigneeMember as FamilyMember).earned || 0) * 100 + chore.reward * 100) / 100;
+      const nextAllowance = Math.round(((assigneeMember as FamilyMember).allowance || 0) * 100 + chore.reward * 100) / 100;
+      await supabase
+        .from('family_members')
+        .update({ earned: nextEarned, allowance: nextAllowance })
+        .eq('id', assigneeMember.id)
+        .eq('user_id', user.id);
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === assigneeMember.id
+            ? { ...m, earned: nextEarned, allowance: nextAllowance }
+            : m,
+        ),
+      );
     }
 
     setChores((prev) =>
@@ -182,6 +203,7 @@ export default function ChoresPage() {
 
   /** Parent rejects → back to not done. */
   const rejectChore = async (chore: Chore) => {
+    if (!user) return;
     const rejectedAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('family_chores')
@@ -190,7 +212,8 @@ export default function ChoresPage() {
         completed: false,
         rejected_at: rejectedAt,
       })
-      .eq('id', chore.id);
+      .eq('id', chore.id)
+      .eq('user_id', user.id);
     if (updErr) return;
     setChores((prev) =>
       prev.map((c) =>
@@ -203,12 +226,14 @@ export default function ChoresPage() {
 
   /** Direct toggle for quick complete (parent shortcut). */
   const toggleComplete = async (chore: Chore) => {
+    if (!user) return;
     if (chore.completed) {
       // Un-complete
       await supabase
         .from('family_chores')
         .update({ completed: false, pending_approval: false })
-        .eq('id', chore.id);
+        .eq('id', chore.id)
+        .eq('user_id', user.id);
       setChores((prev) =>
         prev.map((c) =>
           c.id === chore.id
@@ -226,7 +251,12 @@ export default function ChoresPage() {
   };
 
   const deleteChore = async (id: string) => {
-    await supabase.from('family_chores').delete().eq('id', id);
+    if (!user) return;
+    await supabase
+      .from('family_chores')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     setChores((prev) => prev.filter((c) => c.id !== id));
   };
 

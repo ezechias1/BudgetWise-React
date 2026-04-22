@@ -151,16 +151,18 @@ export default function FamilyGoalsPage() {
     if (!amount || isNaN(parseFloat(amount))) return;
     const amt = parseFloat(amount);
     const member = members[idx];
+    if (!user) return;
     const nextSaved = goal.saved + amt;
     await supabase
       .from('family_goals')
       .update({ saved: nextSaved })
-      .eq('id', goal.id);
+      .eq('id', goal.id)
+      .eq('user_id', user.id);
     await supabase.from('family_goal_contributions').insert({
       goal_id: goal.id,
       member_id: member.id,
       amount: amt,
-      user_id: user?.id,
+      user_id: user.id,
     });
     setGoals((prev) =>
       prev.map((g) => {
@@ -173,8 +175,13 @@ export default function FamilyGoalsPage() {
   };
 
   const deleteGoal = async (id: string) => {
+    if (!user) return;
     if (!confirm('Delete this family goal?')) return;
-    await supabase.from('family_goals').delete().eq('id', id);
+    await supabase
+      .from('family_goals')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     setGoals((prev) => prev.filter((g) => g.id !== id));
   };
 

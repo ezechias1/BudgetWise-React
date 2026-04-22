@@ -64,24 +64,28 @@ export default function AllowancesPage() {
   }, [load]);
 
   const logSpend = async (m: FamilyMember) => {
+    if (!user) return;
     const amount = prompt('How much was spent?');
     if (!amount || isNaN(parseFloat(amount))) return;
     const next = (m.spent || 0) + parseFloat(amount);
     await supabase
       .from('family_members')
       .update({ spent: next })
-      .eq('id', m.id);
+      .eq('id', m.id)
+      .eq('user_id', user.id);
     setMembers((prev) =>
       prev.map((p) => (p.id === m.id ? { ...p, spent: next } : p)),
     );
   };
 
   const resetAllowance = async (m: FamilyMember) => {
+    if (!user) return;
     if (!confirm('Reset this allowance to 0 spent?')) return;
     await supabase
       .from('family_members')
       .update({ spent: 0, earned: 0 })
-      .eq('id', m.id);
+      .eq('id', m.id)
+      .eq('user_id', user.id);
     setMembers((prev) =>
       prev.map((p) => (p.id === m.id ? { ...p, spent: 0, earned: 0 } : p)),
     );

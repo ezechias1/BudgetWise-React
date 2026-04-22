@@ -122,7 +122,8 @@ export default function MembersPage() {
       const { error } = await supabase
         .from('family_members')
         .update(updates)
-        .eq('id', editingMember.id);
+        .eq('id', editingMember.id)
+        .eq('user_id', user.id);
       if (!error) {
         setMembers((prev) =>
           prev.map((m) =>
@@ -155,6 +156,7 @@ export default function MembersPage() {
   };
 
   const handleRemove = async (id: string) => {
+    if (!user) return;
     const target = members.find((m) => m.id === id);
     const isJuniorKid = target?.role === 'child' && !!target?.auth_user_id;
     const prompt = isJuniorKid
@@ -165,7 +167,11 @@ export default function MembersPage() {
       const typed = window.prompt(`Type "delete" to permanently remove ${target!.name}:`);
       if (typed?.toLowerCase() !== 'delete') return;
     }
-    await supabase.from('family_members').delete().eq('id', id);
+    await supabase
+      .from('family_members')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     setMembers((prev) => prev.filter((m) => m.id !== id));
   };
 
