@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hashSync as bcryptHash } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { hashSync as bcryptHashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -43,6 +43,18 @@ serve(async (req) => {
     const { data: { user: parent } } = await anonClient.auth.getUser();
     if (!parent) return json(401, { error: "Not signed in" });
 
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Reject kids calling this endpoint — contract is "parents create kids"
+    {
+      const { data: kidRow } = await admin
+        .from("family_members")
+        .select("id")
+        .eq("auth_user_id", parent.id)
+        .maybeSingle();
+      if (kidRow) return json(403, { error: "Only parents can add kids" });
+    }
+
     const body = await req.json();
     const {
       member_id,
@@ -67,20 +79,22 @@ serve(async (req) => {
       return json(400, { error: "pin must be exactly 4 digits" });
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
     // Either create a new family_members row or update the one provided
     let memberRow: { id: string } | null = null;
+    let createdNewMember = false;
 
     if (member_id) {
       const { data, error } = await admin
         .from("family_members")
-        .select("id, user_id")
+        .select("id, user_id, auth_user_id")
         .eq("id", member_id)
         .eq("user_id", parent.id)
         .maybeSingle();
       if (error) return json(500, { error: error.message });
       if (!data) return json(404, { error: "Member not found or not owned by caller" });
+      if (data.auth_user_id) {
+        return json(409, { error: "Member already has credentials" });
+      }
       memberRow = { id: data.id };
     } else {
       const { data, error } = await admin
@@ -99,11 +113,12 @@ serve(async (req) => {
         .single();
       if (error) return json(500, { error: error.message });
       memberRow = { id: data!.id };
+      createdNewMember = true;
     }
 
     const internalEmail = `kid-${memberRow.id}@budgetwise.app`;
     const password = derivePassword(pin, memberRow.id);
-    const pinHash = await bcryptHash(pin);
+    const pinHash = bcryptHashSync(pin);
 
     // Create the child's Supabase auth user
     const { data: userData, error: userErr } = await admin.auth.admin.createUser({
@@ -112,7 +127,12 @@ serve(async (req) => {
       email_confirm: true,
       user_metadata: { kind: "child", parent_id: parent.id, member_id: memberRow.id },
     });
-    if (userErr) return json(500, { error: userErr.message });
+    if (userErr) {
+      if (createdNewMember) {
+        await admin.from("family_members").delete().eq("id", memberRow.id);
+      }
+      return json(500, { error: userErr.message });
+    }
 
     // Wire the child's auth_user_id back onto the family_members row
     const { error: updErr } = await admin
@@ -124,7 +144,14 @@ serve(async (req) => {
         date_of_birth: date_of_birth || null,
       })
       .eq("id", memberRow.id);
-    if (updErr) return json(500, { error: updErr.message });
+    if (updErr) {
+      if (createdNewMember) {
+        // Roll back BOTH: the family_members row and the auth user we just created.
+        await admin.from("family_members").delete().eq("id", memberRow.id);
+        await admin.auth.admin.deleteUser(userData.user!.id);
+      }
+      return json(500, { error: updErr.message });
+    }
 
     return json(200, {
       member_id: memberRow.id,
