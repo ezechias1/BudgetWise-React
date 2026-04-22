@@ -5,44 +5,69 @@ import { ENABLE_PRO_SYSTEM } from '@/lib/access';
 /**
  * Reads the parent's user_settings.is_pro for a kid session.
  *
- * A Junior kid is signed in as their own Supabase user but doesn't have a
- * user_settings row — the Pro flag lives on the parent's settings. The kid
- * needs to know it to decide whether a freemium gate (e.g. 5 completed
- * missions) should trip.
+ * A Junior kid is signed in as their own Supabase user and user_settings
+ * RLS blocks them from reading the parent's row directly. Previously we
+ * failed open (treated unreadable as Pro), which was safe while
+ * ENABLE_PRO_SYSTEM=false but broken the moment Pro gates mattered.
  *
- * TODO(rls): user_settings currently has RLS `user_id = auth.uid()`, which
- * will block a kid from reading the parent's row. For Phase 4 we fail open:
- * if the query returns null (either RLS blocking, or no row yet) treat the
- * user as Pro. That's safe while ENABLE_PRO_SYSTEM is false; when the flag
- * flips we'll need a kid-scoped RLS policy (or an edge function that
- * returns just `is_pro`).
+ * AUDIT Imp #4: now calls the kid-pro-status edge function, which uses
+ * the service role to look up the caller's linked parent and return the
+ * parent's is_pro flag. On error we fail CLOSED (isPro=false) so a
+ * misconfig can never grant Pro implicitly.
  */
-export function useParentProForKid(parentUserId: string | null | undefined) {
-  const [isPro, setIsPro] = useState(true);
+export function useParentProForKid(_parentUserId: string | null | undefined) {
+  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!ENABLE_PRO_SYSTEM) {
+      // Dev short-circuit — every gate is off when the whole system is off.
       setIsPro(true);
       setLoading(false);
       return;
     }
-    if (!parentUserId) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('is_pro')
-        .eq('user_id', parentUserId)
-        .maybeSingle();
-      if (cancelled) return;
-      // Fail open: if we couldn't read the row (likely RLS), treat as Pro.
-      if (data == null) setIsPro(true);
-      else setIsPro(data.is_pro === true);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          if (!cancelled) {
+            setIsPro(false);
+            setLoading(false);
+          }
+          return;
+        }
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kid-pro-status`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: '{}',
+          },
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          // Fail closed — audit Imp #4 requirement.
+          setIsPro(false);
+          setLoading(false);
+          return;
+        }
+        const body = await res.json();
+        setIsPro(body.is_pro === true);
+        setLoading(false);
+      } catch {
+        if (!cancelled) {
+          setIsPro(false);
+          setLoading(false);
+        }
+      }
     })();
     return () => { cancelled = true; };
-  }, [parentUserId]);
+  }, []);
 
   return { isPro, loading };
 }

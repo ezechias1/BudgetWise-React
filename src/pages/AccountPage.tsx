@@ -436,6 +436,45 @@ export default function AccountPage() {
     await Promise.all([refreshExpenses(), refreshGoals()]);
   };
 
+  const handlePurgeAccount = async () => {
+    // AUDIT Imp #7 (full version): nuclear option — delete every user-owned
+    // row across every table. Gated by two confirms + typed token.
+    if (!user) return;
+    if (
+      !confirm(
+        'Purge EVERYTHING: expenses, savings, family, chores, stokvel, bank links, kid logins and progress, invoices, clients, and settings. This cannot be undone. Continue?',
+      )
+    )
+      return;
+    const typed = window.prompt(
+      'Type PURGE (all caps) to confirm total account deletion:',
+    );
+    if (typed !== 'PURGE') return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/purge-account`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ confirm: 'PURGE' }),
+      },
+    );
+    const body = await res.json().catch(() => ({ ok: false, error: 'bad response' }));
+    if (res.ok && body.ok) {
+      alert('Account purged. You will be signed out.');
+      await signOut();
+      navigate('/', { replace: true });
+      return;
+    }
+    const errs = body.errors
+      ? Object.entries(body.errors).map(([t, m]) => `${t}: ${m}`).join('\n')
+      : (body.error ?? res.statusText);
+    alert(`Purge finished with errors — some data may remain:\n\n${errs}`);
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/', { replace: true });
@@ -1119,6 +1158,14 @@ export default function AccountPage() {
             </button>
             <button type="button" className="btn-danger" onClick={handleDeleteAll}>
               Delete Expenses &amp; Savings
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={handlePurgeAccount}
+              title="Delete absolutely everything tied to this account"
+            >
+              Purge Entire Account
             </button>
           </div>
         </div>

@@ -179,9 +179,35 @@ export default function MembersPage() {
       const typed = window.prompt(`Type "delete" to permanently remove ${target!.name}:`);
       if (typed?.toLowerCase() !== 'delete') return;
     }
+
     // AUDIT Imp #9: rollback if the delete fails instead of lying.
     const snapshot = members;
     setMembers((prev) => prev.filter((m) => m.id !== id));
+
+    // Task #23: Junior kids must go through the delete-kid-user edge
+    // function so the auth.users row is cleaned up (raw delete left an orphan).
+    if (isJuniorKid) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-kid-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+          },
+          body: JSON.stringify({ member_id: id }),
+        },
+      );
+      if (!res.ok) {
+        setMembers(snapshot);
+        const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`Could not remove Junior kid: ${body.error ?? res.statusText}`);
+      }
+      return;
+    }
+
+    // Non-Junior member — simple row delete.
     const { error } = await supabase
       .from('family_members')
       .delete()
@@ -191,6 +217,36 @@ export default function MembersPage() {
       setMembers(snapshot);
       alert(`Could not remove member: ${error.message}`);
     }
+  };
+
+  const handleResetPin = async (member: FamilyMember) => {
+    // Task #22: parent resets a kid's forgotten PIN via edge function.
+    const newPin = window.prompt(
+      `Reset PIN for ${member.name}?\n\nEnter a new 4-digit PIN. Share it with ${member.name} after saving.`,
+    );
+    if (!newPin) return;
+    if (!/^\d{4}$/.test(newPin)) {
+      alert('PIN must be exactly 4 digits.');
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-kid-pin`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ member_id: member.id, new_pin: newPin }),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+      alert(`Could not reset PIN: ${body.error ?? res.statusText}`);
+      return;
+    }
+    alert(`PIN reset. ${member.name} can now sign in with the new PIN.`);
   };
 
   const sym = symbolFor(currency);
@@ -335,6 +391,15 @@ export default function MembersPage() {
                         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                       </svg>
                       Link
+                    </button>
+                  )}
+                  {m.role === 'child' && m.auth_user_id && (
+                    <button
+                      className="btn-edit-member"
+                      onClick={() => handleResetPin(m)}
+                      title={`Reset ${m.name}'s PIN`}
+                    >
+                      Reset PIN
                     </button>
                   )}
                   <button
