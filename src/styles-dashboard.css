@@ -1087,6 +1087,32 @@ body.modal-open {
     box-shadow: 0 8px 30px rgba(var(--accent-rgb),0.35);
 }
 
+/* Outlined secondary button — paired with .btn-primary for "cancel/dismiss"
+   actions. Auto-width; add flex:1 (or width:100%) when you need it to
+   stretch. */
+.btn-secondary {
+    padding: 14px 20px;
+    background: transparent;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    color: var(--accent);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent), transparent 92%);
+    transform: translateY(-2px);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Inline form */
 .inline-form {
     display: flex;

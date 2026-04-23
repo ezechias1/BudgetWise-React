@@ -140,6 +140,7 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           </div>
           <button
             type="button"
+            className="btn-primary"
             onClick={onClose}
             style={{ marginTop: 20, width: '100%' }}
           >
@@ -228,19 +229,7 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '12px 20px',
-                borderRadius: 10,
-                border: '1px solid var(--border, #e2e8f0)',
-                background: 'transparent',
-                color: 'var(--text-primary, #1a1a2e)',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
             <button

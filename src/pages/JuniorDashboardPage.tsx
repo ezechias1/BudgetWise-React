@@ -115,7 +115,7 @@ export default function JuniorDashboardPage() {
       <PushPromptCard />
 
       <div style={{ marginBottom: 16 }}>
-        <button type="button" onClick={() => setShowRewards(true)}>
+        <button type="button" className="btn-secondary" onClick={() => setShowRewards(true)}>
           Configure mission rewards
         </button>
       </div>
