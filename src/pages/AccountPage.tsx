@@ -11,6 +11,7 @@ import { CURRENCIES } from '@/lib/currencies';
 import { ENABLE_PRO_SYSTEM, isAdmin, isProUser } from '@/lib/access';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { IncomeRoutingModal } from '@/components/IncomeRoutingModal';
+import { disablePush, enablePush, getPushStatus, type PushStatus } from '@/lib/push-subscription';
 
 // -------- Achievements (mirrors js/app.js:4261 achievementDefs) --------
 interface AchievementDef {
@@ -103,6 +104,23 @@ export default function AccountPage() {
   const effectiveAvatar = avatarUrl || metadataAvatar;
 
   const [currencyInput, setCurrencyInput] = useState(currency);
+
+  // Push notifications (Junior Phase 5).
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    void getPushStatus().then(setPushStatus);
+  }, []);
+  async function onTogglePush() {
+    setPushBusy(true);
+    if (pushStatus?.subscribed) {
+      await disablePush();
+    } else {
+      await enablePush();
+    }
+    setPushStatus(await getPushStatus());
+    setPushBusy(false);
+  }
   const [incomeInput, setIncomeInput] = useState('');
   const [goalInput, setGoalInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -985,6 +1003,50 @@ export default function AccountPage() {
                 </button>
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Notifications (Junior Phase 5) */}
+        <div className="chart-card full-width">
+          <h3>Notifications</h3>
+          <div className="account-details">
+            {!pushStatus && (
+              <div className="account-row">
+                <span className="account-label">Push notifications</span>
+                <span className="account-value">Loading…</span>
+              </div>
+            )}
+            {pushStatus && !pushStatus.supported && (
+              <div className="account-row">
+                <span className="account-label">Push notifications</span>
+                <span className="account-value">Not supported on this browser</span>
+              </div>
+            )}
+            {pushStatus && pushStatus.supported && pushStatus.permission === 'denied' && (
+              <div className="account-row">
+                <span className="account-label">Push notifications</span>
+                <span className="account-value">
+                  Blocked. Re-enable in browser settings, then toggle on here.
+                </span>
+              </div>
+            )}
+            {pushStatus && pushStatus.supported && pushStatus.permission !== 'denied' && (
+              <div className="account-row">
+                <span className="account-label">Push notifications</span>
+                <span className="account-value">
+                  {pushStatus.subscribed ? 'On' : 'Off'}
+                  <button
+                    type="button"
+                    className="btn-change-inline"
+                    onClick={onTogglePush}
+                    disabled={pushBusy}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {pushStatus.subscribed ? 'Turn off' : 'Turn on'}
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
