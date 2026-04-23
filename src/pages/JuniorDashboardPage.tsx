@@ -76,8 +76,31 @@ export default function JuniorDashboardPage() {
       <section className="page active">
         <header className="page-header">
           <h1>Junior</h1>
-          <p>No Junior kids yet. Add one from Family → Members.</p>
+          <p>Track chores, missions, and IOUs.</p>
         </header>
+        <div
+          className="card"
+          style={{
+            padding: 32,
+            marginTop: 24,
+            textAlign: 'center',
+            maxWidth: 460,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>No Junior kids yet</h3>
+          <p style={{ opacity: 0.75, marginBottom: 20 }}>
+            Add a kid from Family → Members to get started with chores and rewards.
+          </p>
+          <a
+            href="/dashboard/members"
+            className="btn-primary"
+            style={{ display: 'inline-block', textDecoration: 'none' }}
+          >
+            Go to Members
+          </a>
+        </div>
       </section>
     );
   }
