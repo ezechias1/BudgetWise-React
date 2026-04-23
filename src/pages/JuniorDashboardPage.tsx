@@ -62,7 +62,7 @@ export default function JuniorDashboardPage() {
 
   if (loading) {
     return (
-      <section className="page">
+      <section className="page active">
         <header className="page-header">
           <h1>Junior</h1>
           <p>Loading your kids…</p>
@@ -73,7 +73,7 @@ export default function JuniorDashboardPage() {
 
   if (kids.length === 0) {
     return (
-      <section className="page">
+      <section className="page active">
         <header className="page-header">
           <h1>Junior</h1>
           <p>No Junior kids yet. Add one from Family → Members.</p>
@@ -83,7 +83,7 @@ export default function JuniorDashboardPage() {
   }
 
   return (
-    <section className="page">
+    <section className="page active">
       <header className="page-header">
         <h1>Junior</h1>
         <p>Your kids, their IOUs, and settle-up.</p>
