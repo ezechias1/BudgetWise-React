@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAllKidsLedger } from '@/hooks/useKidLedger';
 import { SettleUpModal } from '@/components/SettleUpModal';
 import { MissionRewardsModal } from '@/components/MissionRewardsModal';
+import { PushPromptCard } from '@/components/junior/PushPromptCard';
 
 interface KidRow {
   id: string;
@@ -87,6 +88,8 @@ export default function JuniorDashboardPage() {
         <h1>Junior</h1>
         <p>Your kids, their IOUs, and settle-up.</p>
       </header>
+
+      <PushPromptCard />
 
       <div style={{ marginBottom: 16 }}>
         <button type="button" onClick={() => setShowRewards(true)}>
