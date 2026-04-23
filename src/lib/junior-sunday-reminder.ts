@@ -46,19 +46,12 @@ export async function maybeFireSundayReminder(
   const totalOwedCents = rows.reduce((sum, r) => sum + r.amount_cents, 0);
   const kidsCount = new Set(rows.map((r) => r.member_id)).size;
 
-  // Fire the notification via SW if permission granted; otherwise no-op.
-  if ('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification('Sunday settle-up', {
-        body: `You owe your kids R${(totalOwedCents / 100).toFixed(2)} across ${kidsCount} ${kidsCount === 1 ? 'child' : 'children'}. Tap to settle.`,
-        icon: '/icons/icon-192.png',
-        tag: `bw-junior-sunday-${isoWeek(now)}`,
-      });
-    } catch {
-      /* swallow — permission/Network issues shouldn't block the banner */
-    }
-  }
+  // NOTE (Junior Phase 5): the system push notification used to fire here
+  // via `reg.showNotification`. The server-side cron now owns push
+  // delivery (see supabase/functions/send-junior-push/index.ts), so we
+  // only compute the totals and let DashboardLayout render the in-app
+  // banner. Keeping the localStorage flag means the banner still respects
+  // weekly dedup if the parent dismisses it.
 
   localStorage.setItem(key, 'sent');
   return { fired: true, totalOwedCents, kidsCount };
