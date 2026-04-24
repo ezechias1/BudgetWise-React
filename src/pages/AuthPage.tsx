@@ -576,6 +576,19 @@ export default function AuthPage() {
               <span>Continue with Google</span>
             </button>
             )}
+
+            {tab !== 'reset' && (
+              <a href="/junior/login" className="btn-kid-signin">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span>
+                  Kid sign in
+                  <span className="btn-kid-signin-sub">Use the 4-digit PIN your parent gave you</span>
+                </span>
+              </a>
+            )}
           </div>
         </div>
       </div>

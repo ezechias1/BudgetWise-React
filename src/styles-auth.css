@@ -27,6 +27,51 @@ body {
     pointer-events: none;
 }
 
+/* Full-viewport fix: styles-dashboard.css sets body { display: flex } globally,
+   which makes #root shrink to content width. That leaves the two-column auth
+   layout squashed to the left. Match the Junior shell pattern and let #root
+   fill on any page that mounts .auth-container. */
+body:has(.auth-container) {
+    display: block !important;
+}
+body:has(.auth-container) #root {
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* Visible Kid-signin CTA — warm yellow/orange, matches the Junior palette */
+.btn-kid-signin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f59e0b, #ec4899);
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none;
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.btn-kid-signin:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.4);
+}
+.btn-kid-signin:active {
+    transform: translateY(0);
+}
+.btn-kid-signin-sub {
+    display: block;
+    font-weight: 500;
+    font-size: 0.78rem;
+    opacity: 0.9;
+    margin-top: 2px;
+}
+
 .auth-container {
     display: flex;
     min-height: 100vh;

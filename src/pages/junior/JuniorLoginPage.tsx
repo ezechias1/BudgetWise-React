@@ -61,8 +61,21 @@ export default function JuniorLoginPage() {
       return (
         <div className="junior-shell">
           <main className="junior-main">
-            <h1 style={{ color: '#dc2626' }}>Link missing</h1>
-            <p>Ask your parent for your login link again.</p>
+            <section className="junior-hero">
+              <h1>No login link yet</h1>
+              <p>BudgetWise Junior works inside a parent's Family account.</p>
+            </section>
+            <div style={{ background: 'white', borderRadius: 16, padding: 20, marginTop: 20, color: '#1f2937' }}>
+              <strong style={{ display: 'block', marginBottom: 10 }}>Ask your parent to:</strong>
+              <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
+                <li>Create a BudgetWise account and switch to <b>Family</b> mode</li>
+                <li>Go to <b>Members</b> and tap <b>Add Junior Kid</b></li>
+                <li>Share the login link and 4-digit PIN they get</li>
+              </ol>
+              <p style={{ marginTop: 14, fontSize: '0.9rem', opacity: 0.75 }}>
+                Parents sign in on the main BudgetWise app, not here.
+              </p>
+            </div>
           </main>
         </div>
       );
@@ -175,6 +188,12 @@ export default function JuniorLoginPage() {
             {submitting ? 'Checking…' : "Let's go"}
           </button>
         </form>
+
+        <p style={{ marginTop: 24, fontSize: '0.85rem', color: '#4b5563', textAlign: 'center', lineHeight: 1.6 }}>
+          Kids sign in with the link + PIN their parent gives them.
+          Parents need a BudgetWise account in <b>Family</b> mode and must
+          add the kid from the Members page.
+        </p>
       </main>
     </div>
   );
