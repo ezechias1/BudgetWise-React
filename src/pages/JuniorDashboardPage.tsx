@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAllKidsLedger } from '@/hooks/useKidLedger';
 import { SettleUpModal } from '@/components/SettleUpModal';
 import { MissionRewardsModal } from '@/components/MissionRewardsModal';
+import { PushPromptCard } from '@/components/junior/PushPromptCard';
 
 interface KidRow {
   id: string;
@@ -61,7 +62,7 @@ export default function JuniorDashboardPage() {
 
   if (loading) {
     return (
-      <section className="page">
+      <section className="page active">
         <header className="page-header">
           <h1>Junior</h1>
           <p>Loading your kids…</p>
@@ -72,24 +73,49 @@ export default function JuniorDashboardPage() {
 
   if (kids.length === 0) {
     return (
-      <section className="page">
+      <section className="page active">
         <header className="page-header">
           <h1>Junior</h1>
-          <p>No Junior kids yet. Add one from Family → Members.</p>
+          <p>Track chores, missions, and IOUs.</p>
         </header>
+        <div
+          className="card"
+          style={{
+            padding: 32,
+            marginTop: 24,
+            textAlign: 'center',
+            maxWidth: 460,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>No Junior kids yet</h3>
+          <p style={{ opacity: 0.75, marginBottom: 20 }}>
+            Add a kid from Family → Members to get started with chores and rewards.
+          </p>
+          <a
+            href="/dashboard/members"
+            className="btn-primary"
+            style={{ display: 'inline-block', textDecoration: 'none' }}
+          >
+            Go to Members
+          </a>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="page">
+    <section className="page active">
       <header className="page-header">
         <h1>Junior</h1>
         <p>Your kids, their IOUs, and settle-up.</p>
       </header>
 
+      <PushPromptCard />
+
       <div style={{ marginBottom: 16 }}>
-        <button type="button" onClick={() => setShowRewards(true)}>
+        <button type="button" className="btn-secondary" onClick={() => setShowRewards(true)}>
           Configure mission rewards
         </button>
       </div>

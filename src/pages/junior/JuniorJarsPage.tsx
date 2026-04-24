@@ -45,10 +45,25 @@ export default function JuniorJarsPage() {
       </section>
 
       <div style={{ background: 'white', borderRadius: 16, padding: 20, marginBottom: 20 }}>
-        <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ display: 'flex', height: 24, borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
           <div style={{ width: barW(save), background: '#10b981' }} />
           <div style={{ width: barW(spend), background: '#3b82f6' }} />
           <div style={{ width: barW(give), background: '#8b5cf6' }} />
+        </div>
+
+        {/* Legend so a kid knows which colour is which jar. */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, fontSize: '0.85rem', color: '#1a1a2e' }}>
+          {([
+            { name: 'Save',  val: save,  color: '#10b981' },
+            { name: 'Spend', val: spend, color: '#3b82f6' },
+            { name: 'Give',  val: give,  color: '#8b5cf6' },
+          ]).map((j) => (
+            <div key={j.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: j.color, display: 'inline-block' }} />
+              <strong>{j.name}</strong>
+              <span style={{ opacity: 0.7 }}>{j.val}%</span>
+            </div>
+          ))}
         </div>
 
         {(['save', 'spend', 'give'] as const).map((jar) => {
@@ -56,7 +71,9 @@ export default function JuniorJarsPage() {
           const set = jar === 'save' ? setSave : jar === 'spend' ? setSpend : setGive;
           return (
             <div key={jar} className="field">
-              <label>{jar.charAt(0).toUpperCase() + jar.slice(1)}: {val}%</label>
+              <label style={{ color: '#1a1a2e', fontWeight: 600 }}>
+                {jar.charAt(0).toUpperCase() + jar.slice(1)}: {val}%
+              </label>
               <input type="range" min={0} max={100} value={val} onChange={(e) => set(Number(e.target.value))} />
             </div>
           );

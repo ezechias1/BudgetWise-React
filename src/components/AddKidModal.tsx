@@ -140,6 +140,7 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           </div>
           <button
             type="button"
+            className="btn-primary"
             onClick={onClose}
             style={{ marginTop: 20, width: '100%' }}
           >
@@ -228,10 +229,15 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-            <button type="button" onClick={onClose}>
+            <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" disabled={!canSubmit} className="btn-primary">
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="btn-primary"
+              style={{ flex: 1 }}
+            >
               {submitting ? 'Adding…' : 'Add kid'}
             </button>
           </div>
