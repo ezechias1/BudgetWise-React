@@ -4,11 +4,18 @@
    hero gradient, and type scale shift per age. Shared components stay
    untouched so maintenance stays 1× not 4×. */
 
-/* Body-level override: body has display:flex + dark bg by default — swap
-   both when Junior is active so the cream gradient bleeds to every edge
-   instead of showing a black gutter on desktop. */
+/* Body-level override: body has display:flex + dark bg by default.
+   - Dark bg would show as a black gutter outside Junior's cream gradient.
+   - display:flex makes #root shrink to CONTENT width (no explicit flex:1
+     on #root), which caps the Junior grid at ~720px on a 1920 screen.
+   Swap both when Junior is active so the shell truly fills the viewport. */
 body.junior-active {
+  display: block !important;
   background: linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%) !important;
+}
+body.junior-active #root {
+  width: 100%;
+  min-height: 100vh;
 }
 
 .junior-shell {
