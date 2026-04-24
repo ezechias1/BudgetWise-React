@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ageFromDob, bracketFor } from '@/lib/junior-age';
 
 const COLORS = ['#8b5cf6', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
 
@@ -11,15 +12,15 @@ interface Props {
 export function AddKidModal({ onClose, onAdded }: Props) {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
-  const [age, setAge] = useState<string>('');
+  const [dob, setDob] = useState<string>('');
   const [color, setColor] = useState(COLORS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const ageNum = age === '' ? NaN : Number(age);
-  const ageValid = Number.isInteger(ageNum) && ageNum >= 7 && ageNum <= 17;
+  const computedAge = ageFromDob(dob);
+  const ageValid = computedAge !== null && computedAge >= 7 && computedAge <= 17;
   const canSubmit =
     name.trim().length > 0 && /^\d{4}$/.test(pin) && ageValid && !submitting;
 
@@ -49,7 +50,8 @@ export function AddKidModal({ onClose, onAdded }: Props) {
             name: name.trim(),
             pin,
             color,
-            age: age ? Number(age) : null,
+            age: computedAge,
+            date_of_birth: dob,
           }),
         },
       );
@@ -191,20 +193,31 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           </div>
 
           <div className="field">
-            <label htmlFor="kid-age">Age</label>
+            <label htmlFor="kid-dob">Date of birth</label>
             <input
-              id="kid-age"
-              type="number"
-              min={7}
-              max={17}
+              id="kid-dob"
+              type="date"
               required
-              placeholder="7–17"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
             />
-            <small style={{ opacity: 0.7 }}>
-              Junior is for kids 7–17. At 18 they can get their own BudgetWise account.
-            </small>
+            {dob && !ageValid && (
+              <small style={{ color: '#dc2626', fontWeight: 600 }}>
+                BudgetWise Junior is for kids 7–17 (currently {computedAge}).
+                At 18 they graduate to their own BudgetWise account.
+              </small>
+            )}
+            {dob && ageValid && (
+              <small style={{ opacity: 0.7 }}>
+                {computedAge} years old — bracket {bracketFor(computedAge!)}.
+              </small>
+            )}
+            {!dob && (
+              <small style={{ opacity: 0.7 }}>
+                Junior is for kids 7–17. Each age bracket gets its own missions.
+              </small>
+            )}
           </div>
 
           <div className="field">

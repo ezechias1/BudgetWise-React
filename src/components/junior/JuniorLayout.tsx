@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKidProfile } from '@/hooks/useKidProfile';
+import { ageFromDob, bracketFor } from '@/lib/junior-age';
+import { GraduationBanner, GraduationBlock } from './GraduationBanner';
 
 export function JuniorLayout() {
   const { signOut } = useAuth();
+  const { member } = useKidProfile();
   const navigate = useNavigate();
 
   // Junior surface is light-only in Phase 1; force body class so vanilla-CSS
@@ -18,10 +22,20 @@ export function JuniorLayout() {
     navigate('/', { replace: true });
   };
 
+  // Age-aware palette: data-bracket drives per-bracket CSS variables defined
+  // in styles-junior.css. Falls back to 10-12 bracket defaults while loading.
+  const age = ageFromDob(member?.date_of_birth ?? null);
+  const bracket = age !== null ? bracketFor(age) : '10-12';
+
+  // Age 18+ sees the graduation block INSTEAD of their normal Junior content —
+  // prevents a grad from continuing to accrue chore rewards on a kid account.
+  const hasGraduated = age !== null && age >= 18;
+
   return (
-    <div className="junior-shell">
+    <div className="junior-shell" data-bracket={bracket}>
       <main className="junior-main">
-        <Outlet />
+        <GraduationBanner />
+        {hasGraduated ? <GraduationBlock /> : <Outlet />}
         <button className="junior-signout" onClick={handleSignOut}>
           Sign out
         </button>

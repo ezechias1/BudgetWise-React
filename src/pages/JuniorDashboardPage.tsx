@@ -5,6 +5,7 @@ import { useAllKidsLedger } from '@/hooks/useKidLedger';
 import { SettleUpModal } from '@/components/SettleUpModal';
 import { MissionRewardsModal } from '@/components/MissionRewardsModal';
 import { PushPromptCard } from '@/components/junior/PushPromptCard';
+import { BirthdayBackfillBanner } from '@/components/BirthdayBackfillBanner';
 
 interface KidRow {
   id: string;
@@ -111,6 +112,8 @@ export default function JuniorDashboardPage() {
         <h1>Junior</h1>
         <p>Your kids, their IOUs, and settle-up.</p>
       </header>
+
+      <BirthdayBackfillBanner />
 
       <PushPromptCard />
 

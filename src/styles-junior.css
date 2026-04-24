@@ -1,11 +1,54 @@
 /* ─── BudgetWise Junior — kid-first layout ─────────────────────────── */
 
+/* Per-bracket CSS variables. Subtler than a full re-skin: accent colour,
+   hero gradient, and type scale shift per age. Shared components stay
+   untouched so maintenance stays 1× not 4×. */
+
 .junior-shell {
+  /* 10-12 bracket — current defaults */
+  --junior-accent: #10b981;
+  --junior-accent-soft: rgba(16, 185, 129, 0.1);
+  --junior-hero-bg: #10b981;
+  --junior-bg-from: #fff7ed;
+  --junior-bg-to: #fef3c7;
+  --junior-scale: 1;
+
   min-height: 100vh;
-  background: linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%);
+  background: linear-gradient(180deg, var(--junior-bg-from) 0%, var(--junior-bg-to) 100%);
   color: #1f2937;
   font-family: 'Inter', system-ui, sans-serif;
   padding-bottom: 84px; /* space for bottom nav */
+  font-size: calc(1rem * var(--junior-scale));
+}
+
+.junior-shell[data-bracket="7-9"] {
+  /* Warmer, bigger, more playful. */
+  --junior-accent: #f59e0b;
+  --junior-accent-soft: rgba(245, 158, 11, 0.12);
+  --junior-hero-bg: linear-gradient(135deg, #f59e0b, #ec4899);
+  --junior-bg-from: #fff7ed;
+  --junior-bg-to: #fce7f3;
+  --junior-scale: 1.1;
+}
+
+.junior-shell[data-bracket="13-15"] {
+  /* Cooler blues — closer to teen. */
+  --junior-accent: #3b82f6;
+  --junior-accent-soft: rgba(59, 130, 246, 0.1);
+  --junior-hero-bg: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --junior-bg-from: #eff6ff;
+  --junior-bg-to: #e0e7ff;
+  --junior-scale: 0.96;
+}
+
+.junior-shell[data-bracket="16-17"] {
+  /* Adult-lite: near-black hero, green accent, tighter scale. */
+  --junior-accent: #10b981;
+  --junior-accent-soft: rgba(16, 185, 129, 0.12);
+  --junior-hero-bg: linear-gradient(135deg, #1e293b, #0f172a);
+  --junior-bg-from: #f8fafc;
+  --junior-bg-to: #e2e8f0;
+  --junior-scale: 0.92;
 }
 
 .junior-shell.dark {
@@ -53,17 +96,17 @@
 
 .junior-bottom-nav a.active,
 .junior-bottom-nav button.active {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
+  color: var(--junior-accent);
+  background: var(--junior-accent-soft);
   font-weight: 600;
 }
 
 .junior-hero {
-  background: #10b981;
+  background: var(--junior-hero-bg);
   color: white;
   border-radius: 24px;
   padding: 28px 24px;
-  box-shadow: 0 20px 40px -16px rgba(16, 185, 129, 0.5);
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.25);
 }
 
 .junior-hero h1 {
