@@ -2,7 +2,7 @@
 // always gets fresh HTML (and therefore fresh hashed JS bundles). Falls
 // back to cached shell only when offline. Static assets are cache-first.
 
-const CACHE = 'budgetwise-react-v25';
+const CACHE = 'budgetwise-react-v26';
 const SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

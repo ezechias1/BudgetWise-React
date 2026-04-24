@@ -136,14 +136,27 @@ export default function AuthPage() {
       root.setProperty('--accent-glow', 'rgba(16, 185, 129, 0.15)');
     }
     return () => {
-      // Reset to personal green when leaving auth page
-      root.setProperty('--accent', '#10b981');
-      root.setProperty('--accent-dark', '#059669');
-      root.setProperty('--accent-alt', '#06b6d4');
-      root.setProperty('--accent-shadow', 'rgba(16, 185, 129, 0.3)');
-      root.setProperty('--accent-glow', 'rgba(16, 185, 129, 0.15)');
+      // Release control back to the CSS cascade — body.business-mode /
+      // body.family-mode rules otherwise lose to these inline declarations
+      // (inline specificity wins), which is what made the post-login accent
+      // get stuck on personal green.
+      root.removeProperty('--accent');
+      root.removeProperty('--accent-dark');
+      root.removeProperty('--accent-alt');
+      root.removeProperty('--accent-shadow');
+      root.removeProperty('--accent-glow');
     };
   }, [signupType]);
+
+  // Auth page is always dark — never show it in light theme. Remove the
+  // `light` body class while mounted and restore it on unmount.
+  useEffect(() => {
+    const hadLight = document.body.classList.contains('light');
+    if (hadLight) document.body.classList.remove('light');
+    return () => {
+      if (hadLight) document.body.classList.add('light');
+    };
+  }, []);
   const [signupName, setSignupName] = useState('');
   const [signupCompany, setSignupCompany] = useState('');
   const [signupFamilyName, setSignupFamilyName] = useState('');
