@@ -41,40 +41,6 @@ export function JuniorLayout() {
       <main className="junior-main">
         <GraduationBanner />
         {hasGraduated ? <GraduationBlock /> : <Outlet />}
-        <div className="junior-auth-buttons junior-auth-buttons--main">
-          <button
-            className="junior-back-parent"
-            onClick={handleBackToParent}
-            style={{
-              flex: '1 1 180px',
-              background: 'white',
-              color: '#1f2937',
-              border: '1px solid #e5e7eb',
-              borderRadius: 12,
-              padding: '10px 16px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              fontFamily: 'inherit',
-              fontSize: '0.92rem',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-            Back to parent account
-          </button>
-          <button
-            className="junior-signout"
-            onClick={handleSignOut}
-            style={{ flex: '0 0 auto', margin: 0 }}
-          >
-            Sign out
-          </button>
-        </div>
       </main>
       <nav className="junior-bottom-nav">
         <NavLink to="/junior/home" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -106,7 +72,7 @@ export function JuniorLayout() {
           </svg>
           Missions
         </NavLink>
-        <div className="junior-auth-buttons junior-auth-buttons--sidebar">
+        <div className="junior-auth-buttons">
           <button type="button" className="junior-back-parent-btn" onClick={handleBackToParent}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />

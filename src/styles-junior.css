@@ -96,10 +96,42 @@ body.junior-active {
    - Main content widens (max 1200px) and starts after the sidebar
    - Grids go multi-column so content actually uses the width
    Below 900px: mobile layout unchanged. */
-/* Buttons block that appears in EITHER the sidebar (desktop) or inline
-   in main (mobile). We render it in both places; CSS toggles visibility. */
-.junior-auth-buttons { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
-.junior-auth-buttons--sidebar { display: none; }
+/* Auth buttons live ONLY inside the sidebar/bottom-nav. Styled compactly
+   on mobile (horizontal row above the tabs) and as full pills in the
+   sidebar footer on desktop. Never appears in main. */
+.junior-auth-buttons {
+  display: flex;
+  gap: 6px;
+  flex-direction: row;
+  order: -1;
+  flex-basis: 100%;
+  justify-content: flex-end;
+  padding: 6px 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(253, 230, 138, 0.6);
+}
+.junior-auth-buttons button {
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  border-radius: 8px;
+  font-family: inherit;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #1f2937;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.junior-auth-buttons .junior-signout-btn {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Mobile bottom-nav needs flex-wrap so .junior-auth-buttons can claim a
+   full row above the 4 tabs. */
+.junior-bottom-nav { flex-wrap: wrap; }
 
 @media (min-width: 900px) {
   .junior-shell {
@@ -158,36 +190,28 @@ body.junior-active {
     width: 100%;
   }
 
-  /* On desktop, the auth buttons live in the sidebar footer, not in main. */
-  .junior-auth-buttons--main { display: none; }
-  .junior-auth-buttons--sidebar {
-    display: flex;
+  /* Desktop sidebar footer: stack vertically at the bottom, undo the
+     mobile compact horizontal row. */
+  .junior-auth-buttons {
     flex-direction: column;
-    gap: 8px;
-    margin-top: auto;   /* pushes to bottom of sidebar */
-    padding-top: 20px;
+    order: 0;
+    flex-basis: auto;
+    margin-top: auto;
+    margin-bottom: 0;
+    padding: 20px 0 0;
+    border-bottom: 0;
     border-top: 1px solid rgba(251, 191, 36, 0.3);
+    gap: 8px;
+    justify-content: flex-start;
   }
-  .junior-auth-buttons--sidebar button {
+  .junior-auth-buttons button {
     width: 100%;
     padding: 10px 14px;
     font-size: 0.88rem;
     border-radius: 10px;
-    font-family: inherit;
-    cursor: pointer;
-    border: 1px solid #e5e7eb;
-    background: white;
-    color: #1f2937;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
-    gap: 8px;
   }
-  .junior-auth-buttons--sidebar .junior-signout-btn {
-    color: #dc2626;
-    border-color: #fecaca;
-  }
+  .junior-bottom-nav { flex-wrap: nowrap; }
 
   .junior-hero {
     padding: 40px 36px;
