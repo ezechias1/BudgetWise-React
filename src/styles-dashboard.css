@@ -7833,15 +7833,27 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
    Mobile polish — React port specific
    ============================================================ */
 
-/* Scan button: on small screens hide the label, keep the icon. */
+/* Scan button: on small screens hide the label, keep the icon.
+   Fixed square footprint + flex-shrink:0 on the SVG so the parent
+   `.header-actions` flex:1 rule doesn't squish the icon to width:0. */
 @media (max-width: 640px) {
     .btn-scan {
-        padding: 8px 12px !important;
-        gap: 0 !important;
+        flex: 0 0 44px !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 44px !important;
         min-height: 44px;
+        padding: 0 !important;
+        gap: 0 !important;
         display: flex !important;
         align-items: center;
         justify-content: center;
+    }
+    .btn-scan svg {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
     }
     .btn-scan .btn-scan-label {
         display: none;
