@@ -6,12 +6,14 @@ import { SettleUpModal } from '@/components/SettleUpModal';
 import { MissionRewardsModal } from '@/components/MissionRewardsModal';
 import { PushPromptCard } from '@/components/junior/PushPromptCard';
 import { BirthdayBackfillBanner } from '@/components/BirthdayBackfillBanner';
+import { ageFromDob, bracketFor, daysUntilBirthday } from '@/lib/junior-age';
 
 interface KidRow {
   id: string;
   name: string;
   color: string;
   age: number | null;
+  date_of_birth: string | null;
   jar_split: { save: number; spend: number; give: number };
 }
 
@@ -39,7 +41,7 @@ export default function JuniorDashboardPage() {
     const [kRes, sRes] = await Promise.all([
       supabase
         .from('family_members')
-        .select('id, name, color, age, jar_split, role, auth_user_id')
+        .select('id, name, color, age, date_of_birth, jar_split, role, auth_user_id')
         .eq('user_id', user.id)
         .eq('role', 'child')
         .not('auth_user_id', 'is', null)
@@ -126,6 +128,10 @@ export default function JuniorDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
         {kids.map((k) => {
           const totals = perKid[k.id] ?? { owed_cents: 0, paid_cents: 0 };
+          const derivedAge = ageFromDob(k.date_of_birth) ?? k.age;
+          const bracket = derivedAge !== null && derivedAge >= 7 && derivedAge <= 17 ? bracketFor(derivedAge) : null;
+          const daysToBirthday = daysUntilBirthday(k.date_of_birth);
+          const birthdaySoon = daysToBirthday !== null && daysToBirthday <= 30;
           return (
             <article
               key={k.id}
@@ -145,13 +151,53 @@ export default function JuniorDashboardPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontWeight: 700,
+                    flexShrink: 0,
                   }}
                 >
                   {k.name.charAt(0).toUpperCase()}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <h3 style={{ margin: 0 }}>{k.name}</h3>
-                  {k.age != null && <small>Age {k.age}</small>}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    {derivedAge != null && (
+                      <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                        Age {derivedAge}
+                      </span>
+                    )}
+                    {bracket && (
+                      <span
+                        style={{
+                          background: 'rgba(16, 185, 129, 0.12)',
+                          color: '#065f46',
+                          fontSize: '0.68rem',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {bracket}
+                      </span>
+                    )}
+                    {birthdaySoon && (
+                      <span
+                        style={{
+                          background: '#fce7f3',
+                          color: '#9d174d',
+                          fontSize: '0.68rem',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          lineHeight: 1.5,
+                        }}
+                        title={`${daysToBirthday} day${daysToBirthday === 1 ? '' : 's'} to birthday`}
+                      >
+                        {daysToBirthday === 0
+                          ? 'Birthday today!'
+                          : `${daysToBirthday}d to birthday`}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </header>
 
