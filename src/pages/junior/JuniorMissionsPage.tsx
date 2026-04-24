@@ -25,7 +25,7 @@ export default function JuniorMissionsPage() {
       {Object.entries(byUnit).map(([unit, unitMissions]) => (
         <section key={unit} style={{ marginBottom: 24 }}>
           <h3>{unit}</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
+          <ul className="junior-grid-cards" style={{ listStyle: 'none', padding: 0 }}>
             {unitMissions.map((m) => {
               const p = progressByMission[m.id];
               const done = p?.status === 'completed';

@@ -84,20 +84,26 @@ body.junior-active {
   z-index: 100;
 }
 
+/* Lists that benefit from multi-column grids at desktop get these
+   classes. Mobile keeps single column. */
+.junior-grid-tiles { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.junior-grid-cards { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.junior-hero-span { grid-column: 1 / -1; }
+
 /* ─── Desktop Junior layout ────────────────────────────────────────────
-   On screens ≥ 900px, promote Junior to a proper desktop app:
-   - Bottom nav becomes a fixed LEFT sidebar (260px)
-   - Main content starts after the sidebar and widens to 960px
-   - Home-page tile grid uses the extra width (3 columns instead of 1-2)
-   Below 900px the mobile phone-shell stays unchanged. */
+   ≥ 900px: mobile phone-shell → real desktop app:
+   - Bottom nav flips to a fixed LEFT sidebar (240px)
+   - Main content widens (max 1200px) and starts after the sidebar
+   - Grids go multi-column so content actually uses the width
+   Below 900px: mobile layout unchanged. */
 @media (min-width: 900px) {
   .junior-shell {
     padding-bottom: 0;
   }
 
   .junior-main {
-    max-width: 960px;
-    margin: 0 0 0 260px;
+    max-width: 1200px;
+    margin: 0 auto 0 260px;
     padding: 40px 48px 64px;
   }
 
@@ -139,16 +145,35 @@ body.junior-active {
     width: 100%;
   }
 
-  /* Home-page money tiles: use 3 columns on desktop so the "owed / streak /
-     goal" row breathes instead of stacking. JuniorHomePage uses inline
-     style gridTemplateColumns: '1fr 1fr' — this rule overrides via
-     selector specificity + !important on the one property that matters. */
-  .junior-main > div[style*="grid-template-columns: 1fr 1fr"] {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  .junior-hero {
+    padding: 40px 36px;
   }
 
-  .junior-main > div[style*="grid-template-columns: 1fr 1fr"] > div[style*="grid-column: 1 / -1"] {
-    grid-column: auto !important;
+  .junior-hero h1 {
+    font-size: 2.2rem;
+  }
+
+  /* Home-page money tiles: 3 columns at desktop so owed / streak / goal
+     breathe instead of stacking. The "owed" tile drops its span-all. */
+  .junior-grid-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .junior-hero-span { grid-column: auto; }
+
+  /* Lists of cards (missions, chores) go 2-col at desktop. */
+  .junior-grid-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .junior-main {
+    /* Even wider screens get more content width. Content still leaves
+       right-side breathing room because max-width caps at 1200px. */
+    padding: 48px 64px 80px;
   }
 }
 
