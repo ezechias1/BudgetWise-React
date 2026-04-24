@@ -124,10 +124,10 @@ export default function JuniorHomePage() {
         </div>
       </Link>
 
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
+      <div className="junior-grid-tiles">
         <div
+          className="junior-hero-span"
           style={{
-            gridColumn: '1 / -1',
             background: 'white',
             borderRadius: 16,
             padding: 20,
