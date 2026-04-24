@@ -163,18 +163,40 @@ export default function JuniorMissionPlayer() {
         )}
         {step.type === 'tie_in' && <p style={{ fontSize: '1.1rem', fontStyle: 'italic' }}>{step.body}</p>}
         {step.type === 'done' && (
-          <>
-            <h3>Mission complete!</h3>
-            <p>{step.body}</p>
+          <div className="junior-celebrate" style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div className="junior-celebrate-burst" aria-hidden>
+              {/* A few colored circles that bounce in for confetti feel */}
+              {['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'].map((c, i) => (
+                <span
+                  key={i}
+                  className="junior-celebrate-dot"
+                  style={{
+                    background: c,
+                    animationDelay: `${i * 60}ms`,
+                    top: `${[18, 8, 22, 10, 26, 14][i]}%`,
+                    left: `${[12, 28, 44, 60, 76, 88][i]}%`,
+                  }}
+                />
+              ))}
+              <div className="junior-celebrate-check" aria-hidden>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" fill="#10b981" stroke="none" />
+                  <polyline points="8 12 11 15 16 9" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="junior-celebrate-wow">WOW!!</h2>
+            <p className="junior-celebrate-welldone">Well done, {member?.name ?? 'champ'}!</p>
+            <p style={{ color: '#4b5563', marginTop: 6 }}>{step.body}</p>
             <button
               type="button"
               onClick={() => navigate('/junior/missions')}
               className="btn-primary"
-              style={{ marginTop: 16 }}
+              style={{ marginTop: 20 }}
             >
               Back to missions
             </button>
-          </>
+          </div>
         )}
       </div>
 
