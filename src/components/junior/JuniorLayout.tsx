@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKidProfile } from '@/hooks/useKidProfile';
+import { ageFromDob, bracketFor } from '@/lib/junior-age';
 
 export function JuniorLayout() {
   const { signOut } = useAuth();
+  const { member } = useKidProfile();
   const navigate = useNavigate();
 
   // Junior surface is light-only in Phase 1; force body class so vanilla-CSS
@@ -18,8 +21,13 @@ export function JuniorLayout() {
     navigate('/', { replace: true });
   };
 
+  // Age-aware palette: data-bracket drives per-bracket CSS variables defined
+  // in styles-junior.css. Falls back to 10-12 bracket defaults while loading.
+  const age = ageFromDob(member?.date_of_birth ?? null);
+  const bracket = age !== null ? bracketFor(age) : '10-12';
+
   return (
-    <div className="junior-shell">
+    <div className="junior-shell" data-bracket={bracket}>
       <main className="junior-main">
         <Outlet />
         <button className="junior-signout" onClick={handleSignOut}>
