@@ -77,8 +77,17 @@ export default function AuthPage() {
     if (passwordRecovery) setTab('reset');
   }, [passwordRecovery]);
 
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
+  // Login form state. Pre-fill from the stashed parent email when the user
+  // just came back from Junior via Back-to-parent — saves typing the
+  // address every time they hop between the parent and a kid session.
+  const stashedParentEmail =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('budgetwise-parent-email') ?? ''
+      : '';
+  const isParentReturn =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('intent') === 'parent';
+  const [loginEmail, setLoginEmail] = useState(isParentReturn ? stashedParentEmail : '');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
