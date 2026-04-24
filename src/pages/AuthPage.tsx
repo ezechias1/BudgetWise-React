@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMode } from '@/contexts/ModeContext';
 import { useParticleBackground } from '@/hooks/useParticleBackground';
 import { PasswordInput } from '@/components/PasswordInput';
 import type { Mode } from '@/types';
@@ -84,6 +85,7 @@ export default function AuthPage() {
     updatePassword,
   } = useAuth();
   const navigate = useNavigate();
+  const { setMode } = useMode();
   const canvasRef = useParticleBackground();
 
   // Task #35: when Supabase fires PASSWORD_RECOVERY after the user clicks the
@@ -192,6 +194,7 @@ export default function AuthPage() {
       return;
     }
     markJustLoggedIn();
+    setMode('personal');
     navigate('/dashboard');
   };
 
@@ -229,6 +232,7 @@ export default function AuthPage() {
   const handleGoogle = async () => {
     setSubmitting(true);
     markJustLoggedIn();
+    setMode('personal');
     const { error } = await signInWithGoogle();
     setSubmitting(false);
     if (error) setLoginError(error);
@@ -254,6 +258,7 @@ export default function AuthPage() {
     }
     clearPasswordRecovery();
     markJustLoggedIn();
+    setMode('personal');
     navigate('/dashboard', { replace: true });
   };
 

@@ -7,10 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
-import { useUserSettings } from '@/hooks/useUserSettings';
 import { setupParentNotificationPolling } from '@/lib/junior-notifications';
 import { maybeFireSundayReminder } from '@/lib/junior-sunday-reminder';
-import { isProUser } from '@/lib/access';
 import type { Mode } from '@/types';
 
 /**
@@ -33,26 +31,35 @@ export function DashboardLayout() {
   const { toggleTheme } = useTheme();
   const { user } = useAuth();
   const { setMode } = useMode();
-  const { isProFromSettings, loading: settingsLoading } = useUserSettings();
   const { isChild, loading: kidLoading } = useKidProfile();
   const { permission, request } = useNotificationPermission();
 
   // Post-login account picker: AuthPage sets sessionStorage on any successful
-  // login (password, Google, password-reset). Once user settings load we
-  // decide whether this user is Pro — if yes, show the picker; if not, they
-  // only have Personal anyway so we just clear the flag.
+  // login (password, Google, password-reset). Fire the modal as soon as a
+  // user is available — don't wait for user_settings to load (that DB round
+  // trip is what was making the popup appear "too late"). ENABLE_PRO_SYSTEM
+  // is currently false so every user is effectively Pro and entitled to the
+  // picker; when the Pro gate is re-enabled later, filter here.
   useEffect(() => {
-    if (settingsLoading || !user) return;
+    if (!user) return;
     const flag = sessionStorage.getItem('bw-just-logged-in');
     if (!flag) return;
     sessionStorage.removeItem('bw-just-logged-in');
-    if (isProUser(isProFromSettings, user)) {
-      setShowAccountPicker(true);
-    }
-  }, [settingsLoading, user, isProFromSettings]);
+    setShowAccountPicker(true);
+  }, [user]);
 
   const handlePickAccount = (m: Mode) => {
     setMode(m);
+    // Sync body class immediately so the accent flips in the same frame as
+    // the modal closes. Without this, ModeContext's useEffect runs *after*
+    // the commit, and the accent lags visibly (sometimes never updates if
+    // the effect is skipped due to deduped state). Mirrors the logic in
+    // ModeContext so the two stay in sync.
+    const body = document.body;
+    body.classList.remove('business-mode', 'family-mode', 'personal');
+    if (m === 'business') body.classList.add('business-mode');
+    else if (m === 'family') body.classList.add('family-mode');
+    else body.classList.add('personal');
     setShowAccountPicker(false);
   };
 
