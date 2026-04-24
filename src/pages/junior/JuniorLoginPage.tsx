@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { signInAsKid } from '@/lib/junior-auth';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,14 @@ export default function JuniorLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
   const deviceKids = listDeviceKids();
+
+  // Same body-class toggle JuniorLayout uses. Without this, /junior/login
+  // keeps body display:flex which caps #root (and the shell inside it) to
+  // content width — exactly the 718px-on-a-1920-viewport bug.
+  useEffect(() => {
+    document.body.classList.add('junior-active');
+    return () => document.body.classList.remove('junior-active');
+  }, []);
 
   const canSubmit = /^\d{4}$/.test(pin) && memberId.length > 0 && !submitting;
 
