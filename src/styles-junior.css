@@ -142,9 +142,9 @@ body.junior-active {
 
   .junior-main {
     grid-column: 2;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 40px 48px 64px;
+    max-width: none;
+    margin: 0;
+    padding: 40px 64px 64px;
     width: 100%;
   }
 
@@ -237,11 +237,13 @@ body.junior-active {
   }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1400px) {
   .junior-main {
-    /* Even wider screens get more content width. Content still leaves
-       right-side breathing room because max-width caps at 1200px. */
-    padding: 48px 64px 80px;
+    padding: 48px 80px 80px;
+  }
+  /* On XL screens, missions list goes 3-col instead of 2. */
+  .junior-grid-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
