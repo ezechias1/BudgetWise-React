@@ -41,7 +41,7 @@ export function JuniorLayout() {
       <main className="junior-main">
         <GraduationBanner />
         {hasGraduated ? <GraduationBlock /> : <Outlet />}
-        <div style={{ display: 'flex', gap: 10, marginTop: 24, flexWrap: 'wrap' }}>
+        <div className="junior-auth-buttons junior-auth-buttons--main">
           <button
             className="junior-back-parent"
             onClick={handleBackToParent}
@@ -106,6 +106,17 @@ export function JuniorLayout() {
           </svg>
           Missions
         </NavLink>
+        <div className="junior-auth-buttons junior-auth-buttons--sidebar">
+          <button type="button" className="junior-back-parent-btn" onClick={handleBackToParent}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Back to parent
+          </button>
+          <button type="button" className="junior-signout-btn" onClick={handleSignOut}>
+            Sign out
+          </button>
+        </div>
       </nav>
     </div>
   );
