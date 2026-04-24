@@ -23,6 +23,17 @@ export function SignInAsKidModal({ memberId, name, color, onClose }: Props) {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
+    // Stash the parent's email BEFORE the auth switch so we can pre-fill
+    // it on /auth?intent=parent when they come back. Supabase holds one
+    // session at a time — this is the cheapest way to smooth re-login.
+    try {
+      const { data: { user: parent } } = await supabase.auth.getUser();
+      if (parent?.email) {
+        localStorage.setItem('budgetwise-parent-email', parent.email);
+      }
+    } catch {
+      // Best effort — don't block kid sign-in on this.
+    }
     const { status } = await signInAsKid(memberId, pin);
     if (status !== 'ok') {
       setError(status === 'rate_limited' ? 'Too many tries — wait a minute.' : 'Wrong PIN.');
