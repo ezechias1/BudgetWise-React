@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ageFromDob } from '@/lib/junior-age';
 
 export interface KidMission {
   id: string;
@@ -7,6 +8,8 @@ export interface KidMission {
   unit: string;
   title: string;
   ord: number;
+  age_min: number;
+  age_max: number;
   body: { steps: Array<{ type: string; [key: string]: unknown }> };
 }
 
@@ -39,8 +42,25 @@ export function useKidMissions(memberId: string | null) {
       return;
     }
     setState((s) => ({ ...s, loading: true }));
+
+    // Look up the kid's DOB first so we can age-filter missions server-side.
+    const { data: member } = await supabase
+      .from('family_members')
+      .select('date_of_birth')
+      .eq('id', memberId)
+      .maybeSingle();
+    const age = ageFromDob(member?.date_of_birth as string | null | undefined);
+
+    let missionsQuery = supabase.from('kid_missions').select('*').order('ord');
+    // Defensive: if DOB is null (pre-Phase-6 kid, backfill pending), show
+    // everything rather than hide all missions. Once the parent completes
+    // the backfill banner flow, the filter kicks in.
+    if (age !== null) {
+      missionsQuery = missionsQuery.lte('age_min', age).gte('age_max', age);
+    }
+
     const [mRes, pRes] = await Promise.all([
-      supabase.from('kid_missions').select('*').order('ord'),
+      missionsQuery,
       supabase
         .from('kid_mission_progress')
         .select('id, mission_id, status, completed_at, quiz_score')
