@@ -24,7 +24,7 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>,
 ): ReturnType<typeof lazy<T>> {
   return lazy(() =>
-    factory().catch((err: Error) => {
+    factory().catch(async (err: Error) => {
       const msg = err?.message ?? '';
       if (
         msg.includes('Failed to fetch dynamically imported module') ||
@@ -35,6 +35,22 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
         const key = 'budgetwise-chunk-retry';
         if (!sessionStorage.getItem(key)) {
           sessionStorage.setItem(key, '1');
+          // Purge SW caches + unregister the SW BEFORE reload — otherwise the
+          // reload can land on stale index.html still referencing the missing
+          // chunk hash, producing the exact same error in an infinite user-
+          // visible loop. A fresh SW reinstalls on next navigation.
+          try {
+            if ('caches' in window) {
+              const names = await caches.keys();
+              await Promise.all(names.map((n) => caches.delete(n)));
+            }
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map((r) => r.unregister()));
+            }
+          } catch {
+            // Best effort — reload even if cleanup failed.
+          }
           window.location.reload();
           // Return a never-resolving promise so React doesn't render
           // before the reload takes over.
