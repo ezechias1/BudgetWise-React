@@ -585,6 +585,9 @@ export default function AuthPage() {
         <a href="/terms" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
           Terms of Service
         </a>
+        <a href="/junior/login" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
+          Kid sign in
+        </a>
       </footer>
     </>
   );
