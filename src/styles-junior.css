@@ -35,7 +35,7 @@ body:has(.junior-shell) #root {
   background: linear-gradient(180deg, var(--junior-bg-from) 0%, var(--junior-bg-to) 100%);
   color: #1f2937;
   font-family: 'Inter', system-ui, sans-serif;
-  padding-bottom: 84px; /* space for bottom nav */
+  padding-bottom: calc(136px + env(safe-area-inset-bottom)); /* clears the bottom nav incl. the wrapped auth-buttons row */
   font-size: calc(1rem * var(--junior-scale));
 }
 
@@ -268,6 +268,123 @@ li:nth-child(6) .junior-mission-card { animation-delay: 300ms; }
   .junior-celebrate-dot,
   .junior-celebrate-check {
     animation: none !important;
+  }
+}
+
+/* ─── Jars page ────────────────────────────────────────────────────── */
+
+.junior-jars-card {
+  animation: junior-pop-in 500ms ease-out backwards;
+}
+
+.junior-jars-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 4px 4px 16px;
+  margin-bottom: 8px;
+}
+
+.junior-jar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: junior-bounce-in 600ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.junior-jar:nth-child(1) { animation-delay: 80ms; }
+.junior-jar:nth-child(2) { animation-delay: 180ms; }
+.junior-jar:nth-child(3) { animation-delay: 280ms; }
+
+.junior-jar svg {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+}
+
+.junior-jar-label {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #1f2937;
+  margin-top: 2px;
+}
+
+.junior-jar-pct {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #1f2937;
+}
+
+.junior-jar-coin {
+  animation: junior-float 2.6s ease-in-out infinite;
+  transform-origin: center;
+}
+.junior-jar:nth-child(2) .junior-jar-coin { animation-delay: 0.3s; }
+.junior-jar:nth-child(3) .junior-jar-coin { animation-delay: 0.6s; }
+
+/* Bar shimmer when the three jars add up to exactly 100 */
+.junior-jars-bar {
+  position: relative;
+}
+.junior-jars-bar.is-full::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: junior-shine 2s linear infinite;
+  pointer-events: none;
+}
+
+/* Field rows stagger in after the jars land */
+.junior-jars-field {
+  animation: junior-pop-in 380ms ease-out backwards;
+}
+
+/* Total text — wiggle when off, calm green when perfect */
+.junior-jars-total {
+  font-weight: 700;
+  margin: 14px 0 4px;
+  text-align: center;
+  font-size: 1rem;
+}
+.junior-jars-total.is-off {
+  color: #dc2626;
+  animation: junior-wiggle 420ms ease-in-out;
+}
+.junior-jars-total.is-ok {
+  color: #10b981;
+  animation: junior-bounce-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Save button pulses gently when the split is valid and ready to send */
+.junior-jars-save.can-save {
+  animation: junior-pulse 2.6s ease-in-out infinite;
+}
+
+.junior-jars-saved-badge {
+  display: inline-block;
+  animation: junior-bounce-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .junior-jars-card,
+  .junior-jar,
+  .junior-jar-coin,
+  .junior-jars-bar.is-full::after,
+  .junior-jars-field,
+  .junior-jars-total,
+  .junior-jars-save.can-save,
+  .junior-jars-saved-badge {
+    animation: none !important;
+  }
+  .junior-jar svg g {
+    transition: none !important;
   }
 }
 
