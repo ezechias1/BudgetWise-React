@@ -93,7 +93,7 @@ export function MissionRewardsModal({ onClose }: Props) {
           </div>
         )}
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="btn-primary" disabled={saving} onClick={handleSave}>
             {saving ? 'Saving…' : 'Save rewards'}
           </button>

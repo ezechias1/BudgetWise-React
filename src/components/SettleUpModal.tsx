@@ -126,7 +126,7 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
         )}
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          <button type="button" onClick={onClose}>
+          <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
           <button

@@ -215,8 +215,8 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
               onClick={onClose}
               style={{
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.6)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                color: 'rgba(255,255,255,0.9)',
                 padding: '10px 16px',
                 borderRadius: 10,
                 cursor: 'pointer',

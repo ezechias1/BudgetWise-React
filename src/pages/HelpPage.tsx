@@ -295,6 +295,88 @@ export default function HelpPage() {
             in your live feed. Members can unlink at any time.
           </p>
         </div>
+
+        <h2 className="help-section-title" style={{ marginTop: 40 }}>Junior Kids (kid-only login)</h2>
+        <p style={{ opacity: 0.8, marginBottom: 16 }}>
+          Junior is a separate, kid-safe view of BudgetWise. Each kid logs in on their own device
+          with a 4-digit PIN and sees only their chores, missions, jars, and what they&apos;re owed —
+          never your bank info or parent settings.
+        </p>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#128273;</div>
+          <h3>1. Add a Junior Kid</h3>
+          <p>
+            Go to <strong>Members</strong> and tap <strong>Add Junior Kid</strong>. Enter the kid&apos;s
+            name, age, colour, and a 4-digit PIN. BudgetWise generates a <strong>login link</strong>{' '}
+            — share the link and PIN with your kid (e.g. WhatsApp, AirDrop, or open it on their
+            tablet yourself).
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#128241;</div>
+          <h3>2. Kid signs in on their device</h3>
+          <p>
+            On the kid&apos;s phone/tablet, open the link and enter the 4-digit PIN. Their device
+            remembers them — next time they just tap their name and type the PIN. They land on the
+            Junior home screen; the parent dashboard is not accessible from here.
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#128176;</div>
+          <h3>3. Save / Spend / Give jars</h3>
+          <p>
+            Every rand a kid earns splits into three jars: <strong>Save</strong>,{' '}
+            <strong>Spend</strong>, and <strong>Give</strong>. The kid sets their own percentage
+            split on the <strong>Jars</strong> page (e.g. 50/30/20). The split is locked in at the
+            moment you settle up, so changing it later doesn&apos;t rewrite history.
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#129529;</div>
+          <h3>4. Chores &amp; Missions</h3>
+          <p>
+            Assign chores with cash rewards from the parent side. Multi-step tasks become{' '}
+            <strong>Missions</strong> — the kid works through each step in the Mission player and
+            earns the reward on completion. Completed work appears in the kid&apos;s ledger as{' '}
+            <em>owed</em> until you settle up.
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#129534;</div>
+          <h3>5. Settle up (pay what you owe)</h3>
+          <p>
+            From the parent dashboard, open a kid&apos;s profile and tap <strong>Settle up</strong>.
+            You&apos;ll see the full breakdown of owed chores and missions, total owed, and the jar
+            split that will apply. Choose <strong>Cash</strong>, <strong>EFT</strong>, or{' '}
+            <strong>Other</strong>, confirm, and the balance resets to zero.
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#128683;</div>
+          <h3>6. Forgot PIN? Reset it</h3>
+          <p>
+            If a kid forgets their PIN, go to <strong>Members</strong>, tap <strong>Reset PIN</strong>{' '}
+            next to their name, and enter a new 4-digit PIN. Share the new PIN with them — their
+            ledger, chores, jars, and missions stay intact.
+          </p>
+        </div>
+
+        <div className="help-card">
+          <div className="help-card-icon">&#128100;</div>
+          <h3>7. Switching between parent and kid on one device</h3>
+          <p>
+            On a parent&apos;s device you can also open a kid&apos;s view with{' '}
+            <strong>Sign in as kid</strong> (enter their PIN). BudgetWise signs you out of the
+            parent account — sign back in with your email/password when the kid is done. Your
+            parent email is pre-filled to make this quick.
+          </p>
+        </div>
       </div>
     </section>
   );
