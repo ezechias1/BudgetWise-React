@@ -99,6 +99,190 @@ body:has(.junior-shell) #root {
 .junior-grid-cards { display: grid; gap: 12px; grid-template-columns: 1fr; }
 .junior-hero-span { grid-column: 1 / -1; }
 
+/* ─── Kid-friendly animations ──────────────────────────────────────── */
+
+@keyframes junior-pop-in {
+  0% { opacity: 0; transform: translateY(12px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes junior-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+
+@keyframes junior-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); }
+  50% { transform: scale(1.04); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45); }
+}
+
+@keyframes junior-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes junior-bounce-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { opacity: 1; transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes junior-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Mission card — pop in on load, lift on hover, icon wiggle on hover */
+.junior-mission-card {
+  animation: junior-pop-in 400ms ease-out backwards;
+}
+.junior-mission-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1) !important;
+}
+.junior-mission-card:active {
+  transform: translateY(-1px) !important;
+}
+.junior-mission-card:hover > div:first-of-type > svg {
+  animation: junior-wiggle 500ms ease-in-out;
+}
+
+/* Stagger mission cards so they cascade in rather than pop together */
+.junior-mission-card { animation-delay: 0ms; }
+li:nth-child(2) .junior-mission-card { animation-delay: 60ms; }
+li:nth-child(3) .junior-mission-card { animation-delay: 120ms; }
+li:nth-child(4) .junior-mission-card { animation-delay: 180ms; }
+li:nth-child(5) .junior-mission-card { animation-delay: 240ms; }
+li:nth-child(6) .junior-mission-card { animation-delay: 300ms; }
+
+/* Junior hero: gentle float on the 7-9 bracket where it reads most playful */
+.junior-shell[data-bracket="7-9"] .junior-hero {
+  animation: junior-float 4s ease-in-out infinite;
+}
+
+/* Money tiles: bounce in on page load */
+.junior-grid-tiles > div {
+  animation: junior-bounce-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.junior-grid-tiles > div:nth-child(1) { animation-delay: 50ms; }
+.junior-grid-tiles > div:nth-child(2) { animation-delay: 150ms; }
+.junior-grid-tiles > div:nth-child(3) { animation-delay: 250ms; }
+
+/* Today's-mission hero CTA: gentle continuous pulse to draw the kid in */
+.junior-main a[href^="/junior/mission/"][style*="linear-gradient"] {
+  animation: junior-pulse 2.6s ease-in-out infinite;
+}
+
+/* "Start →" pill inside today's-mission hero: shiny sweep */
+.junior-main a[href^="/junior/mission/"] span[style*="border-radius: 999"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.25) 25%,
+    rgba(255,255,255,0.45) 50%,
+    rgba(255,255,255,0.25) 75%
+  ) !important;
+  background-size: 200% auto !important;
+  animation: junior-shine 3s linear infinite;
+}
+
+/* Bottom-nav tap feedback — scale down on press */
+.junior-bottom-nav a:active {
+  transform: scale(0.94);
+  transition: transform 100ms ease;
+}
+
+/* ─── Mission completion celebration ───────────────────────────────── */
+
+@keyframes junior-celebrate-wow {
+  0% { opacity: 0; transform: scale(0.3) rotate(-10deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(4deg); }
+  70% { transform: scale(0.95) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes junior-celebrate-welldone {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes junior-celebrate-dot {
+  0% { opacity: 0; transform: translateY(0) scale(0); }
+  30% { opacity: 1; transform: translateY(-20px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-40px) scale(0.6); }
+}
+
+@keyframes junior-celebrate-check-pop {
+  0% { opacity: 0; transform: scale(0) rotate(-180deg); }
+  60% { opacity: 1; transform: scale(1.15) rotate(10deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.junior-celebrate-burst {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  margin-bottom: 8px;
+}
+
+.junior-celebrate-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  animation: junior-celebrate-dot 1.8s ease-out forwards;
+}
+
+.junior-celebrate-check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  animation: junior-celebrate-check-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.junior-celebrate-wow {
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #10b981;
+  margin: 8px 0 4px;
+  animation: junior-celebrate-wow 900ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: 300ms;
+  text-shadow: 0 2px 0 rgba(16, 185, 129, 0.2);
+}
+
+.junior-celebrate-welldone {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 4px;
+  animation: junior-celebrate-welldone 600ms ease-out backwards;
+  animation-delay: 600ms;
+}
+
+/* Reduce-motion opt-out */
+@media (prefers-reduced-motion: reduce) {
+  .junior-celebrate-wow,
+  .junior-celebrate-welldone,
+  .junior-celebrate-dot,
+  .junior-celebrate-check {
+    animation: none !important;
+  }
+}
+
+/* Respect reduced-motion users (including parents who accessibility-
+   setting off-to-the-side) */
+@media (prefers-reduced-motion: reduce) {
+  .junior-mission-card,
+  .junior-grid-tiles > div,
+  .junior-shell[data-bracket="7-9"] .junior-hero,
+  .junior-main a[href^="/junior/mission/"][style*="linear-gradient"],
+  .junior-main a[href^="/junior/mission/"] span[style*="border-radius: 999"] {
+    animation: none !important;
+  }
+}
+
 /* ─── Desktop Junior layout ────────────────────────────────────────────
    ≥ 900px: mobile phone-shell → real desktop app:
    - Bottom nav flips to a fixed LEFT sidebar (240px)
