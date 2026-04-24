@@ -10,6 +10,7 @@ import { AuthRoleGate } from '@/components/AuthRoleGate';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ModeProvider } from '@/contexts/ModeContext';
+import { JuniorLangProvider } from '@/i18n/junior';
 
 /**
  * Wrap dynamic imports so a chunk-not-found after a deploy doesn't brick
@@ -166,14 +167,23 @@ export default function App() {
               />
             </Route>
 
-            {/* Junior (kid-only) */}
-            <Route path="/junior/login" element={<JuniorLoginPage />} />
+            {/* Junior (kid-only) — wrapped in its own language provider */}
+            <Route
+              path="/junior/login"
+              element={
+                <JuniorLangProvider>
+                  <JuniorLoginPage />
+                </JuniorLangProvider>
+              }
+            />
             <Route
               path="/junior"
               element={
-                <AuthRoleGate role="child">
-                  <JuniorLayout />
-                </AuthRoleGate>
+                <JuniorLangProvider>
+                  <AuthRoleGate role="child">
+                    <JuniorLayout />
+                  </AuthRoleGate>
+                </JuniorLangProvider>
               }
             >
               <Route path="home" element={<JuniorHomePage />} />

@@ -4,11 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { ageFromDob, bracketFor } from '@/lib/junior-age';
 import { GraduationBanner, GraduationBlock } from './GraduationBanner';
+import { useJuniorLang } from '@/i18n/junior';
+import { LanguagePicker } from './LanguagePicker';
 
 export function JuniorLayout() {
   const { signOut } = useAuth();
   const { member } = useKidProfile();
   const navigate = useNavigate();
+  const { t } = useJuniorLang();
 
   // Junior surface is light-only in Phase 1; force body class so vanilla-CSS
   // dark selectors elsewhere don't bleed in.
@@ -39,6 +42,9 @@ export function JuniorLayout() {
   return (
     <div className="junior-shell" data-bracket={bracket}>
       <main className="junior-main">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <LanguagePicker compact />
+        </div>
         <GraduationBanner />
         {hasGraduated ? <GraduationBlock /> : <Outlet />}
       </main>
@@ -48,14 +54,14 @@ export function JuniorLayout() {
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
-          Home
+          {t.nav_home}
         </NavLink>
         <NavLink to="/junior/chores" className={({ isActive }) => (isActive ? 'active' : '')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 11 12 14 22 4" />
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
           </svg>
-          Chores
+          {t.nav_chores}
         </NavLink>
         <NavLink to="/junior/jars" className={({ isActive }) => (isActive ? 'active' : '')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,24 +69,24 @@ export function JuniorLayout() {
             <rect x="10" y="4" width="5" height="17" rx="1" />
             <rect x="17" y="10" width="5" height="11" rx="1" />
           </svg>
-          Jars
+          {t.nav_jars}
         </NavLink>
         <NavLink to="/junior/missions" className={({ isActive }) => (isActive ? 'active' : '')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
-          Missions
+          {t.nav_missions}
         </NavLink>
         <div className="junior-auth-buttons">
           <button type="button" className="junior-back-parent-btn" onClick={handleBackToParent}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
-            Back to parent
+            {t.nav_back_parent}
           </button>
           <button type="button" className="junior-signout-btn" onClick={handleSignOut}>
-            Sign out
+            {t.nav_sign_out}
           </button>
         </div>
       </nav>
