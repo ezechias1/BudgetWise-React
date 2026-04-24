@@ -4,6 +4,13 @@
    hero gradient, and type scale shift per age. Shared components stay
    untouched so maintenance stays 1× not 4×. */
 
+/* Body-level override: body has display:flex + dark bg by default — swap
+   both when Junior is active so the cream gradient bleeds to every edge
+   instead of showing a black gutter on desktop. */
+body.junior-active {
+  background: linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%) !important;
+}
+
 .junior-shell {
   /* 10-12 bracket — current defaults */
   --junior-accent: #10b981;
@@ -14,6 +21,8 @@
   --junior-scale: 1;
 
   min-height: 100vh;
+  flex: 1;
+  width: 100%;
   background: linear-gradient(180deg, var(--junior-bg-from) 0%, var(--junior-bg-to) 100%);
   color: #1f2937;
   font-family: 'Inter', system-ui, sans-serif;
