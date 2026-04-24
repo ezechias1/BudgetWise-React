@@ -22,7 +22,7 @@ Answer these before writing any code. They're load-bearing; reversing them mid-p
 |---|---|---|---|
 | D1 | Age splits — 3 or 4 brackets? | **4: 7-9 / 10-12 / 13-15 / 16-17** | Developmentally distinct stages (early primary, late primary, early teen, late teen). 3 brackets collapses 13-17 which is too wide. |
 | D2 | Age source — snapshot int or derived from DOB? | **Derive from `date_of_birth`** | DOB is stable, age goes stale. `family_members.date_of_birth` already exists (Phase 1 migration line 12). AddKidModal currently collects `age` only — T2 swaps to DOB. |
-| D3 | Content strategy — write, license, or adapt? | **Adapt public FSCA/Khan/MyMoney.gov materials, original voice** | Licensing pure content is slow legal work. Writing from scratch is expensive. Adapting public-domain / CC-BY curricula gives us velocity while staying legally clean. Attribution line on each mission. |
+| D3 | Content strategy — write, license, or adapt? | **Write original, anchored to primary sources (SARS, SARB, FSCA consumer pubs). Avoid Khan Academy.** | First draft recommended Khan Academy Kids — but Khan content is typically **CC-BY-NC-SA (non-commercial)** and BudgetWise has a paid Pro tier, so adapting it for the product is likely a licence violation. Only MyMoney.gov (US fed, public domain) is commercially-safe off the shelf, but it's dollar/SARS-agnostic and needs heavy SA localisation. Cleanest path: write original kid-voice missions, cite primary factual anchors (current tax rates from SARS, interest from Reserve Bank, etc.). No licensing risk, faster than licence negotiation, easier to localise. |
 | D4 | Initial mission count per bracket | **5 per bracket, 20 total for v1** | Enough to prove the age-gating feel; small enough to actually write. More added post-launch. |
 | D5 | Visual differentiation — radical or subtle? | **Subtle per-bracket palette + type scale; shared component library** | Radical splits (different mascots, wildly different components) multiply maintenance 4×. Subtle shifts (warmer vs cooler palette, rounder vs tighter corners, font size down as age goes up) feel tailored without forking the codebase. |
 | D6 | Graduation timing — at 18th birthday, or in the month before? | **30-day advance notice, auto-prompt on first login after 18** | Advance notice lets the kid plan. Hard cutoff on birthday feels abrupt. |
@@ -125,12 +125,14 @@ Existing kids created before Phase 6 have `age` populated but `date_of_birth = n
 
 **Structure:** Each mission is a row in `kid_missions` with a `body.steps` array matching `MissionStep` union (hook / concept / quiz / tie_in / done) from `JuniorMissionPlayer.tsx:16`.
 
-**Source materials (D3 recommended):**
-- FSCA Financial Education toolkit (SA gov, free)
-- Khan Academy Kids Financial Literacy (CC-BY)
-- MyMoney.gov "Money Smart for Young People" (US gov, public domain)
+**Source strategy (D3 updated):** Write original kid-voice missions. Cite primary factual anchors when needed:
+- SARS for tax rates / brackets (https://www.sars.gov.za/)
+- South African Reserve Bank for interest rate / inflation framing
+- FSCA **consumer publications** for SA-specific concepts (stokvel basics, banking-charge disclosures) — these are public regulator bulletins, safe to reference factually without copying prose
+- **Avoid** Khan Academy content (likely CC-BY-NC-SA, conflicts with Pro tier)
+- MyMoney.gov content exists as a fallback / comparison only — not a primary source because it's US-centric
 
-**Attribution:** Each mission's `body` gets an optional `attribution` string surfaced in a small "Source:" footer on the mission player.
+**Attribution:** Missions don't need an "adapted from" footer (content is original). Factual-claim missions cite the primary source inline where relevant, e.g. "UIF is 1% of your pay (SARS rule)."
 
 ### Mission list (5 per bracket)
 
@@ -291,6 +293,7 @@ Schema → kids have DOB → missions filter by age → content per bracket → 
 ## Risks
 
 1. **Content-authoring bottleneck.** 20 missions of 5-step educational content is the hardest part of this phase. If the user wants me to draft the content I can, but it should be reviewed before going live — kid-facing educational content that's wrong is worse than no content.
+2. **Third-party licensed content** (Khan Academy specifically flagged): most "free" educational content online is actually CC-BY-NC-SA (non-commercial) or similarly restricted. BudgetWise has a paid Pro tier. Adapting NC-licensed content for the product is a licence violation. **Default to original content unless a licence has been explicitly reviewed.** Public-domain government content (US gov, and to a lesser extent some SA gov bulletins) is safe.
 2. **Graduation is one-way.** A kid who graduates and later wants to re-join the family account is a v2 problem. Make the graduation confirmation dialog explicit about this.
 3. **PoPIA under-13.** SA law requires parental consent for processing kids' PII under 13. We're already collecting that consent implicitly (parent creates the account), but a formal consent checkbox in AddKidModal would be prudent. Add as T0.5 if a lawyer says so.
 4. **Existing `age` column fate.** After T3 backfill completes, `family_members.age` becomes redundant and stale. Either drop it in a later migration or leave it and ignore — safer to leave for now, drop in Phase 7.
