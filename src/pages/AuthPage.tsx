@@ -54,6 +54,23 @@ const TYPE_DESC: Record<Mode, string> = {
   family: 'Budget together — shared expenses, goals, and chore rewards.',
 };
 
+/**
+ * Hand the dashboard a clean slate so it doesn't render a previous session's
+ * mode against a fresh user's data (the "Personal style + Family data"
+ * split-brain bug). Also flags "user just logged in" so Pro users see the
+ * account picker instead of silently landing wherever they left off.
+ * sessionStorage survives the Google OAuth round-trip; localStorage survives
+ * the same-tab navigate() call after password login.
+ */
+function markJustLoggedIn() {
+  try {
+    localStorage.setItem('bw-mode', 'personal');
+    sessionStorage.setItem('bw-just-logged-in', '1');
+  } catch {
+    // Private browsing / storage disabled — non-fatal, picker just won't show
+  }
+}
+
 export default function AuthPage() {
   const {
     user,
@@ -174,6 +191,7 @@ export default function AuthPage() {
       setLoginError(error);
       return;
     }
+    markJustLoggedIn();
     navigate('/dashboard');
   };
 
@@ -210,6 +228,7 @@ export default function AuthPage() {
 
   const handleGoogle = async () => {
     setSubmitting(true);
+    markJustLoggedIn();
     const { error } = await signInWithGoogle();
     setSubmitting(false);
     if (error) setLoginError(error);
@@ -234,6 +253,7 @@ export default function AuthPage() {
       return;
     }
     clearPasswordRecovery();
+    markJustLoggedIn();
     navigate('/dashboard', { replace: true });
   };
 

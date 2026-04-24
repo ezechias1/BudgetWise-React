@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { AccountPickerModal } from './AccountPickerModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMode } from '@/contexts/ModeContext';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { setupParentNotificationPolling } from '@/lib/junior-notifications';
 import { maybeFireSundayReminder } from '@/lib/junior-sunday-reminder';
+import { isProUser } from '@/lib/access';
+import type { Mode } from '@/types';
 
 /**
  * Shell for every /dashboard/* route. Renders the sidebar, the mobile header,
@@ -23,11 +28,33 @@ export function DashboardLayout() {
   const [sundayBanner, setSundayBanner] = useState<
     { totalOwedCents: number; kidsCount: number } | null
   >(null);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
   const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user } = useAuth();
+  const { setMode } = useMode();
+  const { isProFromSettings, loading: settingsLoading } = useUserSettings();
   const { isChild, loading: kidLoading } = useKidProfile();
   const { permission, request } = useNotificationPermission();
+
+  // Post-login account picker: AuthPage sets sessionStorage on any successful
+  // login (password, Google, password-reset). Once user settings load we
+  // decide whether this user is Pro — if yes, show the picker; if not, they
+  // only have Personal anyway so we just clear the flag.
+  useEffect(() => {
+    if (settingsLoading || !user) return;
+    const flag = sessionStorage.getItem('bw-just-logged-in');
+    if (!flag) return;
+    sessionStorage.removeItem('bw-just-logged-in');
+    if (isProUser(isProFromSettings, user)) {
+      setShowAccountPicker(true);
+    }
+  }, [settingsLoading, user, isProFromSettings]);
+
+  const handlePickAccount = (m: Mode) => {
+    setMode(m);
+    setShowAccountPicker(false);
+  };
 
   // Close drawer on navigation + scroll to top of the new page.
   // Mobile browsers otherwise keep the previous scroll offset, which looks
@@ -59,6 +86,13 @@ export function DashboardLayout() {
 
   return (
     <>
+      {showAccountPicker && (
+        <AccountPickerModal
+          onPick={handlePickAccount}
+          onClose={() => setShowAccountPicker(false)}
+        />
+      )}
+
       <Sidebar mobileOpen={mobileOpen} />
 
       {/* Mobile overlay — clicking it closes the drawer (vanilla behavior) */}
