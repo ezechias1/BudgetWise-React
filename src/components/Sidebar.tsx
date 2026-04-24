@@ -5,6 +5,7 @@ import { useMode } from '@/contexts/ModeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { isAdmin, isProUser } from '@/lib/access';
+import { FamilyKidsDropdown } from './FamilyKidsDropdown';
 import type { Mode } from '@/types';
 
 interface NavEntry {
@@ -455,6 +456,8 @@ export function Sidebar({ mobileOpen = false }: SidebarProps) {
           </div>
         )}
       </div>
+
+      {mode === 'family' && <FamilyKidsDropdown />}
 
       <ul className="sidebar-nav">
         {NAV

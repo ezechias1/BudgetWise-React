@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useKidLedger } from '@/hooks/useKidLedger';
+import { useKidMissions } from '@/hooks/useKidMissions';
 
 interface Streak {
   current_streak: number;
@@ -21,6 +23,7 @@ function formatRands(cents: number): string {
 export default function JuniorHomePage() {
   const { member, loading: profileLoading } = useKidProfile();
   const { owed_cents, loading: ledgerLoading } = useKidLedger(member?.id ?? null);
+  const { missions, progressByMission, loading: missionsLoading } = useKidMissions(member?.id ?? null);
   const [streak, setStreak] = useState<number>(0);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [sideLoading, setSideLoading] = useState(true);
@@ -52,18 +55,74 @@ export default function JuniorHomePage() {
     };
   }, [member]);
 
-  if (profileLoading || ledgerLoading || sideLoading) return <p>Loading…</p>;
+  if (profileLoading || ledgerLoading || sideLoading || missionsLoading) return <p>Loading…</p>;
   if (!member) return <p>Something went wrong — no profile found.</p>;
 
   const remaining = goal ? Math.max(goal.target - goal.saved, 0) : 0;
   const pct = goal && goal.target > 0 ? Math.min((goal.saved / goal.target) * 100, 100) : 0;
 
+  // First mission with no progress row, or with status != 'completed'.
+  const nextMission =
+    missions.find((m) => {
+      const p = progressByMission[m.id];
+      return !p || p.status !== 'completed';
+    }) ?? null;
+  const completedCount = Object.values(progressByMission).filter((p) => p.status === 'completed').length;
+  const totalMissions = missions.length;
+
   return (
     <>
-      <section className="junior-hero" style={{ marginBottom: 20 }}>
+      <section className="junior-hero" style={{ marginBottom: 16 }}>
         <h1>Hi {member.name}!</h1>
-        <p>Here&apos;s what&apos;s happening with your money.</p>
+        <p>Learn something new about money today.</p>
       </section>
+
+      {/* Today's-mission hero — primary CTA. Educational layer first;
+          money tiles below are secondary. */}
+      <Link
+        to={nextMission ? `/junior/mission/${nextMission.id}` : '/junior/missions'}
+        style={{
+          display: 'block',
+          background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+          color: 'white',
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 20,
+          textDecoration: 'none',
+          boxShadow: '0 4px 12px rgba(239,68,68,0.25)',
+        }}
+      >
+        <p style={{ margin: 0, opacity: 0.9, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {nextMission ? "Today's mission" : 'All done!'}
+        </p>
+        <h2 style={{ margin: '6px 0 12px', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {nextMission ? (
+            nextMission.title
+          ) : (
+            <>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              You finished every lesson
+            </>
+          )}
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <small style={{ opacity: 0.85 }}>
+            {completedCount} of {totalMissions} done
+          </small>
+          <span
+            style={{
+              background: 'rgba(255,255,255,0.25)',
+              padding: '8px 16px',
+              borderRadius: 999,
+              fontWeight: 700,
+            }}
+          >
+            {nextMission ? 'Start →' : 'See all →'}
+          </span>
+        </div>
+      </Link>
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
         <div

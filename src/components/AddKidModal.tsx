@@ -18,8 +18,10 @@ export function AddKidModal({ onClose, onAdded }: Props) {
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const ageNum = age === '' ? NaN : Number(age);
+  const ageValid = Number.isInteger(ageNum) && ageNum >= 7 && ageNum <= 17;
   const canSubmit =
-    name.trim().length > 0 && /^\d{4}$/.test(pin) && !submitting;
+    name.trim().length > 0 && /^\d{4}$/.test(pin) && ageValid && !submitting;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -189,16 +191,20 @@ export function AddKidModal({ onClose, onAdded }: Props) {
           </div>
 
           <div className="field">
-            <label htmlFor="kid-age">Age (optional)</label>
+            <label htmlFor="kid-age">Age</label>
             <input
               id="kid-age"
               type="number"
-              min={4}
-              max={18}
-              placeholder="Optional"
+              min={7}
+              max={17}
+              required
+              placeholder="7–17"
               value={age}
               onChange={(e) => setAge(e.target.value)}
             />
+            <small style={{ opacity: 0.7 }}>
+              Junior is for kids 7–17. At 18 they can get their own BudgetWise account.
+            </small>
           </div>
 
           <div className="field">
