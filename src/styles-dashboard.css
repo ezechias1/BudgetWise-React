@@ -61,6 +61,17 @@ body {
     overflow-x: hidden;
 }
 
+/* #root is the only flex child of <body>. Without flex:1 + min-width:0 it
+   shrinks to content width, which leaves a big empty gutter on the right
+   at desktop sizes (#root ~1300px on a 1920 viewport). Make it fill. */
+#root {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
 html.light-early body {
     background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 30%, #f5f3ff 70%, #eff6ff 100%);
     color: #1a1a2e;
