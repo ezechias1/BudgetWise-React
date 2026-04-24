@@ -27,3 +27,4 @@ android/.cxx/
 
 # Supabase CLI scratch state
 supabase/.temp/
+.env*.local
