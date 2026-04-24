@@ -6,6 +6,7 @@ import { ShowKidLinkModal } from '@/components/ShowKidLinkModal';
 import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { checkJuniorGate, isProUser, JUNIOR_FREE_LIMITS } from '@/lib/access';
+import { ageFromDob, bracketFor, daysUntilBirthday } from '@/lib/junior-age';
 
 /**
  * Ports #page-members from dashboard.html (line 1730) and
@@ -21,6 +22,7 @@ interface FamilyMember {
   name: string;
   role: string;
   age: number | null;
+  date_of_birth?: string | null;
   color: string;
   allowance: number;
   spent: number;
@@ -329,10 +331,16 @@ export default function MembersPage() {
           </div>
         ) : (
           members.map((m) => {
+            const derivedAge = ageFromDob(m.date_of_birth ?? null) ?? m.age;
+            const isJuniorKid = m.role === 'child' && !!m.auth_user_id;
+            const bracket = derivedAge !== null && isJuniorKid ? bracketFor(derivedAge) : null;
+            const daysToBirthday = daysUntilBirthday(m.date_of_birth ?? null);
+            const hasGraduated = isJuniorKid && derivedAge !== null && derivedAge >= 18;
+            const birthdaySoon = daysToBirthday !== null && daysToBirthday <= 30 && !hasGraduated;
             const roleLabel =
               m.role.charAt(0).toUpperCase() +
               m.role.slice(1) +
-              (m.age ? ', ' + m.age : '');
+              (derivedAge != null ? ', ' + derivedAge : '');
             return (
               <div className="member-card" key={m.id}>
                 <div className="member-card-header">
@@ -351,6 +359,55 @@ export default function MembersPage() {
                     <span className={`member-role role-${m.role}`}>
                       {roleLabel}
                     </span>
+                    {isJuniorKid && (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                        {hasGraduated && (
+                          <span
+                            style={{
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                            }}
+                          >
+                            Graduation due
+                          </span>
+                        )}
+                        {bracket && !hasGraduated && (
+                          <span
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: '#065f46',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                            }}
+                          >
+                            Bracket {bracket}
+                          </span>
+                        )}
+                        {birthdaySoon && (
+                          <span
+                            style={{
+                              background: '#fce7f3',
+                              color: '#9d174d',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                            }}
+                            title={`${daysToBirthday} day${daysToBirthday === 1 ? '' : 's'} to birthday`}
+                          >
+                            {daysToBirthday === 0
+                              ? 'Happy birthday!'
+                              : `${daysToBirthday}d to birthday`}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="member-stats">
