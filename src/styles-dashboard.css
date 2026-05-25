@@ -104,6 +104,17 @@ body::after {
     z-index: 0;
 }
 
+/* filter: blur(80px) on the two ambient glows above crashes the compositor
+   on lower-end Android GPUs (e.g. Samsung A05 / Mali-G57), painting a
+   "TV-snow" pattern over the dashboard. The gradients are decorative —
+   drop them on small viewports. */
+@media (max-width: 768px) {
+    body::before,
+    body::after {
+        display: none;
+    }
+}
+
 /* Sidebar */
 .sidebar {
     width: 260px;
