@@ -113,6 +113,30 @@ body::after {
     body::after {
         display: none;
     }
+
+    /* Same class of bug: cardFadeUp + pageSlideIn + transition:all leave
+       GPU-layer ghosts on scroll on Mali-G57 (Samsung A05 etc.) — buttons
+       and stat cards appear smeared across the screen. Kill the entrance
+       animations and transforms on mobile; the decorative glow on stat
+       icons also costs a per-card compositor layer. */
+    .page,
+    .stat-card {
+        animation: none !important;
+    }
+    .stat-card,
+    .stat-card:hover {
+        transition: none !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    .stat-icon {
+        box-shadow: none !important;
+    }
+    .btn-add,
+    .btn-export,
+    .btn-primary {
+        transition: background 0.15s ease !important;
+    }
 }
 
 /* Sidebar */
