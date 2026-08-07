@@ -40,7 +40,7 @@ export function UndoToast({ message, duration = 5000, onUndo, onDismiss }: Props
         alignItems: 'center',
         gap: 12,
         padding: '12px 20px',
-        background: '#1a1a2e',
+        background: 'var(--card-bg, #1a1a2e)',
         border: '1px solid rgba(128,128,128,0.15)',
         borderRadius: 12,
         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',

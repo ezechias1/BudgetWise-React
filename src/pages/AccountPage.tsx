@@ -649,7 +649,7 @@ export default function AccountPage() {
               height: 36,
               borderRadius: '50%',
               border: '2px solid var(--accent, #10b981)',
-              background: '#1a1a2e',
+              background: 'var(--card-bg, #1a1a2e)',
               color: 'var(--accent, #10b981)',
               cursor: avatarUploading ? 'wait' : 'pointer',
               display: 'flex',

@@ -1,6 +1,7 @@
 :root {
     --accent: #10b981;
     --accent-rgb: 16, 185, 129;
+    --card-bg: #16161e;
 }
 
 body.business-mode {
@@ -3188,6 +3189,7 @@ body.light .account-value {
 
 /* Light theme */
 body.light {
+    --card-bg: #ffffff;
     background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #f0f9ff 50%, #faf5ff 75%, #fdf2f8 100%);
     background-attachment: fixed;
     color: #1a1a2e;
