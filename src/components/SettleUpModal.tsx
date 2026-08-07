@@ -88,11 +88,11 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
                     borderBottom: '1px solid #eee',
                   }}
                 >
-                  <span>
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     <strong style={{ textTransform: 'capitalize' }}>{r.source_type}</strong>
                     {r.notes ? ` · ${r.notes}` : ''}
                   </span>
-                  <span>{formatRands(r.amount_cents, sym)}</span>
+                  <span style={{ flexShrink: 0, marginLeft: 8 }}>{formatRands(r.amount_cents, sym)}</span>
                 </li>
               ))}
             </ul>

@@ -75,7 +75,7 @@ export function SignInAsKidModal({ memberId, name, color, onClose }: Props) {
               pattern="\d{4}"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              style={{ fontSize: '1.6rem', letterSpacing: '0.5rem', textAlign: 'center' }}
+              style={{ fontSize: '1.6rem', letterSpacing: '0.3em', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}
             />
           </div>
           {error && <p style={{ color: '#dc2626', fontWeight: 600 }}>{error}</p>}
