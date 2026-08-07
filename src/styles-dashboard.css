@@ -455,9 +455,39 @@ body.light .mode-transition-label {
 .sidebar-nav {
     list-style: none;
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+body.light .sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.08);
+}
+
+body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.15);
 }
 
 .nav-item {
@@ -2384,7 +2414,8 @@ body.light .account-value {
     }
 
     .sidebar-footer {
-        display: none;
+        padding: 10px 14px;
+        margin-top: 12px;
     }
 
     .mobile-header {
@@ -7663,6 +7694,113 @@ body.light .stokvel-card .stokvel-stat-label {
 }
 body.light .stokvel-progress {
     background: rgba(0,0,0,0.06);
+}
+
+/* ============================================================
+   Account Picker Modal — theme-aware text
+   ============================================================ */
+.account-picker-desc {
+    font-size: 0.85rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.55);
+}
+
+body.light .account-picker-desc {
+    color: #4b5563;
+}
+
+.account-picker-hint {
+    margin-top: 18px;
+    font-size: 0.82rem;
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+}
+
+body.light .account-picker-hint {
+    color: #6b7280;
+}
+
+/* ============================================================
+   Sunday settle-up & permission banners (DashboardLayout)
+   ============================================================ */
+.sunday-banner {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fbbf24;
+}
+
+.sunday-banner strong { color: #f59e0b; }
+.sunday-banner a { color: var(--accent); font-weight: 600; }
+.sunday-banner button {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+body.light .sunday-banner {
+    background: #fef3c7;
+    border-color: #fbbf24;
+    color: #92400e;
+}
+body.light .sunday-banner strong { color: #78350f; }
+body.light .sunday-banner button { color: rgba(0,0,0,0.4); }
+
+.permission-banner {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 0 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: rgba(255,255,255,0.8);
+}
+
+body.light .permission-banner {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #1e1b4b;
+}
+
+.permission-banner-allow {
+    background: #3b82f6;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+.permission-banner-dismiss {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+body.light .permission-banner-dismiss {
+    background: transparent;
+    color: #475569;
+    border-color: #cbd5e1;
 }
 
 /* ============================================================

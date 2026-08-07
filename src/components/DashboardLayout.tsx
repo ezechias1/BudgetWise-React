@@ -155,19 +155,7 @@ export function DashboardLayout() {
 
       <main className="main-content loaded">
         {sundayBanner && (
-          <div
-            role="alert"
-            style={{
-              background: '#fef3c7',
-              border: '1px solid #fbbf24',
-              borderRadius: 12,
-              padding: '14px 18px',
-              margin: '12px 0',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
+          <div role="alert" className="sunday-banner">
             <div>
               <strong>Sunday settle-up</strong>
               <br />
@@ -178,50 +166,22 @@ export function DashboardLayout() {
           </div>
         )}
         {showPermissionBanner && (
-          <div
-            style={{
-              background: '#eef2ff',
-              border: '1px solid #c7d2fe',
-              borderRadius: 12,
-              padding: '12px 16px',
-              margin: '0 0 16px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="permission-banner">
             <span style={{ fontSize: '0.95rem' }}>
               Want reminders when the kids need approval?
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
+                className="permission-banner-allow"
                 onClick={() => void request()}
-                style={{
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 0,
-                  borderRadius: 8,
-                  padding: '8px 14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
               >
                 Allow
               </button>
               <button
                 type="button"
+                className="permission-banner-dismiss"
                 onClick={() => setPermissionDismissed(true)}
-                style={{
-                  background: 'transparent',
-                  color: '#475569',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: 8,
-                  padding: '8px 14px',
-                  cursor: 'pointer',
-                }}
               >
                 Not now
               </button>

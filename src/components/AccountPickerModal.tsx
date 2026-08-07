@@ -135,14 +135,14 @@ export function AccountPickerModal({ onPick, onClose }: Props) {
               <strong style={{ fontSize: '1.05rem', color: opt.accent }}>
                 {opt.label}
               </strong>
-              <span style={{ fontSize: '0.85rem', color: '#4b5563', fontWeight: 400, lineHeight: 1.5 }}>
+              <span className="account-picker-desc">
                 {opt.description}
               </span>
             </button>
           ))}
         </div>
 
-        <p style={{ marginTop: 18, fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
+        <p className="account-picker-hint">
           You can switch anytime from the mode dropdown in the sidebar.
         </p>
       </div>
