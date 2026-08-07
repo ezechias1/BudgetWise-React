@@ -330,7 +330,7 @@ export default function AllowancesPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <button
           className="btn-primary"
           onClick={() => setWishListOpen(true)}

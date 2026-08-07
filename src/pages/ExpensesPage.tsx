@@ -1160,7 +1160,7 @@ function BudgetLimitsModal({
             {err}
           </p>
         )}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={onClose}

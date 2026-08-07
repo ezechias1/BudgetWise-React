@@ -79,7 +79,7 @@ export function SignInAsKidModal({ memberId, name, color, onClose }: Props) {
             />
           </div>
           {error && <p style={{ color: '#dc2626', fontWeight: 600 }}>{error}</p>}
-          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>

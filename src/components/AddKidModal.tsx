@@ -247,7 +247,7 @@ export function AddKidModal({ onClose, onAdded }: Props) {
             <p style={{ color: '#dc2626', fontWeight: 600 }}>{error}</p>
           )}
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>

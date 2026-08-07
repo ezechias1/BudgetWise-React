@@ -39,7 +39,7 @@ export function JuniorUpgradeModal({ reason, current, limit, onClose }: Props) {
           <li>Parent notifications (approval nudge + Sunday settle-up)</li>
           <li>Full Business + Family modes</li>
         </ul>
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
           <button type="button" onClick={onClose}>Maybe later</button>
           <a
             href="https://www.paypal.com/ncp/payment/QP56M59WZBK3Q"

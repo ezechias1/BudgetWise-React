@@ -175,7 +175,8 @@ export function OnboardingTour() {
   const tooltipTop = placeAbove
     ? pos.top - 16 // tooltip will use transform to go above
     : pos.top + pos.height + 16;
-  const tooltipLeft = Math.max(12, Math.min(pos.left, window.innerWidth - 320));
+  const tooltipWidth = Math.min(320, window.innerWidth - 24);
+  const tooltipLeft = Math.max(12, Math.min(pos.left, window.innerWidth - tooltipWidth - 12));
 
   return (
     <>

@@ -291,7 +291,7 @@ export default function MembersPage() {
             }
             setShowKidModal(true);
           }}
-          style={{ marginLeft: 12 }}
+          style={{ marginLeft: 0 }}
         >
           <svg
             viewBox="0 0 24 24"

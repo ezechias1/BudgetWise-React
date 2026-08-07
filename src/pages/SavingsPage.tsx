@@ -149,7 +149,7 @@ export default function SavingsPage() {
             <h1>Savings</h1>
             <p className="page-subtitle">Track your savings goals</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn-add"

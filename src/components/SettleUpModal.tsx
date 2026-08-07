@@ -106,7 +106,7 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
             </p>
 
             <h4 style={{ marginTop: 20 }}>How did you pay?</h4>
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {(['cash', 'eft', 'other'] as const).map((m) => (
                 <label key={m} style={{ textTransform: 'capitalize', cursor: 'pointer' }}>
                   <input
@@ -125,7 +125,7 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
           </>
         )}
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
