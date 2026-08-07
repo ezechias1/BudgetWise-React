@@ -113,7 +113,7 @@ export default function JuniorHomePage() {
           </small>
           <span
             style={{
-              background: 'rgba(255,255,255,0.25)',
+              background: 'rgba(128,128,128,0.2)',
               padding: '8px 16px',
               borderRadius: 999,
               fontWeight: 700,

@@ -41,11 +41,11 @@ export function UndoToast({ message, duration = 5000, onUndo, onDismiss }: Props
         gap: 12,
         padding: '12px 20px',
         background: '#1a1a2e',
-        border: '1px solid rgba(255,255,255,0.1)',
+        border: '1px solid rgba(128,128,128,0.15)',
         borderRadius: 12,
         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         fontSize: '0.85rem',
-        color: 'rgba(255,255,255,0.8)',
+        opacity: 0.8,
         maxWidth: 'calc(100vw - 32px)',
         animation: 'slideUp 0.3s ease',
       }}

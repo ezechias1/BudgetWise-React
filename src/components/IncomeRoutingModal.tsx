@@ -41,7 +41,7 @@ export function IncomeRoutingModal({
         <p
           style={{
             fontSize: '0.82rem',
-            color: 'rgba(255,255,255,0.6)',
+            opacity: 0.6,
             margin: '0 0 16px',
             padding: '0 20px',
           }}
@@ -64,10 +64,10 @@ export function IncomeRoutingModal({
                   padding: '10px 14px',
                   background: isSelected
                     ? 'rgba(16,185,129,0.1)'
-                    : 'rgba(255,255,255,0.03)',
+                    : 'rgba(128,128,128,0.06)',
                   border: isSelected
                     ? '1px solid rgba(16,185,129,0.3)'
-                    : '1px solid rgba(255,255,255,0.06)',
+                    : '1px solid rgba(128,128,128,0.1)',
                   borderRadius: 10,
                   cursor: 'pointer',
                 }}
@@ -101,7 +101,7 @@ export function IncomeRoutingModal({
                   <div style={{ fontWeight: 600, fontSize: '0.82rem', display: 'flex', gap: 6, alignItems: 'center' }}>
                     {acc.institution_name || 'Bank'}
                     {acc.mask && (
-                      <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
+                      <span style={{ fontSize: '0.68rem', opacity: 0.4 }}>
                         ****{acc.mask}
                       </span>
                     )}
@@ -120,7 +120,7 @@ export function IncomeRoutingModal({
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
+                  <div style={{ fontSize: '0.68rem', opacity: 0.4 }}>
                     Balance: {formatCurrency(acc.balance_current ?? 0, currency)}
                   </div>
                 </div>
@@ -143,8 +143,8 @@ export function IncomeRoutingModal({
             style={{
               flex: 0,
               padding: '10px 16px',
-              background: 'rgba(255,255,255,0.06)',
-              color: 'rgba(255,255,255,0.6)',
+              background: 'rgba(128,128,128,0.1)',
+              opacity: 0.6,
             }}
             onClick={onSkip}
           >

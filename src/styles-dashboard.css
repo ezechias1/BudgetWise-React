@@ -941,6 +941,8 @@ body.light .chart-empty {
 /* Tables */
 .table-wrap {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
 }
 
 .expense-table {
@@ -2827,9 +2829,20 @@ body.light .account-value {
         padding: 64px 12px 20px;
     }
 
+    .modal {
+        max-width: calc(100% - 24px);
+        width: 100%;
+    }
+
     .stats-grid {
         grid-template-columns: 1fr;
         gap: 8px;
+    }
+
+    .shared-groups-grid,
+    .family-goals-grid,
+    .bank-cards-grid {
+        grid-template-columns: 1fr;
     }
 
     .stat-card {

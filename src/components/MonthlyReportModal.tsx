@@ -109,51 +109,51 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
         </div>
 
         {loading ? (
-          <p style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+          <p style={{ padding: 24, textAlign: 'center', opacity: 0.4 }}>
             Loading...
           </p>
         ) : (
           <div style={{ padding: '0 20px 20px', maxHeight: '70vh', overflowY: 'auto' }}>
             {/* Summary stats */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-              <div style={{ padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, textAlign: 'center' }}>
+              <div style={{ padding: 12, background: 'rgba(128,128,128,0.06)', borderRadius: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{s}{totalSpent.toFixed(2)}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Total Spent</div>
+                <div style={{ fontSize: '0.72rem', opacity: 0.45 }}>Total Spent</div>
               </div>
-              <div style={{ padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, textAlign: 'center' }}>
+              <div style={{ padding: 12, background: 'rgba(128,128,128,0.06)', borderRadius: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{s}{totalAllowances.toFixed(2)}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Weekly Allowances</div>
+                <div style={{ fontSize: '0.72rem', opacity: 0.45 }}>Weekly Allowances</div>
               </div>
-              <div style={{ padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, textAlign: 'center' }}>
+              <div style={{ padding: 12, background: 'rgba(128,128,128,0.06)', borderRadius: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{completedChores}/{totalChores}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Chores Done</div>
+                <div style={{ fontSize: '0.72rem', opacity: 0.45 }}>Chores Done</div>
               </div>
-              <div style={{ padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, textAlign: 'center' }}>
+              <div style={{ padding: 12, background: 'rgba(128,128,128,0.06)', borderRadius: 10, textAlign: 'center' }}>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{s}{totalEarned.toFixed(2)}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Earned from Chores</div>
+                <div style={{ fontSize: '0.72rem', opacity: 0.45 }}>Earned from Chores</div>
               </div>
             </div>
 
             {/* Per-member breakdown */}
             <h3 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: 8 }}>Per Member</h3>
             {members.length === 0 ? (
-              <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.35)' }}>No members added</p>
+              <p style={{ fontSize: '0.82rem', opacity: 0.35 }}>No members added</p>
             ) : (
               members.map((m) => {
                 const memberChores = chores.filter((c) => c.assignee === m.id && c.completed).length;
                 const pct = m.allowance > 0 ? Math.min(100, ((m.spent || 0) / m.allowance) * 100) : 0;
                 return (
-                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(128,128,128,0.08)' }}>
                     <div style={{ width: 28, height: 28, borderRadius: 7, background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.65rem', color: '#fff', flexShrink: 0 }}>
                       {m.name.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>{m.name}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>
+                      <div style={{ fontSize: '0.7rem', opacity: 0.4 }}>
                         {s}{(m.spent || 0).toFixed(2)} spent · {memberChores} chores done
                       </div>
                     </div>
-                    <div style={{ width: 50, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                    <div style={{ width: 50, height: 5, borderRadius: 3, background: 'rgba(128,128,128,0.1)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: pct > 80 ? '#ef4444' : m.color, borderRadius: 3 }} />
                     </div>
                   </div>
@@ -166,7 +166,7 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
               <>
                 <h3 style={{ fontSize: '0.88rem', fontWeight: 700, margin: '16px 0 8px' }}>Top Categories</h3>
                 {topCategories.map(([cat, amount]) => (
-                  <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.82rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.82rem', borderBottom: '1px solid rgba(128,128,128,0.08)' }}>
                     <span>{cat}</span>
                     <span style={{ fontWeight: 600 }}>{s}{Number(amount).toFixed(2)}</span>
                   </div>
@@ -186,7 +186,7 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
                         <span style={{ fontWeight: 600 }}>{g.name}</span>
                         <span>{s}{(g.saved || 0).toFixed(2)} / {s}{g.target.toFixed(2)}</span>
                       </div>
-                      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)' }}>
+                      <div style={{ height: 5, borderRadius: 3, background: 'rgba(128,128,128,0.1)' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: '#8b5cf6', borderRadius: 3 }} />
                       </div>
                     </div>

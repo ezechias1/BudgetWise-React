@@ -117,21 +117,21 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
       <div
         onClick={(ev) => ev.stopPropagation()}
         style={{
-          background: '#16161e',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--card-bg, #16161e)',
+          border: '1px solid rgba(128,128,128,0.15)',
           borderRadius: 16,
           padding: 24,
           width: 'min(440px, 90vw)',
         }}
       >
         <h2 style={{ marginTop: 0 }}>Transfer Money</h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', marginTop: 0 }}>
+        <p style={{ opacity: 0.5, fontSize: '0.85rem', marginTop: 0 }}>
           Move money between your account ledgers.
         </p>
 
         <div style={{ display: 'grid', gap: 14, marginTop: 16 }}>
           <label style={{ display: 'block' }}>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
+            <div style={{ fontSize: '0.78rem', opacity: 0.6, marginBottom: 6 }}>
               From — {formatCurrency(fromBalance, currency)} available
             </div>
             <select
@@ -148,7 +148,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
           </label>
 
           <label style={{ display: 'block' }}>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
+            <div style={{ fontSize: '0.78rem', opacity: 0.6, marginBottom: 6 }}>
               To
             </div>
             <select
@@ -167,7 +167,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
           </label>
 
           <label style={{ display: 'block' }}>
-            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>
+            <div style={{ fontSize: '0.78rem', opacity: 0.6, marginBottom: 6 }}>
               Amount
             </div>
             <input
@@ -185,10 +185,10 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
             <div
               style={{
                 padding: 10,
-                background: 'rgba(255,255,255,0.03)',
+                background: 'rgba(128,128,128,0.06)',
                 borderRadius: 10,
                 fontSize: '0.8rem',
-                color: 'rgba(255,255,255,0.6)',
+                opacity: 0.6,
               }}
             >
               {modeLabel(from)} → {formatCurrency(fromBalance - amt, currency)} &nbsp;|&nbsp;
@@ -215,8 +215,8 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
               onClick={onClose}
               style={{
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.25)',
-                color: 'rgba(255,255,255,0.9)',
+                border: '1px solid rgba(128,128,128,0.3)',
+                opacity: 0.9,
                 padding: '10px 16px',
                 borderRadius: 10,
                 cursor: 'pointer',
@@ -234,10 +234,10 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
-  background: 'rgba(255,255,255,0.03)',
-  border: '1px solid rgba(255,255,255,0.07)',
+  background: 'rgba(128,128,128,0.06)',
+  border: '1px solid rgba(128,128,128,0.12)',
   borderRadius: 10,
-  color: 'rgba(255,255,255,0.9)',
+  color: 'inherit',
   fontSize: '0.95rem',
   fontFamily: 'inherit',
   boxSizing: 'border-box',

@@ -118,7 +118,7 @@ export default function AdvicePage() {
         </div>
         <div className="ai-insights-body">
           {aiInsights.length === 0 ? (
-            <p className="ai-placeholder" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            <p className="ai-placeholder">
               Add expenses to unlock AI-powered insights about your spending patterns.
             </p>
           ) : (
@@ -180,7 +180,7 @@ export default function AdvicePage() {
                         style={{
                           margin: 0,
                           fontSize: '0.82rem',
-                          color: 'rgba(255,255,255,0.7)',
+                          opacity: 0.7,
                           lineHeight: 1.5,
                         }}
                       >

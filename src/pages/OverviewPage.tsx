@@ -357,7 +357,7 @@ export default function OverviewPage() {
               <span
                 style={{
                   fontSize: '0.75rem',
-                  color: 'rgba(255,255,255,0.5)',
+                  opacity: 0.5,
                 }}
               >
                 Total: {formatCurrency(bankTotalBalance, userCurrency)}
@@ -376,7 +376,7 @@ export default function OverviewPage() {
                       padding: '8px 12px',
                       background: isPrimary
                         ? 'rgba(16,185,129,0.08)'
-                        : 'rgba(255,255,255,0.03)',
+                        : 'rgba(128,128,128,0.06)',
                       border: isPrimary
                         ? '1px solid rgba(16,185,129,0.2)'
                         : '1px solid transparent',
@@ -415,7 +415,7 @@ export default function OverviewPage() {
                           <span
                             style={{
                               fontSize: '0.7rem',
-                              color: 'rgba(255,255,255,0.4)',
+                              opacity: 0.4,
                             }}
                           >
                             ****{acc.mask}
@@ -439,7 +439,7 @@ export default function OverviewPage() {
                       <div
                         style={{
                           fontSize: '0.7rem',
-                          color: 'rgba(255,255,255,0.45)',
+                          opacity: 0.45,
                         }}
                       >
                         {acc.account_subtype || acc.account_type || 'Account'}
@@ -641,25 +641,7 @@ export default function OverviewPage() {
           const same = Math.abs(diffPct) < 1;
           return (
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                marginBottom: 16,
-                background: same
-                  ? 'rgba(255,255,255,0.04)'
-                  : down
-                    ? 'rgba(16,185,129,0.06)'
-                    : 'rgba(239,68,68,0.06)',
-                border: same
-                  ? '1px solid rgba(255,255,255,0.08)'
-                  : down
-                    ? '1px solid rgba(16,185,129,0.15)'
-                    : '1px solid rgba(239,68,68,0.15)',
-                borderRadius: 10,
-                fontSize: '0.85rem',
-              }}
+              className={`month-comparison ${same ? 'same' : down ? 'down' : 'up'}`}
             >
               <span style={{ fontSize: '1.1rem' }}>
                 {same ? '➖' : down ? '📉' : '📈'}
@@ -831,7 +813,7 @@ export default function OverviewPage() {
             style={{
               width: 56,
               height: 56,
-              border: '4px solid rgba(255,255,255,0.15)',
+              border: '4px solid rgba(128,128,128,0.2)',
               borderTopColor: '#10b981',
               borderRadius: '50%',
               animation: 'receipt-scan-spin 0.9s linear infinite',
@@ -843,7 +825,7 @@ export default function OverviewPage() {
           <div
             style={{
               fontSize: '0.8rem',
-              color: 'rgba(255,255,255,0.6)',
+              opacity: 0.6,
               maxWidth: 260,
               textAlign: 'center',
             }}
@@ -876,35 +858,21 @@ export default function OverviewPage() {
           onClick={() => setMoveTargetId(null)}
         >
           <div
-            className="modal-box"
+            className="modal"
             onClick={(ev) => ev.stopPropagation()}
-            style={{
-              background: '#16161e',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 16,
-              padding: 24,
-              minWidth: 320,
-              maxWidth: 400,
-            }}
+            style={{ maxWidth: 400 }}
           >
-            <h3 style={{ marginTop: 0 }}>Move Expense</h3>
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 16,
-              }}
-            >
+            <h2 style={{ marginTop: 0 }}>Move Expense</h2>
+            <div className="drill-day" style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600 }}>{moveTarget.category}</div>
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>
+              <div className="drill-item" style={{ fontSize: '0.85rem' }}>
                 {moveTarget.description} — {formatCurrency(moveTarget.amount, stats.currency)}
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', marginTop: 4 }}>
+              <div className="drill-item" style={{ fontSize: '0.75rem', marginTop: 4 }}>
                 {moveTarget.date}
               </div>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>Move to:</p>
+            <p className="modal-desc" style={{ marginBottom: 12 }}>Move to:</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {(['personal', 'business', 'family'] as const)
                 .filter((m) => m !== mode)
@@ -921,17 +889,9 @@ export default function OverviewPage() {
             </div>
             <button
               type="button"
+              className="btn-secondary"
               onClick={() => setMoveTargetId(null)}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.25)',
-                color: 'rgba(255,255,255,0.9)',
-                padding: '8px',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
+              style={{ marginTop: 16, width: '100%' }}
             >
               Cancel
             </button>

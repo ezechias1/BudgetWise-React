@@ -195,7 +195,7 @@ export function AddToGoalModal({ open, onClose, goalName, onSubmit }: AddToGoalP
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <p style={{ marginBottom: 16, color: 'rgba(255,255,255,0.6)' }}>
+          <p style={{ marginBottom: 16, opacity: 0.6 }}>
             Adding to: <strong>{goalName}</strong>
           </p>
           <div className="field">

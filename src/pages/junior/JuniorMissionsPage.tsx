@@ -91,7 +91,7 @@ export default function JuniorMissionsPage() {
                   fontWeight: 600,
                   padding: '3px 10px',
                   borderRadius: 999,
-                  background: 'rgba(255,255,255,0.7)',
+                  background: 'rgba(128,128,128,0.15)',
                   color: palette.fg,
                   border: '1px solid rgba(0,0,0,0.05)',
                 }}

@@ -513,7 +513,7 @@ export default function StokvelPage() {
               type="button"
               className="btn-primary btn-sm"
               id="joinStokvelBtn"
-              style={{ background: 'rgba(255,255,255,0.08)' }}
+              style={{ background: 'rgba(128,128,128,0.12)' }}
               onClick={openJoin}
             >
               <svg
@@ -598,7 +598,8 @@ export default function StokvelPage() {
                   <div
                     style={{
                       fontSize: '0.75rem',
-                      color: isExpired ? '#ef4444' : 'rgba(255,255,255,0.4)',
+                      color: isExpired ? '#ef4444' : undefined,
+                      opacity: isExpired ? undefined : 0.4,
                       margin: '4px 0',
                     }}
                   >
@@ -626,7 +627,7 @@ export default function StokvelPage() {
                       <div
                         style={{
                           fontSize: '0.65rem',
-                          color: 'rgba(255,255,255,0.4)',
+                          opacity: 0.4,
                           textTransform: 'uppercase',
                           letterSpacing: '0.5px',
                         }}
@@ -649,9 +650,9 @@ export default function StokvelPage() {
                       className="btn-copy-code"
                       onClick={() => handleCopyCode(g.stokvel_code)}
                       style={{
-                        background: 'rgba(255,255,255,0.06)',
+                        background: 'rgba(128,128,128,0.1)',
                         border: 'none',
-                        color: 'rgba(255,255,255,0.5)',
+                        opacity: 0.5,
                         padding: '6px 10px',
                         borderRadius: 8,
                         fontSize: '0.75rem',
@@ -693,7 +694,7 @@ export default function StokvelPage() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     fontSize: '0.7rem',
-                    color: 'rgba(255,255,255,0.4)',
+                    opacity: 0.4,
                     marginBottom: 4,
                   }}
                 >
@@ -713,7 +714,7 @@ export default function StokvelPage() {
                   return (
                     <div
                       style={{
-                        background: isMe ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.04)',
+                        background: isMe ? 'rgba(16,185,129,0.12)' : 'rgba(128,128,128,0.06)',
                         borderRadius: 10,
                         padding: 10,
                         margin: '8px 0',
@@ -766,7 +767,7 @@ export default function StokvelPage() {
                   <div
                     style={{
                       fontSize: '0.7rem',
-                      color: 'rgba(255,255,255,0.4)',
+                      opacity: 0.4,
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                       marginBottom: 6,
@@ -807,7 +808,7 @@ export default function StokvelPage() {
                         </span>
                         {m.role === 'owner' && (
                           <span
-                            style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)' }}
+                            style={{ fontSize: '0.65rem', opacity: 0.3 }}
                           >
                             admin
                           </span>
@@ -901,7 +902,7 @@ export default function StokvelPage() {
                     <div
                       style={{
                         fontSize: '0.65rem',
-                        color: 'rgba(255,255,255,0.4)',
+                        opacity: 0.4,
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px',
                       }}
@@ -921,7 +922,7 @@ export default function StokvelPage() {
                     <div
                       style={{
                         fontSize: '0.7rem',
-                        color: 'rgba(255,255,255,0.3)',
+                        opacity: 0.3,
                         marginTop: 2,
                       }}
                     >
@@ -943,7 +944,7 @@ export default function StokvelPage() {
                         <div
                           style={{
                             fontSize: '0.7rem',
-                            color: 'rgba(255,255,255,0.4)',
+                            opacity: 0.4,
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px',
                             marginBottom: 6,
@@ -1005,8 +1006,8 @@ export default function StokvelPage() {
                     className="btn-view-stokvel"
                     onClick={() => setDetailTarget(g.id)}
                     style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      color: 'rgba(255,255,255,0.7)',
+                      background: 'rgba(128,128,128,0.1)',
+                      opacity: 0.7,
                     }}
                   >
                     History
@@ -1294,7 +1295,7 @@ export default function StokvelPage() {
                   {contribs.length === 0 ? (
                     <p
                       style={{
-                        color: 'rgba(255,255,255,0.4)',
+                        opacity: 0.4,
                         textAlign: 'center',
                         padding: 20,
                       }}
@@ -1313,7 +1314,7 @@ export default function StokvelPage() {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '10px 0',
-                            borderBottom: '1px solid rgba(255,255,255,0.04)',
+                            borderBottom: '1px solid rgba(128,128,128,0.08)',
                           }}
                         >
                           <div>
@@ -1329,7 +1330,7 @@ export default function StokvelPage() {
                             <div
                               style={{
                                 fontSize: '0.75rem',
-                                color: 'rgba(255,255,255,0.4)',
+                                opacity: 0.4,
                               }}
                             >
                               {c.date}

@@ -220,8 +220,8 @@ export default function AllowancesPage() {
                       flex: 1,
                       padding: 8,
                       fontSize: '0.8rem',
-                      background: 'rgba(255,255,255,0.06)',
-                      color: 'rgba(255,255,255,0.6)',
+                      background: 'rgba(128,128,128,0.1)',
+                      opacity: 0.7,
                     }}
                   >
                     Reset
@@ -244,7 +244,7 @@ export default function AllowancesPage() {
           {withAllowance.length === 0 ? (
             <p
               style={{
-                color: 'rgba(255,255,255,0.35)',
+                opacity: 0.4,
                 fontSize: '0.85rem',
               }}
             >
@@ -270,7 +270,7 @@ export default function AllowancesPage() {
                 <div
                   style={{
                     height: 6,
-                    background: 'rgba(255,255,255,0.06)',
+                    background: 'rgba(128,128,128,0.1)',
                     borderRadius: 3,
                   }}
                 >
@@ -305,7 +305,7 @@ export default function AllowancesPage() {
                   gap: 10,
                   alignItems: 'center',
                   padding: 10,
-                  background: 'rgba(255,255,255,0.03)',
+                  background: 'rgba(128,128,128,0.06)',
                   borderRadius: 10,
                   marginBottom: 6,
                 }}

@@ -460,8 +460,8 @@ export default function ExpensesPage() {
                   style={{
                     padding: '6px 12px',
                     fontSize: '0.75rem',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'rgba(255,255,255,0.5)',
+                    background: 'rgba(128,128,128,0.1)',
+                    opacity: 0.6,
                     border: 'none',
                     borderRadius: 8,
                     cursor: 'pointer',
@@ -481,7 +481,7 @@ export default function ExpensesPage() {
               </p>
             )}
             {loading ? (
-              <p style={{ padding: 24, color: 'rgba(255,255,255,0.4)' }}>Loading…</p>
+              <p style={{ padding: 24, opacity: 0.4 }}>Loading…</p>
             ) : filtered.length === 0 ? (
               <div className="empty-state empty-state-action">
                 <svg
@@ -713,8 +713,8 @@ export default function ExpensesPage() {
             <div
               onClick={(ev) => ev.stopPropagation()}
               style={{
-                background: '#16161e',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--card-bg, #16161e)',
+                border: '1px solid rgba(128,128,128,0.15)',
                 borderRadius: 16,
                 padding: 24,
                 minWidth: 320,
@@ -724,21 +724,21 @@ export default function ExpensesPage() {
               <h3 style={{ marginTop: 0 }}>Move Expense</h3>
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'rgba(128,128,128,0.06)',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 16,
                 }}
               >
                 <div style={{ fontWeight: 600 }}>{target.category}</div>
-                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>
+                <div style={{ opacity: 0.5, fontSize: '0.85rem' }}>
                   {target.description} — {formatCurrency(target.amount, currency)}
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', marginTop: 4 }}>
+                <div style={{ opacity: 0.35, fontSize: '0.75rem', marginTop: 4 }}>
                   {target.date}
                 </div>
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>Move to:</p>
+              <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>Move to:</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {(['personal', 'business', 'family'] as const)
                   .filter((m) => m !== mode)
@@ -760,8 +760,8 @@ export default function ExpensesPage() {
                   marginTop: 16,
                   width: '100%',
                   background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  color: 'rgba(255,255,255,0.9)',
+                  border: '1px solid rgba(128,128,128,0.3)',
+                  opacity: 0.9,
                   padding: '8px',
                   borderRadius: 8,
                   cursor: 'pointer',
@@ -801,8 +801,8 @@ const overlayStyle: CSSProperties = {
 };
 
 const panelStyle: CSSProperties = {
-  background: '#16161e',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'var(--card-bg, #16161e)',
+  border: '1px solid rgba(128,128,128,0.15)',
   borderRadius: 16,
   padding: 24,
   minWidth: 320,
@@ -815,7 +815,7 @@ const panelStyle: CSSProperties = {
 const fieldLabel: CSSProperties = {
   display: 'block',
   fontSize: '0.75rem',
-  color: 'rgba(255,255,255,0.6)',
+  opacity: 0.6,
   marginBottom: 6,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
@@ -823,9 +823,9 @@ const fieldLabel: CSSProperties = {
 
 const fieldInput: CSSProperties = {
   width: '100%',
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: '#fff',
+  background: 'rgba(128,128,128,0.06)',
+  border: '1px solid rgba(128,128,128,0.15)',
+  color: 'inherit',
   borderRadius: 8,
   padding: '10px 12px',
   fontFamily: 'inherit',
@@ -914,7 +914,7 @@ function EditExpenseModal({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(255,255,255,0.6)',
+              opacity: 0.6,
               fontSize: '1.5rem',
               cursor: 'pointer',
               lineHeight: 1,
@@ -1087,7 +1087,7 @@ function BudgetLimitsModal({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(255,255,255,0.6)',
+              opacity: 0.6,
               fontSize: '1.5rem',
               cursor: 'pointer',
               lineHeight: 1,
@@ -1096,7 +1096,7 @@ function BudgetLimitsModal({
             ×
           </button>
         </div>
-        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 0 }}>
+        <p style={{ opacity: 0.55, fontSize: '0.8rem', marginTop: 0 }}>
           Set a monthly cap per category. Leave blank for no limit.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1107,8 +1107,8 @@ function BudgetLimitsModal({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: 'rgba(128,128,128,0.06)',
+                border: '1px solid rgba(128,128,128,0.1)',
                 padding: '8px 12px',
                 borderRadius: 8,
               }}
@@ -1122,7 +1122,7 @@ function BudgetLimitsModal({
                   width: 140,
                 }}
               >
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>
+                <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>
                   {currencySymbol}
                 </span>
                 <input
@@ -1167,8 +1167,8 @@ function BudgetLimitsModal({
             style={{
               flex: 1,
               background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.25)',
-              color: 'rgba(255,255,255,0.9)',
+              border: '1px solid rgba(128,128,128,0.3)',
+              opacity: 0.9,
               padding: '10px',
               borderRadius: 8,
               cursor: 'pointer',
@@ -1294,7 +1294,7 @@ function ManageCategoriesModal({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(255,255,255,0.6)',
+              opacity: 0.6,
               fontSize: '1.5rem',
               cursor: 'pointer',
               lineHeight: 1,
@@ -1311,7 +1311,7 @@ function ManageCategoriesModal({
               fontSize: '0.75rem',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              color: 'rgba(255,255,255,0.5)',
+              opacity: 0.5,
             }}
           >
             Built-in
@@ -1345,15 +1345,15 @@ function ManageCategoriesModal({
               fontSize: '0.75rem',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              color: 'rgba(255,255,255,0.5)',
+              opacity: 0.5,
             }}
           >
             Custom
           </h4>
           {loading ? (
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Loading…</p>
+            <p style={{ opacity: 0.4, fontSize: '0.85rem' }}>Loading…</p>
           ) : rows.length === 0 ? (
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+            <p style={{ opacity: 0.4, fontSize: '0.85rem' }}>
               No custom categories yet.
             </p>
           ) : (
@@ -1365,8 +1365,8 @@ function ManageCategoriesModal({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    background: 'rgba(128,128,128,0.06)',
+                    border: '1px solid rgba(128,128,128,0.1)',
                     padding: '8px 12px',
                     borderRadius: 8,
                   }}
@@ -1410,7 +1410,7 @@ function ManageCategoriesModal({
             gap: 8,
             alignItems: 'flex-end',
             paddingTop: 12,
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid rgba(128,128,128,0.1)',
           }}
         >
           <div style={{ flex: 1 }}>
@@ -1433,7 +1433,7 @@ function ManageCategoriesModal({
                 width: 48,
                 height: 40,
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid rgba(128,128,128,0.15)',
                 borderRadius: 8,
                 padding: 2,
                 cursor: 'pointer',

@@ -94,7 +94,7 @@ export default function TaxPage() {
         </div>
       </div>
       <div className="chart-card full-width" style={{ borderLeft: '3px solid #f59e0b' }}>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+        <p style={{ opacity: 0.6, fontSize: '0.85rem', lineHeight: 1.6 }}>
           These are estimates only. Consult a tax professional for accurate filing. Tax rates
           shown are approximate and may vary based on your jurisdiction.
         </p>
@@ -183,7 +183,7 @@ export default function TaxPage() {
       </div>
       <div className="chart-card full-width">
         <h3>Deductible Expenses</h3>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: 16 }}>
+        <p style={{ opacity: 0.5, fontSize: '0.85rem', marginBottom: 16 }}>
           Business expenses that can reduce your taxable income.
         </p>
         <div className="pnl-breakdown" id="taxDeductibles">

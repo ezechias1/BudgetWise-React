@@ -120,7 +120,7 @@ export function BirthdayBackfillBanner() {
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              background: 'rgba(255, 255, 255, 0.7)',
+              background: 'rgba(128, 128, 128, 0.12)',
               padding: '10px 14px',
               borderRadius: 12,
               flexWrap: 'wrap',

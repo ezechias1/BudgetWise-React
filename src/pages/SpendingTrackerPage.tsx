@@ -426,7 +426,7 @@ export default function SpendingTrackerPage() {
                     style={{
                       fontSize: '0.75rem',
                       fontWeight: 400,
-                      color: 'rgba(255,255,255,0.5)',
+                      opacity: 0.5,
                       marginLeft: 6,
                     }}
                   >
@@ -436,7 +436,7 @@ export default function SpendingTrackerPage() {
               ) : (
                 <p
                   style={{
-                    color: 'rgba(255,255,255,0.35)',
+                    opacity: 0.35,
                     fontSize: '0.85rem',
                   }}
                 >
@@ -470,7 +470,7 @@ export default function SpendingTrackerPage() {
                       gap: 10,
                       alignItems: 'center',
                       padding: 10,
-                      background: 'rgba(255,255,255,0.03)',
+                      background: 'rgba(128,128,128,0.06)',
                       borderRadius: 10,
                       marginBottom: 6,
                     }}
@@ -533,7 +533,7 @@ export default function SpendingTrackerPage() {
                       gap: 10,
                       alignItems: 'center',
                       padding: 12,
-                      background: 'rgba(255,255,255,0.03)',
+                      background: 'rgba(128,128,128,0.06)',
                       borderRadius: 10,
                       marginBottom: 6,
                     }}
@@ -545,7 +545,7 @@ export default function SpendingTrackerPage() {
                       <div
                         style={{
                           fontSize: '0.75rem',
-                          color: 'rgba(255,255,255,0.5)',
+                          opacity: 0.5,
                         }}
                       >
                         {l.role || 'member'}
@@ -586,7 +586,7 @@ export default function SpendingTrackerPage() {
                       display: 'flex',
                       gap: 10,
                       padding: 10,
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      borderBottom: '1px solid rgba(128,128,128,0.08)',
                     }}
                   >
                     <div style={{ flex: 1 }}>
@@ -596,7 +596,7 @@ export default function SpendingTrackerPage() {
                       <div
                         style={{
                           fontSize: '0.72rem',
-                          color: 'rgba(255,255,255,0.5)',
+                          opacity: 0.5,
                         }}
                       >
                         {s.category} • {s.date}
@@ -756,7 +756,7 @@ export default function SpendingTrackerPage() {
                     <div
                       style={{
                         fontSize: '0.72rem',
-                        color: 'rgba(255,255,255,0.5)',
+                        opacity: 0.5,
                       }}
                     >
                       Waiting for parent to approve your link
@@ -766,7 +766,7 @@ export default function SpendingTrackerPage() {
               ) : (
                 <p
                   style={{
-                    color: 'rgba(255,255,255,0.35)',
+                    opacity: 0.35,
                     fontSize: '0.85rem',
                   }}
                 >
@@ -793,7 +793,7 @@ export default function SpendingTrackerPage() {
                     gap: 10,
                     cursor: 'pointer',
                     padding: 12,
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(128,128,128,0.06)',
                     borderRadius: 10,
                     marginBottom: 8,
                   }}
@@ -827,7 +827,7 @@ export default function SpendingTrackerPage() {
                         gap: 10,
                         cursor: 'pointer',
                         padding: 10,
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'rgba(128,128,128,0.06)',
                         borderRadius: 10,
                         marginBottom: 6,
                       }}
@@ -861,7 +861,7 @@ export default function SpendingTrackerPage() {
                         gap: 10,
                         cursor: 'pointer',
                         padding: 10,
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'rgba(128,128,128,0.06)',
                         borderRadius: 10,
                       }}
                     >
@@ -907,7 +907,7 @@ export default function SpendingTrackerPage() {
                             padding: '6px 10px',
                             background: shareCategories.includes(cat.value)
                               ? 'rgba(16,185,129,0.15)'
-                              : 'rgba(255,255,255,0.03)',
+                              : 'rgba(128,128,128,0.06)',
                             borderRadius: 8,
                             cursor: 'pointer',
                             fontSize: '0.78rem',
