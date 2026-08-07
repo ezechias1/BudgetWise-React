@@ -724,8 +724,8 @@ export default function StokvelPage() {
                       }}
                     >
                       <div>
-                        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Next payout:</span>{' '}
-                        <strong style={{ color: isMe ? '#10b981' : '#fff' }}>
+                        <span className="stokvel-goal">Next payout:</span>{' '}
+                        <strong style={{ color: isMe ? '#10b981' : 'inherit' }}>
                           {nextRecipient.display_name}
                           {isMe ? ' (You!)' : ''}
                         </strong>
@@ -798,7 +798,8 @@ export default function StokvelPage() {
                         </span>
                         <span
                           style={{
-                            color: isMe ? '#fff' : 'rgba(255,255,255,0.7)',
+                            color: isMe ? 'var(--accent)' : 'inherit',
+                            fontWeight: isMe ? 600 : 400,
                           }}
                         >
                           {m.display_name}
@@ -1318,8 +1319,8 @@ export default function StokvelPage() {
                           <div>
                             <div
                               style={{
-                                fontWeight: 500,
-                                color: isMe ? '#10b981' : '#fff',
+                                fontWeight: isMe ? 600 : 500,
+                                color: isMe ? '#10b981' : 'inherit',
                               }}
                             >
                               {name}

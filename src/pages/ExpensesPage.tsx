@@ -421,14 +421,14 @@ export default function ExpensesPage() {
                 background: 'rgba(239,68,68,0.1)',
                 border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: 10,
-                color: '#fca5a5',
+                color: '#ef4444',
                 fontSize: '0.85rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 4,
               }}
             >
-              <div style={{ fontWeight: 600, color: '#fecaca' }}>
+              <div style={{ fontWeight: 600 }}>
                 Over budget this month
               </div>
               {overLimitCategories.map((o) => (
@@ -1152,8 +1152,8 @@ function BudgetLimitsModal({
             fontSize: '0.9rem',
           }}
         >
-          <span style={{ color: 'rgba(255,255,255,0.7)' }}>Total limits</span>
-          <strong style={{ color: '#6ee7b7' }}>{formatCurrency(total, currency)}</strong>
+          <span style={{ opacity: 0.7 }}>Total limits</span>
+          <strong style={{ color: 'var(--accent)' }}>{formatCurrency(total, currency)}</strong>
         </div>
         {err && (
           <p className="auth-error" style={{ marginTop: 12 }}>

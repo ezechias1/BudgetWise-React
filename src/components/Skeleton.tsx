@@ -19,12 +19,11 @@ export function Skeleton({
 }: Props) {
   return (
     <div
+      className="skeleton-pulse"
       style={{
         width,
         height,
         borderRadius,
-        background: 'rgba(255,255,255,0.06)',
-        animation: 'shimmer 1.5s infinite ease-in-out',
         ...style,
       }}
     />
@@ -50,7 +49,7 @@ export function SkeletonLines({ count = 3 }: { count?: number }) {
 export function StatCardSkeleton() {
   return (
     <div className="stat-card" style={{ opacity: 0.6 }}>
-      <div className="stat-icon" style={{ background: 'rgba(255,255,255,0.04)' }}>
+      <div className="stat-icon skeleton-bg">
         <Skeleton width={22} height={22} borderRadius="50%" />
       </div>
       <div className="stat-info" style={{ gap: 6 }}>
@@ -87,7 +86,7 @@ export function ExpenseTableSkeleton() {
   return (
     <div style={{ padding: 16 }}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div key={i} className="skeleton-row" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 0' }}>
           <Skeleton width={70} height={14} />
           <Skeleton width={80} height={24} borderRadius={6} />
           <Skeleton width="40%" height={14} />

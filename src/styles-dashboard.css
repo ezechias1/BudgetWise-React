@@ -7697,6 +7697,34 @@ body.light .stokvel-progress {
 }
 
 /* ============================================================
+   Skeleton loading — theme-aware
+   ============================================================ */
+.skeleton-pulse {
+    background: rgba(255,255,255,0.06);
+    animation: shimmer 1.5s infinite ease-in-out;
+}
+
+body.light .skeleton-pulse {
+    background: rgba(0,0,0,0.06);
+}
+
+.skeleton-bg {
+    background: rgba(255,255,255,0.04);
+}
+
+body.light .skeleton-bg {
+    background: rgba(0,0,0,0.04);
+}
+
+.skeleton-row {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+body.light .skeleton-row {
+    border-bottom-color: rgba(0,0,0,0.06);
+}
+
+/* ============================================================
    Account Picker Modal — theme-aware text
    ============================================================ */
 .account-picker-desc {
