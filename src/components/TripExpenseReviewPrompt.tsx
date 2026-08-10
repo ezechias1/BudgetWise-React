@@ -10,10 +10,10 @@ interface Props {
 
 /**
  * Standalone "Business or Personal?" decision card — used wherever an
- * expense needs sorting outside the Trip Detail table (the post-save popup
- * in ExpenseModal, and the app-open TripReviewGateModal). Reuses the same
- * .trip-review-* classes as TripsTab's inline per-row prompt so it reads as
- * the same UI wherever it shows up.
+ * expense needs sorting outside the Trip Detail table (currently just the
+ * post-save popup in ExpenseModal). Reuses the same .trip-review-* classes
+ * as TripsTab's inline per-row prompt so it reads as the same UI wherever
+ * it shows up.
  */
 export function TripExpenseReviewPrompt({ expense, currency, onChoose, submitting }: Props) {
   return (

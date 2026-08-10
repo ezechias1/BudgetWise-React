@@ -81,7 +81,10 @@ export default function ExpensesPage() {
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
   // Trips is Personal/Family only — bounce back to the Expenses list if the
   // user switches to Business mode while it's open.
-  const [activeTab, setActiveTab] = useState<'expenses' | 'trips'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'trips'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') === 'trips' ? 'trips' : 'expenses';
+  });
   useEffect(() => {
     if (mode === 'business' && activeTab === 'trips') setActiveTab('expenses');
   }, [mode, activeTab]);

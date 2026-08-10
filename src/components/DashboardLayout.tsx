@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { AccountPickerModal } from './AccountPickerModal';
-import { TripReviewGateModal } from './TripReviewGateModal';
+import { TripReviewBanner } from './TripReviewBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
@@ -101,10 +101,6 @@ export function DashboardLayout() {
         />
       )}
 
-      {/* Resolve mode selection first, then surface anything needing review.
-          Kids don't have trips — only parent accounts see this. */}
-      {!showAccountPicker && user && !kidLoading && !isChild && <TripReviewGateModal />}
-
       <Sidebar mobileOpen={mobileOpen} />
 
       {/* Mobile overlay — clicking it closes the drawer (vanilla behavior) */}
@@ -159,6 +155,8 @@ export function DashboardLayout() {
       </div>
 
       <main className="main-content loaded">
+        {/* Kids don't have trips — only parent accounts see this. */}
+        {user && !kidLoading && !isChild && <TripReviewBanner />}
         {sundayBanner && (
           <div role="alert" className="sunday-banner">
             <div>

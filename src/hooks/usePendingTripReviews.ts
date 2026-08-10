@@ -5,7 +5,7 @@ import type { Expense } from '@/types';
 
 /**
  * Every expense across every trip that still needs a Business/Personal
- * decision — backs the app-open review gate (TripReviewGateModal).
+ * decision — backs the once-per-session TripReviewBanner nudge.
  *
  * Deliberately independent of useExpenses()'s filtered state: it must also
  * catch items created by a future card-sync job, another device/session, or

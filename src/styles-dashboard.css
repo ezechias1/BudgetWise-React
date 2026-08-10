@@ -7797,6 +7797,35 @@ body.light .sunday-banner {
 body.light .sunday-banner strong { color: #78350f; }
 body.light .sunday-banner button { color: rgba(0,0,0,0.4); }
 
+.trip-review-banner {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: #fbbf24;
+}
+.trip-review-banner a { color: var(--accent); font-weight: 600; }
+.trip-review-banner button {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+body.light .trip-review-banner {
+    background: #fef3c7;
+    border-color: #fbbf24;
+    color: #92400e;
+}
+body.light .trip-review-banner button { color: rgba(0,0,0,0.4); }
+
 .permission-banner {
     background: rgba(99,102,241,0.1);
     border: 1px solid rgba(99,102,241,0.2);
@@ -8427,11 +8456,6 @@ body.light .trip-review-prompt { color: #64748b; }
     cursor: not-allowed;
 }
 
-.trip-gate-progress {
-    color: rgba(255,255,255,0.45);
-    font-size: 0.8rem;
-    margin: -8px 0 16px;
-}
 
 .bank-card-business-toggle {
     display: flex;
@@ -8476,7 +8500,6 @@ body.light .trip-review-standalone-summary {
 body.light .trip-review-standalone-desc { color: #1a1a2e; }
 body.light .trip-review-standalone-meta { color: #64748b; }
 body.light .trip-review-standalone-question { color: #334155; }
-body.light .trip-gate-progress { color: #64748b; }
 body.light .bank-card-business-toggle { border-top-color: #e2e8f0; color: #334155; }
 body.light .csv-import-kind-toggle button { color: #64748b; border-color: #e2e8f0; background: #fff; }
 body.light .csv-import-kind-toggle button.active {
