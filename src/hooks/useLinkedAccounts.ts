@@ -20,6 +20,10 @@ export interface LinkedAccount {
   account_mode?: string | null;
   is_primary?: boolean | null;
   created_at?: string | null;
+  /** True for a company-issued card — its transactions always need a
+   *  Business/Personal review decision, even inside a trip window. */
+  is_business_card?: boolean | null;
+  provider?: 'manual' | 'stitch' | null;
 }
 
 /** Shared account with same bank across multiple modes. */
@@ -163,6 +167,23 @@ export function useLinkedAccounts() {
     [user, load],
   );
 
+  // Marks/unmarks an account as the company-issued card — transactions
+  // synced from it always route through the Business/Personal review flow.
+  const toggleBusinessCard = useCallback(
+    async (accountId: string, value: boolean): Promise<{ error: string | null }> => {
+      if (!user) return { error: 'Not signed in' };
+      const { error } = await supabase
+        .from('linked_accounts')
+        .update({ is_business_card: value })
+        .eq('id', accountId)
+        .eq('user_id', user.id);
+      if (error) return { error: error.message };
+      await load();
+      return { error: null };
+    },
+    [user, load],
+  );
+
   // Detect cross-mode accounts: same institution_name + mask in multiple modes
   const crossModeAccounts: CrossModeAccount[] = (() => {
     const map = new Map<string, Set<string>>();
@@ -200,6 +221,7 @@ export function useLinkedAccounts() {
     crossModeAccounts,
     setPrimary,
     updateBalance,
+    toggleBusinessCard,
     refresh: load,
   };
 }

@@ -3,12 +3,15 @@ import { getCategoriesForMode } from '@/lib/categories';
 import { todayIso } from '@/lib/format';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
-import type { NewExpense } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { isPendingTripReview } from '@/lib/trip-review';
+import { TripExpenseReviewPrompt } from '@/components/TripExpenseReviewPrompt';
+import type { Expense, NewExpense } from '@/types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (expense: NewExpense) => Promise<{ error: string | null }>;
+  onSubmit: (expense: NewExpense) => Promise<{ error: string | null; expense?: Expense }>;
   /** Pre-select a category when the modal opens (e.g. "Savings" from the Savings page). */
   defaultCategory?: string;
   /**
@@ -21,6 +24,8 @@ interface Props {
     description?: string;
     date?: string;
   };
+  /** Called after a trip-review decision is saved, so the caller can refresh its list. */
+  onAfterClassify?: () => void;
 }
 
 /**
@@ -37,8 +42,9 @@ export function ExpenseModal({
   onSubmit,
   defaultCategory,
   defaultValues,
+  onAfterClassify,
 }: Props) {
-  const { income } = useUserSettings();
+  const { income, currency } = useUserSettings();
   const { mode } = useMode();
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
 
@@ -49,6 +55,11 @@ export function ExpenseModal({
   const [recurring, setRecurring] = useState<'no' | 'weekly' | 'monthly'>('no');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set once a just-saved expense lands inside a trip's date range and still
+  // needs a Business/Personal decision — while this is set, the modal shows
+  // TripExpenseReviewPrompt instead of the form, and cannot be dismissed.
+  const [pendingReview, setPendingReview] = useState<Expense | null>(null);
+  const [classifying, setClassifying] = useState(false);
 
   // Reset form every time the modal opens so it doesn't show stale state.
   // `defaultValues` (from the receipt scanner) seeds amount/description/date
@@ -61,18 +72,20 @@ export function ExpenseModal({
       setDate(defaultValues?.date ?? todayIso());
       setRecurring('no');
       setError(null);
+      setPendingReview(null);
     }
   }, [open, defaultCategory, defaultValues]);
 
-  // Close on Escape
+  // Close on Escape — but not while a trip-review decision is pending; that
+  // must be answered before the modal can close.
   useEffect(() => {
-    if (!open) return;
+    if (!open || pendingReview) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, pendingReview, onClose]);
 
   if (!open) return null;
 
@@ -95,7 +108,7 @@ export function ExpenseModal({
     }
     setSubmitting(true);
     setError(null);
-    const { error: insertErr } = await onSubmit({
+    const { error: insertErr, expense } = await onSubmit({
       category,
       description,
       amount: parsedAmount,
@@ -107,8 +120,43 @@ export function ExpenseModal({
       setError(insertErr);
       return;
     }
+    if (expense && isPendingTripReview(expense)) {
+      setPendingReview(expense);
+      return;
+    }
     onClose();
   };
+
+  const handleChoose = async (value: boolean) => {
+    if (!pendingReview) return;
+    setClassifying(true);
+    await supabase
+      .from('expenses')
+      .update({ business_expense: value })
+      .eq('id', pendingReview.id);
+    setClassifying(false);
+    setPendingReview(null);
+    onAfterClassify?.();
+    onClose();
+  };
+
+  if (pendingReview) {
+    return (
+      <div className="modal-overlay">
+        <div className="modal">
+          <div className="modal-header">
+            <h2>Sort this expense</h2>
+          </div>
+          <TripExpenseReviewPrompt
+            expense={pendingReview}
+            currency={currency}
+            onChoose={handleChoose}
+            submitting={classifying}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

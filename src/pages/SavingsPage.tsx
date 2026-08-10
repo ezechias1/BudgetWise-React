@@ -69,7 +69,7 @@ function buildAdvice(goal: SavingsGoal, currency: string): string {
  */
 export default function SavingsPage() {
   const { goals, addGoal, fundGoal, deleteGoal } = useSavingsGoals();
-  const { expenses, addExpense } = useExpenses();
+  const { expenses, addExpense, refresh: refreshExpenses } = useExpenses();
   const { income, savingsGoal, updateSettings, refresh: refreshSettings } = useUserSettings();
   const stats = useOverviewStats();
   useTheme();
@@ -441,6 +441,7 @@ export default function SavingsPage() {
         onClose={() => setAddSavingsOpen(false)}
         onSubmit={addExpense}
         defaultCategory="Savings"
+        onAfterClassify={refreshExpenses}
       />
 
       <NewGoalModal

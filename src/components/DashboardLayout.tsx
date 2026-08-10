@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { AccountPickerModal } from './AccountPickerModal';
+import { TripReviewGateModal } from './TripReviewGateModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
@@ -99,6 +100,10 @@ export function DashboardLayout() {
           onClose={() => setShowAccountPicker(false)}
         />
       )}
+
+      {/* Resolve mode selection first, then surface anything needing review.
+          Kids don't have trips — only parent accounts see this. */}
+      {!showAccountPicker && user && !kidLoading && !isChild && <TripReviewGateModal />}
 
       <Sidebar mobileOpen={mobileOpen} />
 

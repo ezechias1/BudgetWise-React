@@ -13,7 +13,7 @@ import { GlobalSearch } from '@/components/GlobalSearch';
 import { TransferMoneyModal } from '@/components/TransferMoneyModal';
 import { getCategoriesForMode } from '@/lib/categories';
 import { todayIso } from '@/lib/format';
-import type { Mode } from '@/types';
+import type { Expense, Mode } from '@/types';
 import {
   SpendingPieChart,
   IncomeVsExpensesChart,
@@ -24,6 +24,9 @@ import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
 import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { OverviewSkeleton } from '@/components/Skeleton';
+import { supabase } from '@/lib/supabase';
+import { isPendingTripReview } from '@/lib/trip-review';
+import { TripExpenseReviewPrompt } from '@/components/TripExpenseReviewPrompt';
 
 /** Greeting based on current hour (ported from vanilla welcome banner). */
 function greeting(): string {
@@ -131,6 +134,10 @@ export default function OverviewPage() {
   const [quickAmount, setQuickAmount] = useState('');
   const [quickDesc, setQuickDesc] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
+  // Set when a Quick-Add lands inside a trip's date range and still needs a
+  // Business/Personal decision — mirrors ExpenseModal's popup.
+  const [pendingReview, setPendingReview] = useState<Expense | null>(null);
+  const [classifying, setClassifying] = useState(false);
 
   // Reset the selected category when mode changes so it doesn't keep a
   // personal-mode value while in business mode.
@@ -142,7 +149,7 @@ export default function OverviewPage() {
     const amt = parseFloat(quickAmount);
     if (!amt || amt <= 0) return;
     setQuickBusy(true);
-    await addExpense({
+    const { expense } = await addExpense({
       category: quickCategory,
       amount: amt,
       description: quickDesc.trim() || quickCategory,
@@ -152,6 +159,21 @@ export default function OverviewPage() {
     setQuickAmount('');
     setQuickDesc('');
     setQuickBusy(false);
+    if (expense && isPendingTripReview(expense)) {
+      setPendingReview(expense);
+    }
+  };
+
+  const handleChooseReview = async (value: boolean) => {
+    if (!pendingReview) return;
+    setClassifying(true);
+    await supabase
+      .from('expenses')
+      .update({ business_expense: value })
+      .eq('id', pendingReview.id);
+    setClassifying(false);
+    setPendingReview(null);
+    refresh();
   };
 
   const handleMove = async (id: string, target: Mode) => {
@@ -788,7 +810,24 @@ export default function OverviewPage() {
         }}
         onSubmit={addExpense}
         defaultValues={scanDefaults}
+        onAfterClassify={refresh}
       />
+
+      {pendingReview && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Sort this expense</h2>
+            </div>
+            <TripExpenseReviewPrompt
+              expense={pendingReview}
+              currency={userCurrency}
+              onChoose={handleChooseReview}
+              submitting={classifying}
+            />
+          </div>
+        </div>
+      )}
 
       {/* OCR scanning overlay — shown while Tesseract.js loads + recognizes. */}
       {scanning && (
