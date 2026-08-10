@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from 'react';
 import { ExpenseModal } from '@/components/ExpenseModal';
+import { TripsTab } from '@/components/TripsTab';
 import { UndoToast } from '@/components/UndoToast';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -78,6 +79,12 @@ export default function ExpensesPage() {
   const { user } = useAuth();
 
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
+  // Trips is Personal/Family only — bounce back to the Expenses list if the
+  // user switches to Business mode while it's open.
+  const [activeTab, setActiveTab] = useState<'expenses' | 'trips'>('expenses');
+  useEffect(() => {
+    if (mode === 'business' && activeTab === 'trips') setActiveTab('expenses');
+  }, [mode, activeTab]);
   const [month, setMonth] = useState<string>(() => monthKey());
   const [category, setCategory] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -283,72 +290,96 @@ export default function ExpensesPage() {
             <h1>Expenses</h1>
             <p className="page-subtitle">All your transactions</p>
           </div>
-          <div className="header-actions">
-            <select
-              className="month-filter"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-            >
-              {monthOptions.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn-export"
-              onClick={() => setLimitsOpen(true)}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+          {activeTab === 'expenses' && (
+            <div className="header-actions">
+              <select
+                className="month-filter"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
               >
-                <path d="M12 20V10m-6 10V4m12 16v-4" />
-              </svg>
-              Limits
-            </button>
-            <button
-              type="button"
-              className="btn-export"
-              onClick={() => setCategoriesOpen(true)}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                {monthOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn-export"
+                onClick={() => setLimitsOpen(true)}
               >
-                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
-              </svg>
-              Categories
-            </button>
-            <button
-              type="button"
-              className="btn-add"
-              onClick={() => setModalOpen(true)}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 20V10m-6 10V4m12 16v-4" />
+                </svg>
+                Limits
+              </button>
+              <button
+                type="button"
+                className="btn-export"
+                onClick={() => setCategoriesOpen(true)}
               >
-                <path d="M12 5v14m-7-7h14" />
-              </svg>
-              Add
-            </button>
-          </div>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+                </svg>
+                Categories
+              </button>
+              <button
+                type="button"
+                className="btn-add"
+                onClick={() => setModalOpen(true)}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 5v14m-7-7h14" />
+                </svg>
+                Add
+              </button>
+            </div>
+          )}
         </div>
 
+        {mode !== 'business' && (
+          <div className="expense-subtabs">
+            <button
+              type="button"
+              className={`tab-btn${activeTab === 'expenses' ? ' active' : ''}`}
+              onClick={() => setActiveTab('expenses')}
+            >
+              Expenses
+            </button>
+            <button
+              type="button"
+              className={`tab-btn${activeTab === 'trips' ? ' active' : ''}`}
+              onClick={() => setActiveTab('trips')}
+            >
+              Trips
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'trips' && mode !== 'business' ? (
+          <TripsTab />
+        ) : (
         <div className="chart-card full-width">
           <div className="expense-toolbar">
             <div className="search-box">
@@ -648,6 +679,7 @@ export default function ExpensesPage() {
             )}
           </div>
         </div>
+        )}
       </section>
 
       <ExpenseModal

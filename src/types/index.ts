@@ -31,7 +31,30 @@ export interface Expense {
   recurring: 'no' | 'weekly' | 'monthly';
   account_mode: Mode;
   group_id: string | null;
+  trip_id: string | null;
+  /** null = needs review; only meaningful for expenses tagged to a trip. */
+  business_expense: boolean | null;
   created_at: string;
+}
+
+/** Trips are scoped to Personal and Family modes only — no Business trips. */
+export type TripMode = 'personal' | 'family';
+
+export interface Trip {
+  id: string;
+  user_id: string;
+  name: string;
+  start_date: string; // ISO date (YYYY-MM-DD)
+  end_date: string; // ISO date (YYYY-MM-DD)
+  account_mode: TripMode;
+  group_id: string | null;
+  created_at: string;
+}
+
+export interface NewTrip {
+  name: string;
+  start_date: string;
+  end_date: string;
 }
 
 export interface NewExpense {
