@@ -14,13 +14,9 @@
 -- environment (including production, where it's a no-op) to bring a
 -- fresh dev/staging database in line with what's actually live.
 --
--- Known gap this does NOT close: `family_groups`, `stokvel_groups`,
--- `stokvel_members`, `stokvel_contributions`, and `stokvel_payouts`
--- themselves (the base tables, not just their RLS policies below) also
--- have no migration history in this repo — they were created directly
--- against the live project too. Their full definitions weren't
--- available when this file was written; recreating them accurately
--- needs the same live-schema paste treatment this file got.
+-- Depends on 20260810000005, which creates family_groups and the four
+-- stokvel_* base tables referenced here (trips.group_id's FK and every
+-- policy/function below need those to already exist).
 -- ============================================================
 
 -- ─────────────────────────────────────────────────────────────────────────
