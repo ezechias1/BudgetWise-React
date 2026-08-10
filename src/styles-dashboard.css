@@ -8483,3 +8483,21 @@ body.light .csv-import-kind-toggle button.active {
     background: rgba(var(--accent-rgb),0.1);
     color: var(--accent, #10b981);
 }
+
+.bank-business-card-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 16px;
+    font-size: 0.8rem;
+    opacity: 0.85;
+    cursor: pointer;
+}
+.bank-business-card-check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent, #10b981);
+    cursor: pointer;
+}
+
+body.light .bank-business-card-check { color: #334155; }

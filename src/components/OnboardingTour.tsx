@@ -24,7 +24,11 @@ const STEPS: TourStep[] = [
     text: "Snap a photo of any receipt and we'll read it using OCR — the total, store name, and category are auto-filled.",
   },
   {
-    target: '.budget-ring-container, .chart-card',
+    // BudgetRing.tsx renders id="budgetRingCard" — a plain `.chart-card`
+    // fallback here used to match whichever chart-card happened to be first
+    // in the DOM (My Accounts wallet, or Spending by Category), never the
+    // actual ring, since `.budget-ring-container` never existed anywhere.
+    target: '#budgetRingCard',
     title: 'Budget Ring',
     text: 'A visual gauge of your spending. Green means on track, yellow means careful, red means near your limit.',
   },

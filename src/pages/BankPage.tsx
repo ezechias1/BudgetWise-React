@@ -178,6 +178,9 @@ export default function BankPage() {
   const [saAccountName, setSaAccountName] = useState('');
   const [saAccountType, setSaAccountType] = useState('cheque');
   const [saBalance, setSaBalance] = useState('');
+  // "This is a business card" — set at add-time so a company card can be
+  // flagged immediately instead of requiring a separate toggle afterward.
+  const [addAsBusinessCard, setAddAsBusinessCard] = useState(false);
 
   const fmt = useCallback(
     (n: number) => formatCurrency(n, currency),
@@ -194,7 +197,7 @@ export default function BankPage() {
     setConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('stitch-link-initiate', {
-        body: { mode },
+        body: { mode, isBusinessCard: addAsBusinessCard },
       });
       if (error || !data?.authorize_url) {
         alert(
@@ -209,7 +212,7 @@ export default function BankPage() {
     } finally {
       setConnecting(false);
     }
-  }, [user, mode]);
+  }, [user, mode, addAsBusinessCard]);
 
   // Handle the Stitch OAuth callback redirect — the account itself was
   // already inserted server-side, so this just refreshes the list.
@@ -288,6 +291,7 @@ export default function BankPage() {
       currency_code: 'ZAR',
       last_synced: new Date().toISOString(),
       account_mode: mode,
+      is_business_card: mode !== 'business' && addAsBusinessCard,
     });
     if (error) {
       alert('Error adding account: ' + error.message);
@@ -458,14 +462,20 @@ export default function BankPage() {
           <button
             type="button"
             className="btn-export"
-            onClick={() => setShowSAModal(true)}
+            onClick={() => {
+              setAddAsBusinessCard(false);
+              setShowSAModal(true);
+            }}
           >
             Add Manually
           </button>
           <button
             className="btn-primary btn-sm"
             id="connectBankBtn"
-            onClick={() => setShowRegionModal(true)}
+            onClick={() => {
+              setAddAsBusinessCard(false);
+              setShowRegionModal(true);
+            }}
             disabled={connecting}
           >
             <svg
@@ -1067,6 +1077,16 @@ export default function BankPage() {
                 onChange={(e) => setRegionSearch(e.target.value)}
               />
             </div>
+            {mode !== 'business' && (
+              <label className="bank-business-card-check">
+                <input
+                  type="checkbox"
+                  checked={addAsBusinessCard}
+                  onChange={(e) => setAddAsBusinessCard(e.target.checked)}
+                />
+                This is a business credit card (for trip expenses)
+              </label>
+            )}
             {regionSearch && filteredRegions.length === 0 && (
               <p
                 className="bank-search-result"
@@ -1219,6 +1239,16 @@ export default function BankPage() {
                     placeholder="0.00"
                   />
                 </div>
+                {mode !== 'business' && (
+                  <label className="bank-business-card-check">
+                    <input
+                      type="checkbox"
+                      checked={addAsBusinessCard}
+                      onChange={(e) => setAddAsBusinessCard(e.target.checked)}
+                    />
+                    This is a business credit card (for trip expenses)
+                  </label>
+                )}
                 <button
                   type="submit"
                   className="btn-primary"

@@ -95,9 +95,10 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const mode = body?.mode === 'family' ? 'family' : 'personal';
+    const isBusinessCard = body?.isBusinessCard === true;
 
     const state = await signState(
-      { user_id: user.id, mode, iat: Date.now() },
+      { user_id: user.id, mode, isBusinessCard, iat: Date.now() },
       STITCH_STATE_SECRET,
     );
 

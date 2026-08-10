@@ -155,6 +155,11 @@ async function syncAccount(acc: LinkedAccountRow): Promise<{ inserted: number; e
       recurring: 'no' as const,
       business_expense: businessExpense,
       external_ref: t.id,
+      // Lets assign_expense_trip_trigger (20260810000004_business_card_trip_gate.sql)
+      // look up is_business_card and silently discard rows from a business
+      // card that fall outside every trip window — that money isn't the
+      // user's, and outside a trip it isn't relevant to this app at all.
+      linked_account_id: acc.id,
     }));
 
     // Rows sharing the (user_id, external_ref) unique index are silently

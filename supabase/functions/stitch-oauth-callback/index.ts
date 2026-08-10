@@ -50,7 +50,7 @@ function base64urlToBytes(s: string): Uint8Array {
 async function verifyState(
   state: string,
   secret: string,
-): Promise<{ user_id: string; mode: 'personal' | 'family'; iat: number } | null> {
+): Promise<{ user_id: string; mode: 'personal' | 'family'; isBusinessCard: boolean; iat: number } | null> {
   const [body, sig] = state.split('.');
   if (!body || !sig) return null;
   const key = await crypto.subtle.importKey(
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
         currency_code: acc.currentBalance?.currency ?? 'ZAR',
         last_synced: new Date().toISOString(),
         account_mode: verified.mode,
-        is_business_card: false,
+        is_business_card: verified.isBusinessCard,
       }, { onConflict: 'user_id,account_id' });
     }
 
