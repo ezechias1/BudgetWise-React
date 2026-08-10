@@ -21,8 +21,9 @@ export interface LinkedAccount {
   is_primary?: boolean | null;
   created_at?: string | null;
   /** True for a company-issued card — its transactions always need a
-   *  Business/Personal review decision, even inside a trip window. */
-  is_business_card?: boolean | null;
+   *  Business/Personal review decision, even inside a trip window. Live
+   *  column is `is_business` (not `is_business_card` — don't rename back). */
+  is_business?: boolean | null;
   provider?: 'manual' | 'stitch' | null;
 }
 
@@ -174,7 +175,7 @@ export function useLinkedAccounts() {
       if (!user) return { error: 'Not signed in' };
       const { error } = await supabase
         .from('linked_accounts')
-        .update({ is_business_card: value })
+        .update({ is_business: value })
         .eq('id', accountId)
         .eq('user_id', user.id);
       if (error) return { error: error.message };

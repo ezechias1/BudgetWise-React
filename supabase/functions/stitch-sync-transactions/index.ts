@@ -6,12 +6,15 @@
 // stitch-webhook firing immediately on a refresh event (suspenders).
 //
 // business_expense on insert:
-//   - is_business_card = true  -> null  (still needs a human's Business/
+//   - is_business = true  -> null  (still needs a human's Business/
 //     Personal answer — the flag says *where* to ask, not the answer)
-//   - is_business_card = false -> false (unambiguously the employee's own
+//   - is_business = false -> false (unambiguously the employee's own
 //     money; never enters the review queue even inside a trip window)
-// The existing assign_expense_trip_trigger fires automatically on insert —
-// no changes needed there.
+// The existing auto_tag_trip trigger fires automatically on insert — no
+// changes needed there. NOTE: linked_account_id and the discard-outside-
+// trip enforcement below assume a migration that hasn't been applied and
+// isn't scheduled without checking in first — see the code comment further
+// down before deploying this function.
 //
 // external_ref (Stitch's transaction id) is used to dedupe re-delivered or
 // re-polled transactions via the partial unique index on
@@ -51,7 +54,7 @@ interface LinkedAccountRow {
   user_id: string;
   account_id: string | null;
   account_mode: string | null;
-  is_business_card: boolean | null;
+  is_business: boolean | null;
   plaid_access_token: string | null; // holds the Stitch refresh token
   last_synced: string | null;
 }
@@ -144,7 +147,7 @@ async function syncAccount(acc: LinkedAccountRow): Promise<{ inserted: number; e
       return { inserted: 0 };
     }
 
-    const businessExpense = acc.is_business_card ? null : false;
+    const businessExpense = acc.is_business ? null : false;
     const rows = debits.map((t) => ({
       user_id: acc.user_id,
       account_mode: acc.account_mode ?? 'personal',
@@ -155,11 +158,12 @@ async function syncAccount(acc: LinkedAccountRow): Promise<{ inserted: number; e
       recurring: 'no' as const,
       business_expense: businessExpense,
       external_ref: t.id,
-      // Lets assign_expense_trip_trigger (20260810000004_business_card_trip_gate.sql)
-      // look up is_business_card and silently discard rows from a business
-      // card that fall outside every trip window — that money isn't the
-      // user's, and outside a trip it isn't relevant to this app at all.
-      linked_account_id: acc.id,
+      // linked_account_id and the discard-outside-trip enforcement it was
+      // meant to enable (20260810000004_business_card_trip_gate.sql) depend
+      // on a migration that was never applied and conflicts with the trips
+      // schema actually live in Supabase (built in a separate session) — do
+      // not add this column back without checking in on the real schema
+      // first. Dropped from this insert until that's resolved.
     }));
 
     // Rows sharing the (user_id, external_ref) unique index are silently
@@ -186,7 +190,7 @@ Deno.serve(async (req) => {
 
   const { data: accountsRaw, error } = await sb
     .from('linked_accounts')
-    .select('id, user_id, account_id, account_mode, is_business_card, plaid_access_token, last_synced')
+    .select('id, user_id, account_id, account_mode, is_business, plaid_access_token, last_synced')
     .eq('provider', 'stitch');
   if (error) return Response.json({ error: error.message }, { status: 500 });
 

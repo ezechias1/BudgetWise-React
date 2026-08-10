@@ -291,7 +291,7 @@ export default function BankPage() {
       currency_code: 'ZAR',
       last_synced: new Date().toISOString(),
       account_mode: mode,
-      is_business_card: mode !== 'business' && addAsBusinessCard,
+      is_business: mode !== 'business' && addAsBusinessCard,
     });
     if (error) {
       alert('Error adding account: ' + error.message);
@@ -615,7 +615,7 @@ export default function BankPage() {
                   <label className="tithe-toggle">
                     <input
                       type="checkbox"
-                      checked={acc.is_business_card === true}
+                      checked={acc.is_business === true}
                       onChange={(e) => toggleBusinessCard(acc.id, e.target.checked)}
                     />
                     <span className="tithe-slider" />

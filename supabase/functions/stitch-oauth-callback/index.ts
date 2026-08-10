@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
         currency_code: acc.currentBalance?.currency ?? 'ZAR',
         last_synced: new Date().toISOString(),
         account_mode: verified.mode,
-        is_business_card: verified.isBusinessCard,
+        is_business: verified.isBusinessCard,
       }, { onConflict: 'user_id,account_id' });
     }
 
