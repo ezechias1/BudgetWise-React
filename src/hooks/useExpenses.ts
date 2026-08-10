@@ -41,6 +41,11 @@ export function useExpenses() {
       mode === 'personal'
         ? query.or('account_mode.is.null,account_mode.eq.personal')
         : query.eq('account_mode', mode);
+    // A trip expense that's still unreviewed or confirmed Business isn't
+    // this user's own money — never let it into the general ledger. Chaining
+    // a second .or() ANDs it with the mode filter above (repeated top-level
+    // Postgrest params AND together; confirmed against postgrest-js source).
+    query = query.or('trip_id.is.null,business_expense.eq.false');
     const { data, error: err } = await query.order('date', { ascending: false });
     if (err) {
       setError(err.message);
@@ -68,6 +73,7 @@ export function useExpenses() {
         mode === 'personal'
           ? query.or('account_mode.is.null,account_mode.eq.personal')
           : query.eq('account_mode', mode);
+      query = query.or('trip_id.is.null,business_expense.eq.false');
       const { data, error: err } = await query.order('date', { ascending: false });
       if (cancelled) return;
       if (err) setError(err.message);
@@ -78,16 +84,20 @@ export function useExpenses() {
   }, [user, mode]);
 
   const addExpense = useCallback(
-    async (input: NewExpense): Promise<{ error: string | null }> => {
+    async (input: NewExpense): Promise<{ error: string | null; expense?: Expense }> => {
       if (!user) return { error: 'Not signed in' };
-      const { error: err } = await supabase.from('expenses').insert({
-        ...input,
-        user_id: user.id,
-        account_mode: mode,
-      });
+      // select().single() (rather than a bare insert) so callers can inspect
+      // the inserted row's trip_id/business_expense and, if it landed inside
+      // a trip's date range, immediately prompt "Business or Personal?"
+      // without a second round trip.
+      const { data, error: err } = await supabase
+        .from('expenses')
+        .insert({ ...input, user_id: user.id, account_mode: mode })
+        .select()
+        .single();
       if (err) return { error: err.message };
       await load();
-      return { error: null };
+      return { error: null, expense: data as Expense };
     },
     [user, mode, load],
   );

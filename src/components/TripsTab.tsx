@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { supabase } from '@/lib/supabase';
 import { CATEGORY_COLORS } from '@/lib/categories';
-import { formatCurrency } from '@/lib/format';
-import { exportExpensesToCSV } from '@/lib/exports';
+import { formatCurrency, getCurrencySymbol } from '@/lib/format';
+import { exportExpensesToCSV, exportExpensesToPDF } from '@/lib/exports';
 import type { Trip } from '@/types';
 
 /**
@@ -19,7 +19,7 @@ import type { Trip } from '@/types';
  */
 export function TripsTab() {
   const { user } = useAuth();
-  const { currency } = useUserSettings();
+  const { currency, income } = useUserSettings();
   const { trips, loading, error, addTrip, deleteTrip } = useTrips();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -68,6 +68,7 @@ export function TripsTab() {
       <TripDetail
         trip={selectedTrip}
         currency={currency}
+        income={income}
         onBack={() => setSelectedTripId(null)}
       />
     );
@@ -172,14 +173,17 @@ export function TripsTab() {
 interface TripDetailProps {
   trip: Trip;
   currency: string;
+  income: number;
   onBack: () => void;
 }
 
-function TripDetail({ trip, currency, onBack }: TripDetailProps) {
+function TripDetail({ trip, currency, income, onBack }: TripDetailProps) {
   const { expenses, loading, error, setBusinessFlag, business, personal, reviewCount, total } =
     useTripExpenses(trip.id);
 
-  const handleExport = () => exportExpensesToCSV(expenses);
+  const handleExportCSV = () => exportExpensesToCSV(expenses);
+  const handleExportPDF = () =>
+    exportExpensesToPDF({ expenses, income, currencySymbol: getCurrencySymbol(currency) });
 
   return (
     <div className="chart-card full-width trips-panel">
@@ -196,12 +200,23 @@ function TripDetail({ trip, currency, onBack }: TripDetailProps) {
             {trip.start_date} – {trip.end_date}
           </p>
         </div>
-        <button type="button" className="btn-export" onClick={handleExport}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5m-5 5V3" />
-          </svg>
-          Export CSV
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="btn-export" onClick={handleExportCSV}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5m-5 5V3" />
+            </svg>
+            Export CSV
+          </button>
+          <button type="button" className="btn-export" onClick={handleExportPDF}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="trip-split">

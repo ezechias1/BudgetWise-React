@@ -8375,3 +8375,111 @@ body.light .trip-review-prompt { color: #64748b; }
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* ============================================================
+   Trip expense review — standalone decision card (post-save popup,
+   app-open gate) + Bank page business-card additions.
+   ============================================================ */
+
+.trip-review-standalone {
+    padding: 4px 0 0;
+}
+.trip-review-standalone-summary {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+.trip-review-standalone-desc {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.trip-review-standalone-meta {
+    color: rgba(255,255,255,0.4);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+.trip-review-standalone-question {
+    font-size: 0.9rem;
+    opacity: 0.75;
+    margin: 0 0 14px;
+}
+.trip-review-standalone-actions {
+    display: flex;
+    gap: 10px;
+}
+.trip-review-btn-lg {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.85rem;
+    background: rgba(59,130,246,0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.3);
+}
+.trip-review-btn-lg.is-personal {
+    background: rgba(139,92,246,0.12);
+    color: #c4b5fd;
+    border-color: rgba(139,92,246,0.3);
+}
+.trip-review-btn-lg:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.trip-gate-progress {
+    color: rgba(255,255,255,0.45);
+    font-size: 0.8rem;
+    margin: -8px 0 16px;
+}
+
+.bank-card-business-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.csv-import-kind-toggle {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+.csv-import-kind-toggle button {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6);
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.csv-import-kind-toggle button.active {
+    background: rgba(var(--accent-rgb),0.15);
+    border-color: rgba(var(--accent-rgb),0.4);
+    color: var(--accent, #10b981);
+    font-weight: 600;
+}
+
+/* Light mode */
+body.light .trip-review-standalone-summary {
+    background: #fff;
+    border-color: #e2e8f0;
+}
+body.light .trip-review-standalone-desc { color: #1a1a2e; }
+body.light .trip-review-standalone-meta { color: #64748b; }
+body.light .trip-review-standalone-question { color: #334155; }
+body.light .trip-gate-progress { color: #64748b; }
+body.light .bank-card-business-toggle { border-top-color: #e2e8f0; color: #334155; }
+body.light .csv-import-kind-toggle button { color: #64748b; border-color: #e2e8f0; background: #fff; }
+body.light .csv-import-kind-toggle button.active {
+    background: rgba(var(--accent-rgb),0.1);
+    color: var(--accent, #10b981);
+}

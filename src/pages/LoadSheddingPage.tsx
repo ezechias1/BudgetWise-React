@@ -2,6 +2,10 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency, getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
+import { supabase } from '@/lib/supabase';
+import { isPendingTripReview } from '@/lib/trip-review';
+import { TripExpenseReviewPrompt } from '@/components/TripExpenseReviewPrompt';
+import type { Expense } from '@/types';
 
 const LS_SUB_CATEGORIES = [
   'Generator Fuel',
@@ -50,6 +54,10 @@ export default function LoadSheddingPage() {
   const [lsDate, setLsDate] = useState(todayIso());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Set when a just-added cost lands inside a trip's date range and still
+  // needs a Business/Personal decision — mirrors ExpenseModal's popup.
+  const [pendingReview, setPendingReview] = useState<Expense | null>(null);
+  const [classifying, setClassifying] = useState(false);
 
   const openAdd = () => {
     setSubCat(LS_SUB_CATEGORIES[0]);
@@ -73,7 +81,7 @@ export default function LoadSheddingPage() {
     const descriptionForRow = lsDescription
       ? `${subCat} — ${lsDescription}`
       : subCat;
-    const { error } = await addExpense({
+    const { error, expense } = await addExpense({
       category: 'Load Shedding',
       description: descriptionForRow,
       amount: parsed,
@@ -86,6 +94,20 @@ export default function LoadSheddingPage() {
       return;
     }
     setAddOpen(false);
+    if (expense && isPendingTripReview(expense)) {
+      setPendingReview(expense);
+    }
+  };
+
+  const handleChooseReview = async (value: boolean) => {
+    if (!pendingReview) return;
+    setClassifying(true);
+    await supabase
+      .from('expenses')
+      .update({ business_expense: value })
+      .eq('id', pendingReview.id);
+    setClassifying(false);
+    setPendingReview(null);
   };
 
   const sym = getCurrencySymbol(currency);
@@ -316,6 +338,22 @@ export default function LoadSheddingPage() {
                 {submitting ? 'Adding…' : 'Add Cost'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {pendingReview && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Sort this expense</h2>
+            </div>
+            <TripExpenseReviewPrompt
+              expense={pendingReview}
+              currency={currency}
+              onChoose={handleChooseReview}
+              submitting={classifying}
+            />
           </div>
         </div>
       )}

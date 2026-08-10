@@ -68,7 +68,10 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
         .eq('user_id', user.id)
         .eq('account_mode', 'family')
         .gte('date', monthKey + '-01')
-        .lt('date', monthKey + '-32'),
+        .lt('date', monthKey + '-32')
+        // A trip expense that's still unreviewed or confirmed Business isn't
+        // this family's own spend — keep it out of the monthly report too.
+        .or('trip_id.is.null,business_expense.eq.false'),
     ]);
     setMembers((mRes.data as FamilyMember[]) || []);
     setChores((cRes.data as Chore[]) || []);

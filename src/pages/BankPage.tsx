@@ -25,8 +25,9 @@ import {
 
 // ==========================================================================
 // Ported from vanilla dashboard.html (#page-bank, line 1165) and js/app.js
-// bank connection flows (loadLinkedAccounts, renderBankCards, openPlaidLink,
-// openStitchLink, openSaltEdgeConnect). See app.js lines ~4650-5492.
+// bank connection flows (loadLinkedAccounts, renderBankCards). Plaid and
+// Salt Edge were never wired to working server-side pieces and have been
+// removed — Stitch (South Africa) is the only live connection provider.
 // ==========================================================================
 
 interface RegionOption {
@@ -39,22 +40,17 @@ interface RegionOption {
   banks: string;
 }
 
-// Verbatim from dashboard.html lines 1207-1286.
+// Stitch is the only real, live connection provider — this app is
+// South-Africa-focused and Plaid/Salt Edge never had working server-side
+// pieces (their edge functions don't exist). The rest stay as decorative
+// "coming soon" placeholders.
 const REGIONS: RegionOption[] = [
-  {
-    provider: 'plaid',
-    ready: true,
-    flag: '🇺🇸 🇬🇧 🇨🇦 🇪🇺',
-    title: 'US, UK, Canada & Europe',
-    providerLabel: 'Powered by Plaid',
-    banks: '12,000+ banks including Chase, HSBC, Barclays, TD',
-  },
   {
     provider: 'stitch',
     ready: true,
     flag: '🇿🇦',
     title: 'South Africa',
-    providerLabel: 'Add Manually',
+    providerLabel: 'Powered by Stitch',
     banks: 'FNB, Capitec, Standard Bank, Absa, Nedbank',
   },
   {
@@ -106,16 +102,6 @@ const REGIONS: RegionOption[] = [
     banks: 'DBS, BDO, BCA, GCash, GrabPay, OVO',
   },
   {
-    provider: 'saltedge',
-    ready: true,
-    manual: true,
-    flag: '🇩🇪 🇫🇷 🇮🇹 🇪🇸 🇵🇱 🇨🇿',
-    title: 'Europe (Extended)',
-    providerLabel: 'Powered by Salt Edge',
-    banks:
-      'Deutsche Bank, BNP Paribas, UniCredit, Santander, ING, 5000+ banks across 50 countries',
-  },
-  {
     provider: 'moneytree',
     ready: false,
     flag: '🇯🇵 🇰🇷 🇹🇼 🇭🇰',
@@ -155,7 +141,6 @@ const SA_BANKS: SABank[] = [
 ];
 
 const PROVIDER_STRIP = [
-  'Plaid',
   'Stitch',
   'Mono',
   'Belvo',
@@ -163,7 +148,6 @@ const PROVIDER_STRIP = [
   'Setu',
   'Lean',
   'Brankas',
-  'Salt Edge',
   'Moneytree',
 ];
 
@@ -180,6 +164,7 @@ export default function BankPage() {
     primaryAccount,
     totalBalance,
     setPrimary,
+    toggleBusinessCard,
     refresh: loadLinkedAccounts,
   } = useLinkedAccounts();
 
@@ -199,163 +184,41 @@ export default function BankPage() {
     [currency]
   );
 
-  // ---- Plaid Link SDK loader ----
-  const plaidScriptLoaded = useRef(false);
-
-  const loadPlaidScript = useCallback((): Promise<void> => {
-    if (plaidScriptLoaded.current || document.getElementById('plaid-link-script'))
-      return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.id = 'plaid-link-script';
-      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
-      s.onload = () => {
-        plaidScriptLoaded.current = true;
-        resolve();
-      };
-      s.onerror = () => reject(new Error('Failed to load Plaid Link SDK'));
-      document.head.appendChild(s);
-    });
-  }, []);
-
   // ---- Provider connect handlers ----
-  const openPlaidLink = useCallback(async () => {
-    if (!user) return;
-    setConnecting(true);
-    try {
-      await loadPlaidScript();
-      const { data, error } = await supabase.functions.invoke(
-        'plaid-link-token',
-        { body: { user_id: user.id } }
-      );
-      if (error || !data?.link_token) {
-        alert(
-          'Error connecting to bank: ' +
-            (data?.error_message || data?.error || error?.message || 'Please try again.')
-        );
-        return;
-      }
-      // Open Plaid Link modal (mirrors openPlaidLink in app.js L4704)
-      const Plaid = (window as unknown as Record<string, unknown>).Plaid as {
-        create: (cfg: Record<string, unknown>) => { open: () => void };
-      };
-      const handler = Plaid.create({
-        token: data.link_token,
-        onSuccess: async (publicToken: string, metadata: Record<string, unknown>) => {
-          // Exchange public token for access token via edge function
-          const { data: exchangeData } = await supabase.functions.invoke(
-            'plaid-exchange-token',
-            { body: { public_token: publicToken } }
-          );
-          if (exchangeData?.accounts) {
-            // Save each account to linked_accounts
-            for (const acc of exchangeData.accounts as Array<Record<string, unknown>>) {
-              const balances = acc.balances as { current?: number; available?: number } | undefined;
-              await supabase.from('linked_accounts').insert({
-                user_id: user.id,
-                plaid_access_token: exchangeData.access_token,
-                account_id: acc.account_id,
-                account_name: acc.name || acc.official_name,
-                account_type: acc.type,
-                account_subtype: acc.subtype,
-                institution_name: (metadata.institution as { name?: string })?.name || 'Bank',
-                mask: acc.mask || '****',
-                balance_current: balances?.current ?? 0,
-                balance_available: balances?.available ?? 0,
-                currency_code: 'USD',
-                last_synced: new Date().toISOString(),
-                account_mode: mode,
-              });
-            }
-            await loadLinkedAccounts();
-          }
-        },
-        onExit: () => {
-          setConnecting(false);
-        },
-      });
-      handler.open();
-      return; // onExit will reset connecting
-    } catch (err) {
-      alert('Connection error: ' + (err as Error).message);
-    } finally {
-      setConnecting(false);
-    }
-  }, [user, mode, loadPlaidScript, loadLinkedAccounts]);
-
+  // Stitch's hosted Link flow: get a consent URL from our edge function
+  // (user-JWT authenticated) and redirect. The OAuth callback function does
+  // the token exchange + linked_accounts insert server-side, then redirects
+  // back here with ?stitch_linked=1 — see the effect below.
   const openStitchLink = useCallback(async () => {
-    // In vanilla, Stitch is South Africa: it opens the SA manual-entry modal
-    // fallback flow (see app.js ~L4921). We surface the SA modal here.
-    setShowSAModal(true);
-  }, []);
-
-  const openSaltEdgeConnect = useCallback(async () => {
     if (!user) return;
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        'saltedge-connect',
-        { body: { user_id: user.id } }
-      );
-      if (error || !data?.connect_url) {
+      const { data, error } = await supabase.functions.invoke('stitch-link-initiate', {
+        body: { mode },
+      });
+      if (error || !data?.authorize_url) {
         alert(
-          'Error connecting to Salt Edge: ' +
+          'Error connecting to Stitch: ' +
             (data?.error || error?.message || 'Please try again.')
         );
         return;
       }
-      // Salt Edge redirects back to our app with connection_id in the URL.
-      // We open in same window so we can catch the return params on reload.
-      window.location.href = data.connect_url;
+      window.location.href = data.authorize_url;
     } catch (err) {
       alert('Connection error: ' + (err as Error).message);
     } finally {
       setConnecting(false);
     }
-  }, [user]);
+  }, [user, mode]);
 
-  // Handle Salt Edge callback — check URL params on mount
+  // Handle the Stitch OAuth callback redirect — the account itself was
+  // already inserted server-side, so this just refreshes the list.
   useEffect(() => {
-    if (!user) return;
     const params = new URLSearchParams(window.location.search);
-    const connectionId = params.get('connection_id');
-    if (!connectionId) return;
-
-    // Clean the URL
+    if (!params.get('stitch_linked')) return;
     window.history.replaceState({}, '', window.location.pathname);
-
-    // Fetch accounts for this connection from our edge function
-    (async () => {
-      try {
-        const { data } = await supabase.functions.invoke('saltedge-accounts', {
-          body: { connection_id: connectionId, user_id: user.id },
-        });
-        if (data?.accounts) {
-          for (const acc of data.accounts as Array<Record<string, unknown>>) {
-            const balance = acc.balance as number | undefined;
-            await supabase.from('linked_accounts').insert({
-              user_id: user.id,
-              plaid_access_token: 'saltedge-' + connectionId,
-              account_id: 'se-' + (acc.id || Date.now()),
-              account_name: acc.name || 'Account',
-              account_type: (acc.nature as string) || 'depository',
-              account_subtype: (acc.nature as string) || 'checking',
-              institution_name: (acc.extra as { institution_name?: string })?.institution_name || 'Bank',
-              mask: '****',
-              balance_current: balance ?? 0,
-              balance_available: balance ?? 0,
-              currency_code: (acc.currency_code as string) || 'USD',
-              last_synced: new Date().toISOString(),
-              account_mode: mode,
-            });
-          }
-          await loadLinkedAccounts();
-        }
-      } catch (err) {
-        console.error('Salt Edge callback error:', err);
-      }
-    })();
-  }, [user, mode, loadLinkedAccounts]);
+    loadLinkedAccounts();
+  }, [loadLinkedAccounts]);
 
   const handleRegionClick = (r: RegionOption) => {
     if (!r.ready) {
@@ -367,38 +230,16 @@ export default function BankPage() {
       return;
     }
     setShowRegionModal(false);
-    if (r.provider === 'plaid') openPlaidLink();
-    else if (r.provider === 'stitch') openStitchLink();
-    else if (r.provider === 'saltedge') openSaltEdgeConnect();
+    if (r.provider === 'stitch') openStitchLink();
   };
 
-  // ---- Sync / update / remove (app.js L4671 - L4700) ----
-  const handleSync = async (acc: LinkedAccount) => {
-    if (!acc.plaid_access_token || acc.plaid_access_token === 'manual') return;
-    try {
-      const { data } = await supabase.functions.invoke('plaid-exchange-token', {
-        body: { access_token: acc.plaid_access_token },
-      });
-      if (data?.accounts) {
-        const match = data.accounts.find(
-          (a: { account_id: string }) => a.account_id === acc.account_id
-        );
-        if (match && user) {
-          await supabase
-            .from('linked_accounts')
-            .update({
-              balance_current: match.balances.current,
-              balance_available: match.balances.available,
-              last_synced: new Date().toISOString(),
-            })
-            .eq('id', acc.id)
-            .eq('user_id', user.id);
-        }
-      }
-      await loadLinkedAccounts();
-    } catch (err) {
-      console.error('Sync error:', err);
-    }
+  // Stitch accounts sync automatically on a schedule (cron-driven, see
+  // supabase/functions/stitch-sync-transactions) — there's no safe
+  // client-invokable "sync now" action since that function is protected by
+  // a server-only shared secret, not a user JWT. Manual/legacy accounts
+  // still get the balance-entry "Update" flow below.
+  const handleSync = async () => {
+    alert('Stitch accounts sync automatically every 15–30 minutes.');
   };
 
   const handleUpdateBalance = async (acc: LinkedAccount) => {
@@ -487,6 +328,11 @@ export default function BankPage() {
   // CSV bank statement import (manual "auto-import" while Stitch is pending)
   // ===========================================================================
   const csvInputRef = useRef<HTMLInputElement | null>(null);
+  // 'business' = a company credit card statement — every imported row is
+  // pre-marked business_expense:true (no per-row review popup, since
+  // choosing this import type already answers the question for the whole
+  // batch); still auto-tags to a trip by date normally. Personal/Family only.
+  const [csvImportKind, setCsvImportKind] = useState<'personal' | 'business'>('personal');
   const [csvFileName, setCsvFileName] = useState<string>('');
   const [csvPreview, setCsvPreview] = useState<ParsedTransaction[]>([]);
   const [csvSkipped, setCsvSkipped] = useState(0);
@@ -564,6 +410,7 @@ export default function BankPage() {
     const failed: Array<{ row: number; description: string; error: string }> = [];
     let successCount = 0;
 
+    const isBusinessImport = csvImportKind === 'business' && mode !== 'business';
     for (let i = 0; i < csvPreview.length; i++) {
       const tx = csvPreview[i];
       const { error } = await supabase.from('expenses').insert({
@@ -574,6 +421,7 @@ export default function BankPage() {
         amount: tx.amount,
         date: tx.date,
         recurring: 'no',
+        ...(isBusinessImport ? { business_expense: true } : {}),
       });
       if (error) {
         failed.push({
@@ -606,24 +454,33 @@ export default function BankPage() {
             Link your bank for automatic expense tracking
           </p>
         </div>
-        <button
-          className="btn-primary btn-sm"
-          id="connectBankBtn"
-          onClick={() => setShowRegionModal(true)}
-          disabled={connecting}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn-export"
+            onClick={() => setShowSAModal(true)}
           >
-            <path d="M12 5v14m-7-7h14" />
-          </svg>
-          {connecting ? 'Connecting...' : 'Add Account'}
-        </button>
+            Add Manually
+          </button>
+          <button
+            className="btn-primary btn-sm"
+            id="connectBankBtn"
+            onClick={() => setShowRegionModal(true)}
+            disabled={connecting}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M12 5v14m-7-7h14" />
+            </svg>
+            {connecting ? 'Connecting...' : 'Add Account'}
+          </button>
+        </div>
       </div>
 
       {/* Total Balance Banner */}
@@ -658,7 +515,8 @@ export default function BankPage() {
 
           const mask = acc.mask || '****';
           const dots = `\u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  \u2022\u2022\u2022\u2022  ${mask}`;
-          const isManual = acc.plaid_access_token === 'manual';
+          const isStitch = acc.provider === 'stitch';
+          const isManual = !isStitch;
 
           const isPrimary = acc.is_primary === true;
 
@@ -709,7 +567,7 @@ export default function BankPage() {
                     <button
                       className="btn-sync"
                       data-id={acc.id}
-                      onClick={() => handleSync(acc)}
+                      onClick={() => handleSync()}
                     >
                       Sync
                     </button>
@@ -741,6 +599,19 @@ export default function BankPage() {
                   </button>
                 </div>
               </div>
+              {isStitch && mode !== 'business' && (
+                <div className="bank-card-business-toggle">
+                  <span>Business card</span>
+                  <label className="tithe-toggle">
+                    <input
+                      type="checkbox"
+                      checked={acc.is_business_card === true}
+                      onChange={(e) => toggleBusinessCard(acc.id, e.target.checked)}
+                    />
+                    <span className="tithe-slider" />
+                  </label>
+                </div>
+              )}
             </div>
           );
         })}
@@ -846,6 +717,24 @@ export default function BankPage() {
               Upload a CSV from FNB, Capitec, Standard Bank, Absa or Nedbank.
               We auto-detect columns and categorize each transaction.
             </p>
+            {mode !== 'business' && (
+              <div className="csv-import-kind-toggle">
+                <button
+                  type="button"
+                  className={csvImportKind === 'personal' ? 'active' : ''}
+                  onClick={() => setCsvImportKind('personal')}
+                >
+                  My Own Statement
+                </button>
+                <button
+                  type="button"
+                  className={csvImportKind === 'business' ? 'active' : ''}
+                  onClick={() => setCsvImportKind('business')}
+                >
+                  Business Credit Card Statement
+                </button>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -1082,6 +971,11 @@ export default function BankPage() {
                 <strong>{csvPreview.length}</strong> transaction
                 {csvPreview.length !== 1 ? 's' : ''} · Total{' '}
                 <strong>{fmt(csvTotalAmount)}</strong>
+                {csvImportKind === 'business' && mode !== 'business' && (
+                  <div style={{ marginTop: 4, opacity: 0.6 }}>
+                    Every row will be marked Business immediately — no review needed.
+                  </div>
+                )}
               </div>
               <button
                 type="button"

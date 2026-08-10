@@ -686,6 +686,7 @@ export default function ExpensesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={addExpense}
+        onAfterClassify={refresh}
       />
 
       {editTarget && (
