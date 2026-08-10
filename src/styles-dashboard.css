@@ -8133,3 +8133,245 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
         min-width: 0;
     }
 }
+
+/* ============================================================
+   Trips — Expenses page sub-tab (Personal/Family only)
+   ============================================================ */
+
+.expense-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 0.5rem;
+}
+.expense-subtabs .tab-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 0.875rem;
+    font-family: inherit;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.expense-subtabs .tab-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.04);
+}
+.expense-subtabs .tab-btn.active {
+    color: var(--accent, #10b981);
+    background: rgba(var(--accent-rgb),0.1);
+    font-weight: 600;
+}
+
+.trips-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 20px 20px 0;
+}
+.trips-panel-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.trip-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+}
+.trip-back-btn:hover {
+    color: #fff;
+}
+
+.trip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+}
+
+.trip-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.trip-card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(var(--accent-rgb),0.3);
+}
+
+.trip-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.trip-card-dates {
+    color: rgba(255,255,255,0.35);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.trip-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.trip-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.trip-badge-review {
+    background: rgba(245,158,11,0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.25);
+}
+
+.trip-split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin: 16px 20px 0;
+}
+.trip-split-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.trip-split-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.4);
+}
+.trip-split-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+.trip-split-value-warn {
+    color: #f59e0b;
+}
+
+.trip-review-prompt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+}
+.trip-review-btn {
+    background: rgba(var(--accent-rgb),0.1);
+    border: 1px solid rgba(var(--accent-rgb),0.25);
+    color: var(--accent, #10b981);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.trip-review-btn:hover {
+    background: rgba(var(--accent-rgb),0.2);
+}
+
+.trip-type-badge {
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+.trip-type-badge.is-business {
+    background: rgba(59,130,246,0.12);
+    color: #60a5fa;
+    border-color: rgba(59,130,246,0.25);
+}
+.trip-type-badge.is-personal {
+    background: rgba(139,92,246,0.12);
+    color: #c4b5fd;
+    border-color: rgba(139,92,246,0.25);
+}
+.trip-type-badge:hover {
+    opacity: 0.8;
+}
+
+/* Light mode */
+body.light .expense-subtabs { border-bottom-color: #e2e8f0; }
+body.light .expense-subtabs .tab-btn { color: #64748b; }
+body.light .expense-subtabs .tab-btn:hover { color: #1a1a2e; background: rgba(0,0,0,0.04); }
+body.light .expense-subtabs .tab-btn.active {
+    color: var(--accent, #10b981);
+    background: rgba(var(--accent-rgb),0.1);
+}
+
+body.light .trip-back-btn { color: #64748b; }
+body.light .trip-back-btn:hover { color: #1a1a2e; }
+
+body.light .trip-card {
+    background: #fff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+body.light .trip-card:hover {
+    background: #fafafa;
+    border-color: rgba(var(--accent-rgb),0.35);
+}
+body.light .trip-card-name { color: #1a1a2e; }
+body.light .trip-card-dates { color: #64748b; }
+
+body.light .trip-split-item {
+    background: #fff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+body.light .trip-split-label { color: #64748b; }
+body.light .trip-split-value { color: #1a1a2e; }
+
+body.light .trip-review-prompt { color: #64748b; }
+
+@media (max-width: 640px) {
+    .trips-panel-header {
+        flex-direction: column;
+    }
+    .trip-card {
+        flex-wrap: wrap;
+    }
+    .trip-split {
+        grid-template-columns: 1fr 1fr;
+    }
+}
