@@ -28,6 +28,7 @@ export const en: JuniorStrings = {
   nav_chores: 'Chores',
   nav_jars: 'Jars',
   nav_missions: 'Missions',
+  nav_goals: 'Goals',
   nav_back_parent: 'Back to parent',
   nav_sign_out: 'Sign out',
 

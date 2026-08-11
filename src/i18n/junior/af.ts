@@ -28,6 +28,7 @@ export const af: JuniorStrings = {
   nav_chores: 'Takies',
   nav_jars: 'Flesse',
   nav_missions: 'Sendings',
+  nav_goals: 'Doelwitte',
   nav_back_parent: 'Terug na ouer',
   nav_sign_out: 'Meld af',
 

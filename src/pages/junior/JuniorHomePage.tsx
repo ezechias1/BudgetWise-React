@@ -41,6 +41,8 @@ export default function JuniorHomePage() {
         supabase
           .from('family_goals')
           .select('id, name, target, saved')
+          .eq('member_id', member.id)
+          .eq('status', 'active')
           .order('created_at')
           .limit(1)
           .maybeSingle(),
@@ -154,12 +156,16 @@ export default function JuniorHomePage() {
           </p>
         </div>
 
-        <div
+        <Link
+          to="/junior/goals"
           style={{
+            display: 'block',
             background: 'white',
             borderRadius: 16,
             padding: 20,
             boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+            textDecoration: 'none',
+            color: 'inherit',
           }}
         >
           <p style={{ margin: 0, opacity: 0.7 }}>Goal</p>
@@ -187,9 +193,9 @@ export default function JuniorHomePage() {
               </div>
             </>
           ) : (
-            <p style={{ fontSize: '0.95rem', margin: '4px 0 0', opacity: 0.7 }}>No goal yet</p>
+            <p style={{ fontSize: '0.95rem', margin: '4px 0 0', opacity: 0.7 }}>No goal yet — tap to add one</p>
           )}
-        </div>
+        </Link>
       </div>
     </>
   );

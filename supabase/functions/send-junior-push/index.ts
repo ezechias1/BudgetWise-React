@@ -43,7 +43,12 @@ interface Built {
 
 function buildPayload(row: Row): Built | null {
   if (row.kind === 'approval_nudge') {
-    const p = row.payload as { kid_name: string; action_type: 'chore' | 'mission'; item_title: string; link: string };
+    const p = row.payload as {
+      kid_name: string;
+      action_type: 'chore' | 'mission' | 'goal_proposal' | 'money_request';
+      item_title: string;
+      link: string;
+    };
     if (p.action_type === 'chore') {
       return {
         title: `${p.kid_name} has a chore waiting`,
@@ -55,6 +60,20 @@ function buildPayload(row: Row): Built | null {
       return {
         title: `${p.kid_name} finished a money mission`,
         body: `They completed "${p.item_title}" — tap to review.`,
+        url: p.link,
+      };
+    }
+    if (p.action_type === 'goal_proposal') {
+      return {
+        title: `${p.kid_name} proposed a new goal`,
+        body: `"${p.item_title}" — tap to approve or decline.`,
+        url: p.link,
+      };
+    }
+    if (p.action_type === 'money_request') {
+      return {
+        title: `${p.kid_name} is asking for money`,
+        body: `${p.item_title} — tap to decide.`,
         url: p.link,
       };
     }

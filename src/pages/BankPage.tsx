@@ -1,11 +1,9 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
-  type FormEvent,
 } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -22,123 +20,18 @@ import {
   useLinkedAccounts,
   type LinkedAccount,
 } from '@/hooks/useLinkedAccounts';
+import { LinkBankAccountFlow } from '@/components/LinkBankAccountFlow';
 
 // ==========================================================================
 // Ported from vanilla dashboard.html (#page-bank, line 1165) and js/app.js
 // bank connection flows (loadLinkedAccounts, renderBankCards). Plaid and
 // Salt Edge were never wired to working server-side pieces and have been
 // removed — Stitch (South Africa) is the only live connection provider.
+// Business-card linking (Stitch region picker, manual SA form, "is this a
+// business card" checkbox) lives in LinkBankAccountFlow.tsx and is only
+// rendered from the Trips tab now — regular Bank page users never travel
+// for work and shouldn't see that option here.
 // ==========================================================================
-
-interface RegionOption {
-  provider: string;
-  ready: boolean;
-  manual?: boolean;
-  flag: string;
-  title: string;
-  providerLabel: string;
-  banks: string;
-}
-
-// Stitch is the only real, live connection provider — this app is
-// South-Africa-focused and Plaid/Salt Edge never had working server-side
-// pieces (their edge functions don't exist). The rest stay as decorative
-// "coming soon" placeholders.
-const REGIONS: RegionOption[] = [
-  {
-    provider: 'stitch',
-    ready: true,
-    flag: '🇿🇦',
-    title: 'South Africa',
-    providerLabel: 'Powered by Stitch',
-    banks: 'FNB, Capitec, Standard Bank, Absa, Nedbank',
-  },
-  {
-    provider: 'mono',
-    ready: false,
-    flag: '🇳🇬 🇬🇭 🇰🇪',
-    title: 'Nigeria, Ghana & Kenya',
-    providerLabel: 'Powered by Mono',
-    banks: 'GTBank, Access, Zenith, Ecobank, M-Pesa',
-  },
-  {
-    provider: 'belvo',
-    ready: false,
-    flag: '🇧🇷 🇲🇽 🇨🇴',
-    title: 'Brazil, Mexico & Colombia',
-    providerLabel: 'Powered by Belvo',
-    banks: 'Nubank, BBVA, Bancolombia, Itau',
-  },
-  {
-    provider: 'basiq',
-    ready: false,
-    flag: '🇦🇺 🇳🇿',
-    title: 'Australia & New Zealand',
-    providerLabel: 'Powered by Basiq',
-    banks: 'CommBank, ANZ, Westpac, ASB',
-  },
-  {
-    provider: 'setu',
-    ready: false,
-    flag: '🇮🇳',
-    title: 'India',
-    providerLabel: 'Powered by Setu',
-    banks: 'SBI, HDFC, ICICI, Axis, Kotak, PNB, UPI',
-  },
-  {
-    provider: 'lean',
-    ready: false,
-    flag: '🇦🇪 🇸🇦 🇧🇭 🇴🇲 🇰🇼 🇶🇦',
-    title: 'Middle East',
-    providerLabel: 'Powered by Lean Technologies',
-    banks: 'Emirates NBD, Al Rajhi, FAB, Mashreq, KFH',
-  },
-  {
-    provider: 'brankas',
-    ready: false,
-    flag: '🇸🇬 🇵🇭 🇮🇩 🇹🇭 🇻🇳',
-    title: 'Southeast Asia',
-    providerLabel: 'Powered by Brankas',
-    banks: 'DBS, BDO, BCA, GCash, GrabPay, OVO',
-  },
-  {
-    provider: 'moneytree',
-    ready: false,
-    flag: '🇯🇵 🇰🇷 🇹🇼 🇭🇰',
-    title: 'East Asia',
-    providerLabel: 'Powered by Moneytree',
-    banks: 'MUFG, Mizuho, SMBC, Shinhan, Cathay, HSBC HK',
-  },
-  {
-    provider: 'mono-ext',
-    ready: false,
-    flag: '🇹🇿 🇺🇬 🇷🇼 🇪🇬 🇲🇦 🇨🇮',
-    title: 'Rest of Africa',
-    providerLabel: 'Powered by Mono',
-    banks: 'M-Pesa, Equity Bank, CIB Egypt, Attijariwafa, Ecobank',
-  },
-];
-
-interface SABank {
-  name: string;
-  full: string;
-  color: string;
-  initial: string;
-}
-
-// Verbatim from dashboard.html lines 1303-1327.
-const SA_BANKS: SABank[] = [
-  { name: 'FNB', full: 'First National Bank', color: '#009639', initial: 'F' },
-  { name: 'Capitec', full: 'Capitec Bank', color: '#0033a0', initial: 'C' },
-  {
-    name: 'Standard Bank',
-    full: 'The Standard Bank of SA',
-    color: '#0038a8',
-    initial: 'S',
-  },
-  { name: 'Absa', full: 'Absa Group Limited', color: '#af0028', initial: 'A' },
-  { name: 'Nedbank', full: 'Nedbank Group', color: '#009946', initial: 'N' },
-];
 
 const PROVIDER_STRIP = [
   'Stitch',
@@ -164,77 +57,13 @@ export default function BankPage() {
     primaryAccount,
     totalBalance,
     setPrimary,
-    toggleBusinessCard,
     refresh: loadLinkedAccounts,
   } = useLinkedAccounts();
-
-  const [connecting, setConnecting] = useState(false);
-
-  const [showRegionModal, setShowRegionModal] = useState(false);
-  const [showSAModal, setShowSAModal] = useState(false);
-  const [regionSearch, setRegionSearch] = useState('');
-  const [saSearch, setSaSearch] = useState('');
-  const [selectedSABank, setSelectedSABank] = useState<string>('');
-  const [saAccountName, setSaAccountName] = useState('');
-  const [saAccountType, setSaAccountType] = useState('cheque');
-  const [saBalance, setSaBalance] = useState('');
-  // "This is a business card" — set at add-time so a company card can be
-  // flagged immediately instead of requiring a separate toggle afterward.
-  const [addAsBusinessCard, setAddAsBusinessCard] = useState(false);
 
   const fmt = useCallback(
     (n: number) => formatCurrency(n, currency),
     [currency]
   );
-
-  // ---- Provider connect handlers ----
-  // Stitch's hosted Link flow: get a consent URL from our edge function
-  // (user-JWT authenticated) and redirect. The OAuth callback function does
-  // the token exchange + linked_accounts insert server-side, then redirects
-  // back here with ?stitch_linked=1 — see the effect below.
-  const openStitchLink = useCallback(async () => {
-    if (!user) return;
-    setConnecting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('stitch-link-initiate', {
-        body: { mode, isBusinessCard: addAsBusinessCard },
-      });
-      if (error || !data?.authorize_url) {
-        alert(
-          'Error connecting to Stitch: ' +
-            (data?.error || error?.message || 'Please try again.')
-        );
-        return;
-      }
-      window.location.href = data.authorize_url;
-    } catch (err) {
-      alert('Connection error: ' + (err as Error).message);
-    } finally {
-      setConnecting(false);
-    }
-  }, [user, mode, addAsBusinessCard]);
-
-  // Handle the Stitch OAuth callback redirect — the account itself was
-  // already inserted server-side, so this just refreshes the list.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get('stitch_linked')) return;
-    window.history.replaceState({}, '', window.location.pathname);
-    loadLinkedAccounts();
-  }, [loadLinkedAccounts]);
-
-  const handleRegionClick = (r: RegionOption) => {
-    if (!r.ready) {
-      alert(
-        'This region is coming soon! We are working on integrating ' +
-          r.title +
-          '. Stay tuned.'
-      );
-      return;
-    }
-    setShowRegionModal(false);
-    if (r.provider === 'stitch') openStitchLink();
-  };
 
   // Stitch accounts sync automatically on a schedule (cron-driven, see
   // supabase/functions/stitch-sync-transactions) — there's no safe
@@ -271,60 +100,6 @@ export default function BankPage() {
       .eq('user_id', user.id);
     await loadLinkedAccounts();
   };
-
-  // ---- SA manual account submit (app.js L5247) ----
-  const handleSASubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!user || !selectedSABank) return;
-    const bal = parseFloat(saBalance) || 0;
-    const { error } = await supabase.from('linked_accounts').insert({
-      user_id: user.id,
-      plaid_access_token: 'manual',
-      account_id: 'manual-' + Date.now(),
-      account_name: saAccountName || selectedSABank,
-      account_type: saAccountType === 'credit' ? 'credit' : 'depository',
-      account_subtype: saAccountType,
-      institution_name: selectedSABank,
-      mask: '****',
-      balance_current: bal,
-      balance_available: bal,
-      currency_code: 'ZAR',
-      last_synced: new Date().toISOString(),
-      account_mode: mode,
-      is_business: mode !== 'business' && addAsBusinessCard,
-    });
-    if (error) {
-      alert('Error adding account: ' + error.message);
-      return;
-    }
-    setShowSAModal(false);
-    setSelectedSABank('');
-    setSaAccountName('');
-    setSaAccountType('cheque');
-    setSaBalance('');
-    await loadLinkedAccounts();
-  };
-
-  // ---- Filtered lists for modal searches ----
-  const filteredRegions = useMemo(() => {
-    const q = regionSearch.trim().toLowerCase();
-    if (!q) return REGIONS;
-    return REGIONS.filter(
-      (r) =>
-        r.title.toLowerCase().includes(q) ||
-        r.banks.toLowerCase().includes(q) ||
-        r.providerLabel.toLowerCase().includes(q)
-    );
-  }, [regionSearch]);
-
-  const filteredSABanks = useMemo(() => {
-    const q = saSearch.trim().toLowerCase();
-    if (!q) return SA_BANKS;
-    return SA_BANKS.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) || b.full.toLowerCase().includes(q)
-    );
-  }, [saSearch]);
 
   const hasAccounts = linkedAccounts.length > 0;
 
@@ -459,37 +234,7 @@ export default function BankPage() {
           </p>
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="btn-export"
-            onClick={() => {
-              setAddAsBusinessCard(false);
-              setShowSAModal(true);
-            }}
-          >
-            Add Manually
-          </button>
-          <button
-            className="btn-primary btn-sm"
-            id="connectBankBtn"
-            onClick={() => {
-              setAddAsBusinessCard(false);
-              setShowRegionModal(true);
-            }}
-            disabled={connecting}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 5v14m-7-7h14" />
-            </svg>
-            {connecting ? 'Connecting...' : 'Add Account'}
-          </button>
+          <LinkBankAccountFlow mode={mode} isBusinessCard={false} onLinked={loadLinkedAccounts} />
         </div>
       </div>
 
@@ -609,19 +354,6 @@ export default function BankPage() {
                   </button>
                 </div>
               </div>
-              {isStitch && mode !== 'business' && (
-                <div className="bank-card-business-toggle">
-                  <span>Business card</span>
-                  <label className="tithe-toggle">
-                    <input
-                      type="checkbox"
-                      checked={acc.is_business === true}
-                      onChange={(e) => toggleBusinessCard(acc.id, e.target.checked)}
-                    />
-                    <span className="tithe-slider" />
-                  </label>
-                </div>
-              )}
             </div>
           );
         })}
@@ -1026,241 +758,6 @@ export default function BankPage() {
           </>
         )}
       </div>
-
-      {/* Region Selector Modal */}
-      {showRegionModal && (
-        <div className="modal-overlay" id="regionModal">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Select Your Region</h2>
-              <button
-                className="modal-close"
-                onClick={() => setShowRegionModal(false)}
-              >
-                ×
-              </button>
-            </div>
-            <p
-              style={{
-                color: 'inherit', opacity: 0.4,
-                marginBottom: 16,
-                fontSize: '0.85rem',
-              }}
-            >
-              Choose your region or search for your bank.
-            </p>
-            <div className="bank-search-wrap" style={{ marginBottom: 16 }}>
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  opacity: 0.3,
-                }}
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                className="quick-input"
-                placeholder="Search for your bank..."
-                style={{ paddingLeft: 36, width: '100%' }}
-                value={regionSearch}
-                onChange={(e) => setRegionSearch(e.target.value)}
-              />
-            </div>
-            {mode !== 'business' && (
-              <label className="bank-business-card-check">
-                <input
-                  type="checkbox"
-                  checked={addAsBusinessCard}
-                  onChange={(e) => setAddAsBusinessCard(e.target.checked)}
-                />
-                This is a business credit card (for trip expenses)
-              </label>
-            )}
-            {regionSearch && filteredRegions.length === 0 && (
-              <p
-                className="bank-search-result"
-                style={{
-                  color: 'inherit', opacity: 0.5,
-                  fontSize: '0.8rem',
-                  marginBottom: 12,
-                }}
-              >
-                No regions matched "{regionSearch}".
-              </p>
-            )}
-            <div className="region-grid">
-              {filteredRegions.map((r) => (
-                <button
-                  key={r.provider}
-                  className={
-                    'region-card ' + (r.ready ? 'region-ready' : 'region-soon')
-                  }
-                  data-provider={r.provider}
-                  onClick={() => handleRegionClick(r)}
-                >
-                  <span
-                    className={
-                      'region-status ' + (r.ready ? 'ready' : 'soon')
-                    }
-                  >
-                    {r.ready ? (r.manual ? 'Manual Entry' : 'Ready') : 'Coming Soon'}
-                  </span>
-                  <div className="region-flag">{r.flag}</div>
-                  <strong>{r.title}</strong>
-                  <span className="region-provider">{r.providerLabel}</span>
-                  <span className="region-banks">{r.banks}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SA Bank Modal */}
-      {showSAModal && (
-        <div className="modal-overlay" id="saBankModal">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Add South African Bank</h2>
-              <button
-                className="modal-close"
-                onClick={() => {
-                  setShowSAModal(false);
-                  setSelectedSABank('');
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <p
-              style={{
-                color: 'inherit', opacity: 0.4,
-                marginBottom: 16,
-                fontSize: '0.85rem',
-              }}
-            >
-              Select your bank, then enter your account details.
-            </p>
-            <div className="bank-search-wrap" style={{ marginBottom: 12 }}>
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  opacity: 0.3,
-                }}
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                className="quick-input"
-                placeholder="Search SA banks..."
-                style={{ paddingLeft: 36, width: '100%' }}
-                value={saSearch}
-                onChange={(e) => setSaSearch(e.target.value)}
-              />
-            </div>
-            <div className="sa-bank-list">
-              {filteredSABanks.map((b) => (
-                <button
-                  key={b.name}
-                  className={
-                    'sa-bank-btn' +
-                    (selectedSABank === b.name ? ' selected' : '')
-                  }
-                  data-bank={b.name}
-                  onClick={() => setSelectedSABank(b.name)}
-                  type="button"
-                >
-                  <span
-                    className="sa-bank-logo"
-                    style={{ background: b.color }}
-                  >
-                    {b.initial}
-                  </span>
-                  <span className="sa-bank-name">{b.name}</span>
-                  <span className="sa-bank-full">{b.full}</span>
-                </button>
-              ))}
-            </div>
-
-            {selectedSABank && (
-              <form
-                onSubmit={handleSASubmit}
-                style={{ marginTop: 20 }}
-              >
-                <div className="field">
-                  <label>Account Name</label>
-                  <input
-                    type="text"
-                    value={saAccountName}
-                    onChange={(e) => setSaAccountName(e.target.value)}
-                    placeholder="e.g. My Cheque Account"
-                  />
-                </div>
-                <div className="field">
-                  <label>Account Type</label>
-                  <select
-                    value={saAccountType}
-                    onChange={(e) => setSaAccountType(e.target.value)}
-                  >
-                    <option value="cheque">Cheque / Current</option>
-                    <option value="savings">Savings</option>
-                    <option value="credit">Credit Card</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Current Balance (ZAR)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={saBalance}
-                    onChange={(e) => setSaBalance(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-                {mode !== 'business' && (
-                  <label className="bank-business-card-check">
-                    <input
-                      type="checkbox"
-                      checked={addAsBusinessCard}
-                      onChange={(e) => setAddAsBusinessCard(e.target.checked)}
-                    />
-                    This is a business credit card (for trip expenses)
-                  </label>
-                )}
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{ width: '100%', marginTop: 12 }}
-                >
-                  Add Account
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

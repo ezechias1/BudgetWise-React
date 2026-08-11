@@ -27,6 +27,13 @@ interface FamilyGoal {
   contributions: Record<string, number>;
 }
 
+interface PendingGoal {
+  id: string;
+  name: string;
+  target: number;
+  member_id: string;
+}
+
 function symbolFor(currency: string): string {
   const sym: Record<string, string> = {
     ZAR: 'R', USD: '$', EUR: '\u20AC', GBP: '\u00A3', NGN: '\u20A6',
@@ -49,6 +56,7 @@ function fmt(n: number, sym: string): string {
 export default function FamilyGoalsPage() {
   const { user } = useAuth();
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
+  const [pendingGoals, setPendingGoals] = useState<PendingGoal[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currency, setCurrency] = useState('ZAR');
   const [showModal, setShowModal] = useState(false);
@@ -59,11 +67,12 @@ export default function FamilyGoalsPage() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [gRes, mRes, sRes] = await Promise.all([
+    const [gRes, mRes, sRes, pRes] = await Promise.all([
       supabase
         .from('family_goals')
         .select('*')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .order('created_at'),
       supabase
         .from('family_members')
@@ -75,7 +84,14 @@ export default function FamilyGoalsPage() {
         .select('currency')
         .eq('user_id', user.id)
         .maybeSingle(),
+      supabase
+        .from('family_goals')
+        .select('id, name, target, member_id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at'),
     ]);
+    setPendingGoals((pRes.data as PendingGoal[]) || []);
     const baseGoals = (gRes.data as FamilyGoal[]) || [];
     // Fetch contributions
     if (baseGoals.length > 0) {
@@ -198,6 +214,20 @@ export default function FamilyGoalsPage() {
     );
   };
 
+  const decidePendingGoal = async (id: string, status: 'active' | 'declined') => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('family_goals')
+      .update({ status })
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      alert(`Could not update goal: ${error.message}`);
+      return;
+    }
+    await load();
+  };
+
   const deleteGoal = async (id: string) => {
     if (!user) return;
     if (!confirm('Delete this family goal?')) return;
@@ -242,6 +272,56 @@ export default function FamilyGoalsPage() {
           New Goal
         </button>
       </div>
+      {pendingGoals.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem', opacity: 0.7 }}>
+            Waiting for your approval
+          </h3>
+          {pendingGoals.map((g) => {
+            const proposer = members.find((m) => m.id === g.member_id);
+            return (
+              <div
+                key={g.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  background: 'rgba(245,158,11,0.08)',
+                  border: '1px solid rgba(245,158,11,0.25)',
+                  borderRadius: 12,
+                  padding: '12px 16px',
+                  marginBottom: 8,
+                }}
+              >
+                <span>
+                  <strong>{proposer?.name ?? 'A kid'}</strong> wants to save{' '}
+                  <strong>{fmt(g.target, sym)}</strong> for "{g.name}"
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm"
+                    onClick={() => decidePendingGoal(g.id, 'active')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-sm"
+                    onClick={() => decidePendingGoal(g.id, 'declined')}
+                    style={{ background: 'transparent', border: '1px solid currentColor', opacity: 0.6, borderRadius: 6, padding: '6px 12px' }}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="family-goals-grid" id="familyGoalsGrid">
         {goals.length === 0 ? (
           <div className="empty-state" id="emptyFamilyGoals">

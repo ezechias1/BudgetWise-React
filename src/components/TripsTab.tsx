@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { TripModal } from '@/components/TripModal';
+import { LinkBankAccountFlow } from '@/components/LinkBankAccountFlow';
 import { useTrips } from '@/hooks/useTrips';
 import { useTripExpenses } from '@/hooks/useTripExpenses';
+import { useLinkedAccounts, type LinkedAccount } from '@/hooks/useLinkedAccounts';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMode } from '@/contexts/ModeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { supabase } from '@/lib/supabase';
 import { CATEGORY_COLORS } from '@/lib/categories';
@@ -75,7 +78,9 @@ export function TripsTab() {
   }
 
   return (
-    <div className="chart-card full-width trips-panel">
+    <>
+      <BusinessCardsSection />
+      <div className="chart-card full-width trips-panel">
       <div className="trips-panel-header">
         <div>
           <h3>Trips</h3>
@@ -166,6 +171,79 @@ export function TripsTab() {
       )}
 
       <TripModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={addTrip} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * Company credit cards, scoped to Trips rather than the Bank page — the
+ * checkbox/toggle version of this used to live on BankPage.tsx, but that
+ * confused regular users who never travel for work. Every account linked
+ * here is a business card by definition (LinkBankAccountFlow's
+ * isBusinessCard=true); spend outside any trip's dates never renders
+ * anywhere in the app (enforced at the DB trigger level).
+ */
+function BusinessCardsSection() {
+  const { user } = useAuth();
+  const { mode } = useMode();
+  const { accounts, loading, refresh } = useLinkedAccounts();
+  const businessCards = accounts.filter((a) => a.is_business === true);
+
+  const handleRemove = async (acc: LinkedAccount) => {
+    if (!user) return;
+    if (!confirm('Remove this business card? Transaction history will be kept.')) return;
+    await supabase.from('linked_accounts').delete().eq('id', acc.id).eq('user_id', user.id);
+    await refresh();
+  };
+
+  return (
+    <div className="chart-card full-width trips-panel" style={{ marginBottom: 20 }}>
+      <div className="trips-panel-header">
+        <div>
+          <h3>Business Cards</h3>
+          <p className="page-subtitle" style={{ margin: '4px 0 0' }}>
+            Company credit cards for trip expenses. Spend outside a trip's dates
+            never appears in the app.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <LinkBankAccountFlow mode={mode} isBusinessCard onLinked={refresh} />
+        </div>
+      </div>
+
+      {loading ? (
+        <p style={{ padding: '16px 0', opacity: 0.4 }}>Loading…</p>
+      ) : businessCards.length === 0 ? (
+        <p style={{ padding: '16px 0', opacity: 0.5, fontSize: '0.85rem' }}>
+          No business cards linked yet.
+        </p>
+      ) : (
+        <div className="trip-list">
+          {businessCards.map((acc) => (
+            <div key={acc.id} className="trip-card" style={{ cursor: 'default' }}>
+              <div className="trip-card-main">
+                <div className="trip-card-name">
+                  {acc.institution_name || 'Bank'} ****{acc.mask}
+                </div>
+                <div className="trip-card-dates">{acc.account_name}</div>
+              </div>
+              <div className="trip-card-actions">
+                <button
+                  type="button"
+                  className="btn-delete"
+                  aria-label={`Remove ${acc.institution_name}`}
+                  onClick={() => handleRemove(acc)}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

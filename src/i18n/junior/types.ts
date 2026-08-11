@@ -43,6 +43,7 @@ export interface JuniorStrings {
   nav_chores: string;
   nav_jars: string;
   nav_missions: string;
+  nav_goals: string;
   nav_back_parent: string;
   nav_sign_out: string;
 

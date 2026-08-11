@@ -64,7 +64,8 @@ export default function JuniorLoginPage() {
       return (
         <div className="junior-shell">
           <main className="junior-main">
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <BackToParentLink navigate={navigate} label={t.nav_back_parent} />
               <LanguagePicker />
             </div>
             <section className="junior-hero">
@@ -89,7 +90,8 @@ export default function JuniorLoginPage() {
     return (
       <div className="junior-shell">
         <main className="junior-main">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <BackToParentLink navigate={navigate} label={t.nav_back_parent} />
             <LanguagePicker />
           </div>
           <section className="junior-hero">
@@ -144,30 +146,35 @@ export default function JuniorLoginPage() {
     <div className="junior-shell">
       <main className="junior-main">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          {deviceKids.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => navigate('/junior/login', { replace: true })}
-              style={{
-                background: 'transparent',
-                border: 0,
-                color: '#4b5563',
-                padding: '6px 0',
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-              aria-label={t.login_pin_back}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5"></path>
-                <path d="M12 19l-7-7 7-7"></path>
-              </svg>
-              {t.login_pin_back}
-            </button>
-          ) : <span />}
+          {/* Always rendered now — with 0 or 1 remembered kids, the picker
+              screen isn't a useful destination, so this falls back to
+              parent login instead of leaving the kid stuck here. */}
+          <button
+            type="button"
+            onClick={() =>
+              deviceKids.length > 1
+                ? navigate('/junior/login', { replace: true })
+                : navigate('/?intent=parent', { replace: true })
+            }
+            style={{
+              background: 'transparent',
+              border: 0,
+              color: '#4b5563',
+              padding: '6px 0',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            aria-label={deviceKids.length > 1 ? t.login_pin_back : t.nav_back_parent}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"></path>
+              <path d="M12 19l-7-7 7-7"></path>
+            </svg>
+            {deviceKids.length > 1 ? t.login_pin_back : t.nav_back_parent}
+          </button>
           <LanguagePicker />
         </div>
         <section className="junior-hero">
@@ -230,5 +237,35 @@ export default function JuniorLoginPage() {
         </p>
       </main>
     </div>
+  );
+}
+
+// A way back to parent login from every screen in the Junior login flow —
+// previously only the PIN screen (with 2+ remembered kids) had any way
+// back at all, leaving a dead end everywhere else.
+function BackToParentLink({ navigate, label }: { navigate: (path: string, opts?: { replace: boolean }) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/?intent=parent', { replace: true })}
+      style={{
+        background: 'transparent',
+        border: 0,
+        color: '#4b5563',
+        padding: '6px 0',
+        fontSize: '0.95rem',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+      }}
+      aria-label={label}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 12H5"></path>
+        <path d="M12 19l-7-7 7-7"></path>
+      </svg>
+      {label}
+    </button>
   );
 }

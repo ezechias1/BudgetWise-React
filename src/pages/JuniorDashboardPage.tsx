@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAllKidsLedger } from '@/hooks/useKidLedger';
 import { SettleUpModal } from '@/components/SettleUpModal';
+import { MoneyRequestModal } from '@/components/MoneyRequestModal';
 import { MissionRewardsModal } from '@/components/MissionRewardsModal';
 import { PushPromptCard } from '@/components/junior/PushPromptCard';
 import { BirthdayBackfillBanner } from '@/components/BirthdayBackfillBanner';
@@ -33,6 +34,8 @@ export default function JuniorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const { perKid, refresh: refreshLedger } = useAllKidsLedger();
   const [settleKid, setSettleKid] = useState<KidRow | null>(null);
+  const [requestKid, setRequestKid] = useState<KidRow | null>(null);
+  const [requestCounts, setRequestCounts] = useState<Record<string, number>>({});
   const [showRewards, setShowRewards] = useState(false);
 
   const load = useCallback(async () => {
@@ -57,9 +60,24 @@ export default function JuniorDashboardPage() {
     setLoading(false);
   }, [user]);
 
+  const loadRequestCounts = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('kid_money_requests')
+      .select('member_id')
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as { member_id: string }[]) {
+      counts[row.member_id] = (counts[row.member_id] ?? 0) + 1;
+    }
+    setRequestCounts(counts);
+  }, [user]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadRequestCounts();
+  }, [load, loadRequestCounts]);
 
   const sym = symbolFor(currency);
 
@@ -210,7 +228,7 @@ export default function JuniorDashboardPage() {
                 Settled lifetime: {formatRands(totals.paid_cents, sym)}
               </small>
 
-              <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="btn-primary"
@@ -219,6 +237,15 @@ export default function JuniorDashboardPage() {
                 >
                   {totals.owed_cents === 0 ? 'Nothing owed' : 'Mark as paid'}
                 </button>
+                {(requestCounts[k.id] ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setRequestKid(k)}
+                  >
+                    Money requests ({requestCounts[k.id]})
+                  </button>
+                )}
               </div>
             </article>
           );
@@ -233,6 +260,18 @@ export default function JuniorDashboardPage() {
           onPaid={() => {
             refreshLedger();
             load();
+          }}
+        />
+      )}
+
+      {requestKid && (
+        <MoneyRequestModal
+          kid={{ id: requestKid.id, name: requestKid.name, user_id: user!.id }}
+          currencySymbol={sym}
+          onClose={() => setRequestKid(null)}
+          onDecided={() => {
+            refreshLedger();
+            loadRequestCounts();
           }}
         />
       )}

@@ -27,7 +27,11 @@ export function JuniorLayout() {
 
   const handleBackToParent = async () => {
     await signOut();
-    navigate('/auth?intent=parent', { replace: true });
+    // /auth isn't a registered route (only "/" maps to AuthPage) — App.tsx's
+    // catch-all redirects it to "/" but drops the query string along the
+    // way, so AuthPage's isParentReturn check never fired and the stashed
+    // parent email never pre-filled. Navigate straight to the real route.
+    navigate('/?intent=parent', { replace: true });
   };
 
   // Age-aware palette: data-bracket drives per-bracket CSS variables defined
@@ -70,6 +74,14 @@ export function JuniorLayout() {
             <rect x="17" y="10" width="5" height="11" rx="1" />
           </svg>
           {t.nav_jars}
+        </NavLink>
+        <NavLink to="/junior/goals" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="5" />
+            <circle cx="12" cy="12" r="1" />
+          </svg>
+          {t.nav_goals}
         </NavLink>
         <NavLink to="/junior/missions" className={({ isActive }) => (isActive ? 'active' : '')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -28,6 +28,7 @@ export const zu: JuniorStrings = {
   nav_chores: 'Imisebenzi',
   nav_jars: 'Izimbiza',
   nav_missions: 'Imishini',
+  nav_goals: 'Izinjongo',
   nav_back_parent: 'Buyela kumzali',
   nav_sign_out: 'Phuma',
 

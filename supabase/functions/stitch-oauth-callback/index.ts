@@ -107,6 +107,11 @@ Deno.serve(async (req) => {
     return redirectTo('/dashboard/bank?stitch_error=invalid_state');
   }
 
+  // Business cards are linked from the Trips tab now, not Bank page — land
+  // the user back wherever they actually started the link from.
+  const basePath = verified.isBusinessCard ? '/dashboard/expenses?tab=trips' : '/dashboard/bank';
+  const joiner = basePath.includes('?') ? '&' : '?';
+
   try {
     const assertion = await buildClientAssertion();
     const tokenRes = await fetch(STITCH_TOKEN_URL, {
@@ -122,7 +127,7 @@ Deno.serve(async (req) => {
     });
     if (!tokenRes.ok) {
       console.error('[stitch-oauth-callback] token exchange failed', await tokenRes.text());
-      return redirectTo('/dashboard/bank?stitch_error=token_exchange_failed');
+      return redirectTo(`${basePath}${joiner}stitch_error=token_exchange_failed`);
     }
     const tokens = await tokenRes.json() as { access_token: string; refresh_token: string };
 
@@ -141,7 +146,7 @@ Deno.serve(async (req) => {
     });
     if (!gqlRes.ok) {
       console.error('[stitch-oauth-callback] account fetch failed', await gqlRes.text());
-      return redirectTo('/dashboard/bank?stitch_error=account_fetch_failed');
+      return redirectTo(`${basePath}${joiner}stitch_error=account_fetch_failed`);
     }
     const gql = await gqlRes.json();
     const accounts = gql?.data?.user?.bankAccounts ?? [];
@@ -166,9 +171,9 @@ Deno.serve(async (req) => {
       }, { onConflict: 'user_id,account_id' });
     }
 
-    return redirectTo('/dashboard/bank?stitch_linked=1');
+    return redirectTo(`${basePath}${joiner}stitch_linked=1`);
   } catch (err) {
     console.error('[stitch-oauth-callback] error', err);
-    return redirectTo('/dashboard/bank?stitch_error=unexpected');
+    return redirectTo(`${basePath}${joiner}stitch_error=unexpected`);
   }
 });

@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
  * in Phase 5 infra.
  */
 
-export type ApprovalAction = 'chore' | 'mission';
+export type ApprovalAction = 'chore' | 'mission' | 'goal_proposal' | 'money_request';
 
 export interface ApprovalNudgePayload {
   kid_name: string;
@@ -73,6 +73,20 @@ function buildNotification(row: PendingRow): { title: string; body: string; url:
     return {
       title: `${kid_name} finished a money mission`,
       body: `They completed "${item_title}" — tap to review.`,
+      url: link,
+    };
+  }
+  if (action_type === 'goal_proposal') {
+    return {
+      title: `${kid_name} proposed a new goal`,
+      body: `"${item_title}" — tap to approve or decline.`,
+      url: link,
+    };
+  }
+  if (action_type === 'money_request') {
+    return {
+      title: `${kid_name} is asking for money`,
+      body: `${item_title} — tap to decide.`,
       url: link,
     };
   }
