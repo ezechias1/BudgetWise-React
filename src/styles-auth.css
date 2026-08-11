@@ -72,6 +72,26 @@ body:has(.auth-container) #root {
     margin-top: 2px;
 }
 
+/* Terms/Privacy consent line inside the auth card. */
+.auth-legal {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.45);
+}
+.auth-legal a {
+    color: #10b981;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+}
+.auth-legal a:hover {
+    border-bottom-color: #10b981;
+}
+body.light .auth-legal {
+    color: rgba(0, 0, 0, 0.5);
+}
+
 .auth-container {
     display: flex;
     min-height: 100vh;

@@ -627,6 +627,18 @@ export default function AuthPage() {
                 </span>
               </a>
             )}
+
+            {/* The page footer carries these links too, but it starts exactly at
+                the fold on a 900px-tall viewport, so in practice nobody saw them.
+                Signing up is the moment they actually matter. */}
+            {tab !== 'reset' && (
+              <p className="auth-legal">
+                {tab === 'signup' ? 'By creating an account you agree to our ' : 'By signing in you agree to our '}
+                <a href="/terms.html">Terms of Service</a>
+                {' and '}
+                <a href="/privacy.html">Privacy Policy</a>.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -639,10 +651,10 @@ export default function AuthPage() {
           color: '#6b7280',
         }}
       >
-        <a href="/privacy" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
+        <a href="/privacy.html" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
           Privacy Policy
         </a>
-        <a href="/terms" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
+        <a href="/terms.html" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
           Terms of Service
         </a>
         <a href="/junior/login" style={{ color: '#10b981', textDecoration: 'none', margin: '0 8px' }}>
