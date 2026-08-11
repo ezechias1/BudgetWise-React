@@ -6818,9 +6818,23 @@ body.light .help-card:hover {
     background: rgba(16,185,129,0.03);
 }
 
+/* Was sized as a text glyph for the emoji these cards used to show. Now it's
+   a tinted square holding a line icon, so it reads as part of the UI instead
+   of as platform-dependent artwork. */
 .help-card-icon {
-    font-size: 1.6rem;
-    margin-bottom: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
+}
+
+body.light .help-card-icon {
+    background: rgba(var(--accent-rgb), 0.12);
 }
 
 .help-card h3 {

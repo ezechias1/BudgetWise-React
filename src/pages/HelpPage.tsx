@@ -1,4 +1,5 @@
 import { useMode } from '@/contexts/ModeContext';
+import { HelpIcon } from '@/components/HelpIcon';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -42,7 +43,7 @@ export default function HelpPage() {
       {/* Shared instructions (all modes) */}
       <div className="help-section">
         <div className="help-card">
-          <div className="help-card-icon">&#128202;</div>
+          <div className="help-card-icon"><HelpIcon name="dashboard" /></div>
           <h3>Overview Dashboard</h3>
           <p>
             Your home page shows a snapshot of your finances: monthly income, total spent,
@@ -52,7 +53,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#9889;</div>
+          <div className="help-card-icon"><HelpIcon name="bolt" /></div>
           <h3>Quick Add</h3>
           <p>
             The bar at the top of Overview lets you log expenses instantly. Pick a category, type
@@ -61,7 +62,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128176;</div>
+          <div className="help-card-icon"><HelpIcon name="wallet" /></div>
           <h3>Expenses</h3>
           <p>
             View all your transactions, filter by month or category, and search by description. On
@@ -70,7 +71,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#127919;</div>
+          <div className="help-card-icon"><HelpIcon name="target" /></div>
           <h3>Savings Goals</h3>
           <p>
             Set multiple savings goals with target amounts and deadlines. Track your progress
@@ -78,7 +79,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128177;</div>
+          <div className="help-card-icon"><HelpIcon name="exchange" /></div>
           <h3>Currency Converter</h3>
           <p>
             Convert between 150+ currencies with real-time exchange rates. Great for travel
@@ -86,7 +87,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128161;</div>
+          <div className="help-card-icon"><HelpIcon name="bulb" /></div>
           <h3>Smart Advice</h3>
           <p>
             Get personalised tips based on your spending patterns — like which categories you're
@@ -94,7 +95,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128269;</div>
+          <div className="help-card-icon"><HelpIcon name="search" /></div>
           <h3>Global Search</h3>
           <p>
             Press <strong>Ctrl+K</strong> (or Cmd+K on Mac) to search across all your expenses,
@@ -102,7 +103,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128260;</div>
+          <div className="help-card-icon"><HelpIcon name="repeat" /></div>
           <h3>Recurring Detection</h3>
           <p>
             If the same expense appears 3+ months in a row, BudgetWise will suggest marking it as
@@ -110,7 +111,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#127974;</div>
+          <div className="help-card-icon"><HelpIcon name="bank" /></div>
           <h3>Bank Connect</h3>
           <p>
             Link your bank account to automatically import transactions (Beta). Currently supports
@@ -118,7 +119,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128424;</div>
+          <div className="help-card-icon"><HelpIcon name="printer" /></div>
           <h3>Export to PDF</h3>
           <p>
             Export your expenses list as a clean PDF. Go to <strong>Expenses</strong> and click{' '}
@@ -127,7 +128,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128247;</div>
+          <div className="help-card-icon"><HelpIcon name="camera" /></div>
           <h3>Receipt Scanner</h3>
           <p>
             Snap a photo of any receipt and BudgetWise will read it using OCR. It extracts the
@@ -136,7 +137,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128190;</div>
+          <div className="help-card-icon"><HelpIcon name="save" /></div>
           <h3>Backup &amp; Restore</h3>
           <p>
             Download all your data as a JSON file from{' '}
@@ -146,7 +147,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128100;</div>
+          <div className="help-card-icon"><HelpIcon name="user" /></div>
           <h3>Profile Editing</h3>
           <p>
             Update your name, email, or password from the <strong>Account</strong> page. Click{' '}
@@ -155,7 +156,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128274;</div>
+          <div className="help-card-icon"><HelpIcon name="lock" /></div>
           <h3>Budget Limits</h3>
           <p>
             Set spending limits per category from <strong>Expenses &gt; Limits</strong>. When you
@@ -163,7 +164,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#9971;</div>
+          <div className="help-card-icon"><HelpIcon name="flag" /></div>
           <h3>Tithe Tracking</h3>
           <p>
             Toggle tithe on from <strong>Account</strong> to automatically calculate 10% of your
@@ -179,7 +180,7 @@ export default function HelpPage() {
       >
         <h2 className="help-section-title">Business Features</h2>
         <div className="help-card">
-          <div className="help-card-icon">&#128221;</div>
+          <div className="help-card-icon"><HelpIcon name="invoice" /></div>
           <h3>Invoices</h3>
           <p>
             Create and manage invoices for your clients. Track which are paid, pending, or
@@ -187,7 +188,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128101;</div>
+          <div className="help-card-icon"><HelpIcon name="users" /></div>
           <h3>Clients</h3>
           <p>
             Keep a directory of your clients with contact details. Link invoices to clients for
@@ -195,7 +196,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128200;</div>
+          <div className="help-card-icon"><HelpIcon name="trendUp" /></div>
           <h3>Profit &amp; Loss</h3>
           <p>
             See your revenue vs expenses breakdown. Tracks income from paid invoices against your
@@ -203,7 +204,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128203;</div>
+          <div className="help-card-icon"><HelpIcon name="clipboard" /></div>
           <h3>Tax Estimator</h3>
           <p>
             Estimates your quarterly tax liability based on your revenue and deductible expenses.
@@ -219,7 +220,7 @@ export default function HelpPage() {
       >
         <h2 className="help-section-title">Family Features</h2>
         <div className="help-card">
-          <div className="help-card-icon">&#128106;</div>
+          <div className="help-card-icon"><HelpIcon name="family" /></div>
           <h3>Family Members</h3>
           <p>
             Add everyone in your household — parents, teens, and kids. Each member gets their own
@@ -228,7 +229,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128181;</div>
+          <div className="help-card-icon"><HelpIcon name="cash" /></div>
           <h3>Allowances</h3>
           <p>
             Set weekly spending money for each member. Track how much they've spent and how much
@@ -237,7 +238,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#9989;</div>
+          <div className="help-card-icon"><HelpIcon name="check" /></div>
           <h3>Chores &amp; Rewards</h3>
           <p>
             Assign chores with cash rewards to motivate the family. When a chore is marked
@@ -245,7 +246,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#127942;</div>
+          <div className="help-card-icon"><HelpIcon name="trophy" /></div>
           <h3>Family Goals</h3>
           <p>
             Save together as a family for something special — a holiday, new TV, etc. Each member
@@ -253,7 +254,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#127775;</div>
+          <div className="help-card-icon"><HelpIcon name="star" /></div>
           <h3>Wish List</h3>
           <p>
             Kids can add items they're saving up for. They can incrementally save toward each wish
@@ -261,7 +262,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#127941;</div>
+          <div className="help-card-icon"><HelpIcon name="medal" /></div>
           <h3>Savings Leaderboard</h3>
           <p>
             See which family member has saved the most from their allowance this week. Gold,
@@ -269,7 +270,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128202;</div>
+          <div className="help-card-icon"><HelpIcon name="report" /></div>
           <h3>Monthly Family Report</h3>
           <p>
             Get a full breakdown of the month: total budget, per-member spending, completed
@@ -277,7 +278,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128161;</div>
+          <div className="help-card-icon"><HelpIcon name="bulb" /></div>
           <h3>Financial Tips</h3>
           <p>
             A new money tip appears daily on the Allowances page — age-appropriate advice to teach
@@ -285,7 +286,7 @@ export default function HelpPage() {
           </p>
         </div>
         <div className="help-card">
-          <div className="help-card-icon">&#128065;</div>
+          <div className="help-card-icon"><HelpIcon name="eye" /></div>
           <h3>Spending Tracker</h3>
           <p>
             Track real spending from family members who also have BudgetWise. As a parent:{' '}
@@ -304,7 +305,7 @@ export default function HelpPage() {
         </p>
 
         <div className="help-card">
-          <div className="help-card-icon">&#128273;</div>
+          <div className="help-card-icon"><HelpIcon name="key" /></div>
           <h3>1. Add a Junior Kid</h3>
           <p>
             Go to <strong>Members</strong> and tap <strong>Add Junior Kid</strong>. Enter the kid&apos;s
@@ -315,7 +316,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#128241;</div>
+          <div className="help-card-icon"><HelpIcon name="phone" /></div>
           <h3>2. Kid signs in on their device</h3>
           <p>
             On the kid&apos;s phone/tablet, open the link and enter the 4-digit PIN. Their device
@@ -325,7 +326,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#128176;</div>
+          <div className="help-card-icon"><HelpIcon name="jars" /></div>
           <h3>3. Save / Spend / Give jars</h3>
           <p>
             Every rand a kid earns splits into three jars: <strong>Save</strong>,{' '}
@@ -336,7 +337,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#129529;</div>
+          <div className="help-card-icon"><HelpIcon name="broom" /></div>
           <h3>4. Chores &amp; Missions</h3>
           <p>
             Assign chores with cash rewards from the parent side. Multi-step tasks become{' '}
@@ -347,7 +348,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#129534;</div>
+          <div className="help-card-icon"><HelpIcon name="receipt" /></div>
           <h3>5. Settle up (pay what you owe)</h3>
           <p>
             From the parent dashboard, open a kid&apos;s profile and tap <strong>Settle up</strong>.
@@ -358,7 +359,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#128683;</div>
+          <div className="help-card-icon"><HelpIcon name="ban" /></div>
           <h3>6. Forgot PIN? Reset it</h3>
           <p>
             If a kid forgets their PIN, go to <strong>Members</strong>, tap <strong>Reset PIN</strong>{' '}
@@ -368,7 +369,7 @@ export default function HelpPage() {
         </div>
 
         <div className="help-card">
-          <div className="help-card-icon">&#128100;</div>
+          <div className="help-card-icon"><HelpIcon name="userSwitch" /></div>
           <h3>7. Switching between parent and kid on one device</h3>
           <p>
             On a parent&apos;s device you can also open a kid&apos;s view with{' '}
