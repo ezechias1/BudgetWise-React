@@ -69,8 +69,14 @@ export default function JuniorHomePage() {
       const p = progressByMission[m.id];
       return !p || p.status !== 'completed';
     }) ?? null;
-  const completedCount = Object.values(progressByMission).filter((p) => p.status === 'completed').length;
+  // Count only missions in the kid's current age bracket. progressByMission
+  // carries every row they've ever completed, including missions from younger
+  // brackets that `missions` (age-filtered server-side) no longer contains —
+  // which is how this rendered nonsense like "7 of 5 done".
   const totalMissions = missions.length;
+  const completedCount = missions.filter(
+    (m) => progressByMission[m.id]?.status === 'completed',
+  ).length;
 
   return (
     <>

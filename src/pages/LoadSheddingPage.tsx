@@ -194,20 +194,29 @@ export default function LoadSheddingPage() {
 
         {/* Load Shedding Summary Cards */}
         <div className="stats-grid" id="lsSummaryGrid">
+          {/* .stat-card is display:flex — its children must live inside a
+              .stat-info column, or label/value/sub lay out side-by-side and
+              squeeze .stat-value (nowrap + ellipsis) down to just "R...". */}
           <div className="stat-card">
-            <div className="stat-label">This Month</div>
-            <div className="stat-value" id="lsMonthTotal">{fmtNum(monthTotal)}</div>
-            <div className="stat-sub">load shedding costs</div>
+            <div className="stat-info">
+              <div className="stat-label">This Month</div>
+              <div className="stat-value" id="lsMonthTotal">{fmtNum(monthTotal)}</div>
+              <div className="stat-sub">load shedding costs</div>
+            </div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Total All Time</div>
-            <div className="stat-value" id="lsAllTimeTotal">{fmtNum(allTotal)}</div>
-            <div className="stat-sub">since tracking</div>
+            <div className="stat-info">
+              <div className="stat-label">Total All Time</div>
+              <div className="stat-value" id="lsAllTimeTotal">{fmtNum(allTotal)}</div>
+              <div className="stat-sub">since tracking</div>
+            </div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Avg Per Month</div>
-            <div className="stat-value" id="lsAvgMonth">{fmtNum(avg)}</div>
-            <div className="stat-sub">average cost</div>
+            <div className="stat-info">
+              <div className="stat-label">Avg Per Month</div>
+              <div className="stat-value" id="lsAvgMonth">{fmtNum(avg)}</div>
+              <div className="stat-sub">average cost</div>
+            </div>
           </div>
         </div>
 

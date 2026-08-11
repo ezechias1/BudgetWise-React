@@ -33,6 +33,13 @@ body.family-mode {
     transition: opacity 0.4s;
 }
 
+/* Without this, light-mode users get a full-screen black flash on every hard
+   reload while the session check runs. Mirrors the light gradient used by the
+   pre-React loader in index.html (html.light-early). */
+body.light .loading-overlay {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 30%, #f5f3ff 70%, #eff6ff 100%);
+}
+
 .loading-overlay.hidden {
     opacity: 0;
     pointer-events: none;
@@ -813,6 +820,14 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* Secondary caption under a stat value (Load Shedding summary tiles). */
+.stat-sub {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.35);
+}
+
+body.light .stat-sub { color: rgba(0,0,0,0.45); }
 
 /* Charts */
 .charts-grid {
@@ -6098,6 +6113,14 @@ body.light .member-stat-val { color: #1a1a2e; }
 body.light .member-stat-lbl { color: rgba(0,0,0,0.4); }
 body.light .member-stats { border-top-color: rgba(0,0,0,0.06); }
 body.light .member-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+/* Edit / Remove / Reset PIN / Link PIN. The base rule paints these white-on-
+   transparent for the dark theme; without this override they rendered white
+   on the light card background, i.e. invisible. */
+body.light .member-actions button {
+    border-color: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.03);
+    color: rgba(0,0,0,0.65);
+}
 body.light .allowance-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
 body.light .allowance-name { color: #1a1a2e; }
 body.light .allowance-bar-track { background: rgba(0,0,0,0.06); }
@@ -6478,10 +6501,16 @@ body.light .ring-detail-label { color: rgba(0,0,0,0.5); }
 /* =============================================
    ONBOARDING TOUR
    ============================================= */
+/* Deliberately transparent: all the dimming comes from .tour-spotlight's
+   9999px box-shadow, which leaves a real hole over the highlighted element.
+   When this layer painted its own rgba(0,0,0,0.6) as well, that scrim sat
+   *under* the spotlight hole and dimmed the target too — so the "highlighted"
+   element looked barely brighter than the rest of the page. This div still
+   exists to catch the click-outside-to-skip. */
 .tour-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.6);
+    background: transparent;
     z-index: 800;
     pointer-events: all;
 }
@@ -6490,17 +6519,36 @@ body.light .ring-detail-label { color: rgba(0,0,0,0.5); }
 .tour-spotlight.hidden,
 .tour-tooltip.hidden { display: none; }
 
+/* Spotlight + tooltip are positioned from viewport coordinates (see
+   OnboardingTour.tsx), so they must be fixed, not absolute. As absolute they
+   resolved against .main-content — which is position:relative with a 260px
+   margin and 40px padding — shifting every step ~300px right and ~36px down. */
 .tour-spotlight {
-    position: absolute;
+    position: fixed;
     border-radius: 14px;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    /* Accent ring + soft glow so the target reads as deliberately picked out,
+       then the page-wide scrim. Darker than before (0.72 vs 0.55) because the
+       hole is now genuinely undimmed, so the contrast does the work. */
+    box-shadow:
+        0 0 0 3px var(--accent),
+        0 0 0 7px rgba(var(--accent-rgb), 0.28),
+        0 0 28px 6px rgba(var(--accent-rgb), 0.35),
+        0 0 0 9999px rgba(0,0,0,0.72);
     z-index: 801;
     transition: all 0.4s ease;
     pointer-events: none;
 }
 
+body.light .tour-spotlight {
+    box-shadow:
+        0 0 0 3px var(--accent),
+        0 0 0 7px rgba(var(--accent-rgb), 0.22),
+        0 0 28px 6px rgba(var(--accent-rgb), 0.3),
+        0 0 0 9999px rgba(15,23,42,0.55);
+}
+
 .tour-tooltip {
-    position: absolute;
+    position: fixed;
     z-index: 802;
     background: #1a1a2e;
     border: 1px solid rgba(var(--accent-rgb), 0.2);

@@ -298,7 +298,7 @@ export default function JuniorGoalsPage() {
                 <button type="button" className="btn-primary" onClick={() => setAddMoneyGoalId(g.id)}>
                   Add money
                 </button>
-                <button type="button" onClick={() => setAskGoalId(g.id)}>
+                <button type="button" className="btn-secondary" onClick={() => setAskGoalId(g.id)}>
                   Ask parents
                 </button>
               </div>
