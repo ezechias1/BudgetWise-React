@@ -241,14 +241,9 @@ export default function FamilyGoalsPage() {
       .eq('user_id', user.id);
     if (error) {
       setGoals(snapshot);
-      // 23503 = foreign key violation. Something still references this goal
-      // (e.g. a kid money request predating the ON DELETE SET NULL migration).
-      // Never surface the raw Postgres text to a parent.
-      alert(
-        error.code === '23503'
-          ? "This goal can't be deleted yet because a kid's money request is still linked to it. Decline or settle that request first, then try again."
-          : 'Could not delete goal. Please try again.',
-      );
+      // Deliberately not echoing error.message: this used to alert the raw
+      // Postgres text (constraint names and all) straight at a parent.
+      alert('Could not delete goal. Please try again.');
     }
   };
 
