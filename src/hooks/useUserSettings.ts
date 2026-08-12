@@ -38,46 +38,93 @@ interface UpdateInput {
  * Mirrors the vanilla mapping in js/app.js:607-614, 1701-1708, and the
  * transfer-money logic at 2553-2602.
  */
+
+// ---------------------------------------------------------------------------
+// Shared fetch layer.
+//
+// 24 files call useUserSettings(), and every instance used to run its own
+// identical query — a single page could fire five or six copies, which is a
+// large part of why pages took seconds to settle. This module-level store
+// gives all callers one in-flight request and one cached row, and pushes
+// updates to every mounted hook so they stay in sync.
+// ---------------------------------------------------------------------------
+
+const SETTINGS_COLUMNS =
+  'user_id, currency, avatar_url, is_pro, company_name, family_name, income, savings_goal, biz_income, biz_savings_goal, fam_income, fam_savings_goal';
+
+let cachedUserId: string | null = null;
+let cachedRow: UserSettingsRow | null = null;
+/** Distinct from `cachedRow !== null`: a user with no settings row caches a
+ *  legitimate null, and without this we would refetch forever. */
+let cacheLoaded = false;
+let inflight: Promise<UserSettingsRow | null> | null = null;
+
+const subscribers = new Set<(row: UserSettingsRow | null) => void>();
+
+async function fetchSettings(
+  userId: string,
+  force = false,
+): Promise<UserSettingsRow | null> {
+  if (cachedUserId !== userId) {
+    // Different user (account switch) — drop everything.
+    cachedUserId = userId;
+    cachedRow = null;
+    cacheLoaded = false;
+    inflight = null;
+  }
+  if (!force && cacheLoaded) return cachedRow;
+  if (!force && inflight) return inflight;
+
+  inflight = (async () => {
+    const { data } = await supabase
+      .from('user_settings')
+      .select(SETTINGS_COLUMNS)
+      .eq('user_id', userId)
+      .maybeSingle();
+    cachedRow = (data as UserSettingsRow | null) ?? null;
+    cacheLoaded = true;
+    inflight = null;
+    subscribers.forEach((fn) => fn(cachedRow));
+    return cachedRow;
+  })();
+  return inflight;
+}
+
 export function useUserSettings() {
   const { user } = useAuth();
   const { mode } = useMode();
 
-  const [row, setRow] = useState<UserSettingsRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [row, setRow] = useState<UserSettingsRow | null>(() =>
+    cachedUserId === user?.id && cacheLoaded ? cachedRow : null,
+  );
+  const [loading, setLoading] = useState(
+    () => !(cachedUserId === user?.id && cacheLoaded),
+  );
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('user_settings')
-      .select(
-        'user_id, currency, avatar_url, is_pro, company_name, family_name, income, savings_goal, biz_income, biz_savings_goal, fam_income, fam_savings_goal',
-      )
-      .eq('user_id', user.id)
-      .maybeSingle();
-    setRow((data as UserSettingsRow | null) ?? null);
+    const next = await fetchSettings(user.id, true);
+    setRow(next);
     setLoading(false);
   }, [user]);
 
-  // Cancelled-flag effect (AUDIT Imp #10) — kept in addition to `load`
-  // so refresh() still works imperatively without a cancellation handle.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setLoading(true);
-    (async () => {
-      const { data } = await supabase
-        .from('user_settings')
-        .select(
-          'user_id, currency, avatar_url, is_pro, company_name, family_name, income, savings_goal, biz_income, biz_savings_goal, fam_income, fam_savings_goal',
-        )
-        .eq('user_id', user.id)
-        .maybeSingle();
+    const notify = (next: UserSettingsRow | null) => {
+      if (!cancelled) setRow(next);
+    };
+    subscribers.add(notify);
+    fetchSettings(user.id).then((next) => {
       if (cancelled) return;
-      setRow((data as UserSettingsRow | null) ?? null);
+      setRow(next);
       setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    });
+    return () => {
+      cancelled = true;
+      subscribers.delete(notify);
+    };
   }, [user]);
 
   // Pick the right pair of columns for the current mode.

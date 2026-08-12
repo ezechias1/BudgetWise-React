@@ -44,10 +44,52 @@ export function pickMemberColor(taken: (string | null | undefined)[]): string {
  * stamp `group_id` on new Family-mode rows) and is mounted on nearly every
  * page — making it pull the full roster on every mount would be wasteful.
  */
+// Shared across all callers — useExpenses, useFamilyMembers and
+// useFamilyIncome each instantiate this, so a single page was running the
+// same lookup four times. One in-flight request, one cached answer.
+let groupCacheUserId: string | null = null;
+let groupCacheId: string | null = null;
+let groupCacheLoaded = false;
+let groupInflight: Promise<string | null> | null = null;
+
+async function fetchGroupId(userId: string): Promise<string | null> {
+  if (groupCacheUserId !== userId) {
+    groupCacheUserId = userId;
+    groupCacheLoaded = false;
+    groupCacheId = null;
+    groupInflight = null;
+  }
+  if (groupCacheLoaded) return groupCacheId;
+  if (groupInflight) return groupInflight;
+
+  groupInflight = (async () => {
+    const { data } = await supabase
+      .from('family_links')
+      .select('group_id')
+      .eq('user_id', userId)
+      .eq('approved', true)
+      .limit(1);
+    groupCacheId = (data?.[0]?.group_id as string) ?? null;
+    groupCacheLoaded = true;
+    groupInflight = null;
+    return groupCacheId;
+  })();
+  return groupInflight;
+}
+
+/** Drop the cached group so the next read refetches — call after joining,
+ *  creating or being approved into a group. */
+export function invalidateFamilyGroupCache() {
+  groupCacheLoaded = false;
+  groupInflight = null;
+}
+
 export function useFamilyGroupId(): string | null {
   const { user } = useAuth();
   const { mode } = useMode();
-  const [groupId, setGroupId] = useState<string | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(() =>
+    groupCacheLoaded ? groupCacheId : null,
+  );
 
   useEffect(() => {
     if (!user || mode !== 'family') {
@@ -55,15 +97,9 @@ export function useFamilyGroupId(): string | null {
       return;
     }
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('family_links')
-        .select('group_id')
-        .eq('user_id', user.id)
-        .eq('approved', true)
-        .limit(1);
-      if (!cancelled) setGroupId((data?.[0]?.group_id as string) ?? null);
-    })();
+    fetchGroupId(user.id).then((id) => {
+      if (!cancelled) setGroupId(id);
+    });
     return () => {
       cancelled = true;
     };
