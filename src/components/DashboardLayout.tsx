@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { AccountPickerModal } from './AccountPickerModal';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { isProUser } from '@/lib/access';
 import { TripReviewBanner } from './TripReviewBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,26 +30,47 @@ export function DashboardLayout() {
     { totalOwedCents: number; kidsCount: number } | null
   >(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  // Just logged in, but we don't yet know whether they're entitled to pick.
+  const [pickerPending, setPickerPending] = useState(false);
   const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user } = useAuth();
   const { setMode } = useMode();
+  const { isProFromSettings, loading: settingsLoading } = useUserSettings();
+  const userIsPro = isProUser(isProFromSettings, user);
   const { isChild, loading: kidLoading } = useKidProfile();
   const { permission, request } = useNotificationPermission();
 
   // Post-login account picker: AuthPage sets sessionStorage on any successful
-  // login (password, Google, password-reset). Fire the modal as soon as a
-  // user is available — don't wait for user_settings to load (that DB round
-  // trip is what was making the popup appear "too late"). ENABLE_PRO_SYSTEM
-  // is currently false so every user is effectively Pro and entitled to the
-  // picker; when the Pro gate is re-enabled later, filter here.
+  // login (password, Google, password-reset).
+  //
+  // Two-step because the picker is Pro-only. Step one consumes the flag as
+  // soon as a user exists (the flag must be cleared promptly or a later
+  // remount re-triggers it). Step two waits for user_settings, since Pro
+  // status lives there, then either opens the picker or sends a free user
+  // straight into Personal — the other two workspaces aren't theirs to open,
+  // so asking would be a dead end.
+  //
+  // The page is held back for both steps (see the Outlet guard below), so
+  // the settings round trip costs a beat of blank dashboard rather than a
+  // flash of the wrong account's data.
   useEffect(() => {
     if (!user) return;
     const flag = sessionStorage.getItem('bw-just-logged-in');
     if (!flag) return;
     sessionStorage.removeItem('bw-just-logged-in');
-    setShowAccountPicker(true);
+    setPickerPending(true);
   }, [user]);
+
+  useEffect(() => {
+    if (!pickerPending || settingsLoading) return;
+    setPickerPending(false);
+    if (userIsPro) {
+      setShowAccountPicker(true);
+    } else {
+      setMode('personal');
+    }
+  }, [pickerPending, settingsLoading, userIsPro, setMode]);
 
   const handlePickAccount = (m: Mode) => {
     setMode(m);
@@ -95,10 +118,7 @@ export function DashboardLayout() {
   return (
     <>
       {showAccountPicker && (
-        <AccountPickerModal
-          onPick={handlePickAccount}
-          onClose={() => setShowAccountPicker(false)}
-        />
+        <AccountPickerModal onPick={handlePickAccount} />
       )}
 
       <Sidebar mobileOpen={mobileOpen} />
@@ -191,7 +211,20 @@ export function DashboardLayout() {
             </div>
           </div>
         )}
-        <Outlet />
+        {/* Hold the page back until the account picker is answered.
+            AuthPage forces bw-mode to 'personal' on every login (deliberately
+            — it avoids the "Personal style + Family data" split-brain), so
+            without this the dashboard mounts and runs a full round of
+            Personal-mode queries underneath the modal. A Family user would
+            see Personal totals and their own budget flash up before they'd
+            chosen anything, then watch it all re-fetch after picking.
+            Suppressing Outlet means no page mounts, and no query fires,
+            until the mode is actually known. */}
+        {showAccountPicker || pickerPending ? (
+          <div className="page active" aria-busy="true" />
+        ) : (
+          <Outlet />
+        )}
       </main>
     </>
   );

@@ -2,7 +2,6 @@ import type { Mode } from '@/types';
 
 interface Props {
   onPick: (mode: Mode) => void;
-  onClose: () => void;
 }
 
 /**
@@ -10,6 +9,12 @@ interface Props {
  * which workspace to enter. Also fixes the "Personal style + Family data"
  * split-brain on first render by forcing a clean mode selection before the
  * dashboard mounts data hooks.
+ *
+ * Deliberately NOT dismissible: no close button, no overlay-click, no Escape.
+ * Picking a mode is the only way out, and DashboardLayout holds the page
+ * back until that happens — so a dismissal would leave the user on a blank
+ * dashboard. Free (non-Pro) users never see this at all; they go straight
+ * into Personal, since the other two workspaces aren't theirs to open.
  */
 const OPTIONS: Array<{
   mode: Mode;
@@ -62,27 +67,18 @@ const OPTIONS: Array<{
   },
 ];
 
-export function AccountPickerModal({ onPick, onClose }: Props) {
+export function AccountPickerModal({ onPick }: Props) {
   return (
     <div
       className="modal-overlay"
-      onClick={onClose}
       style={{ zIndex: 200 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="account-picker-title"
     >
-      <div
-        className="modal"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 560 }}
-      >
+      <div className="modal" style={{ maxWidth: 560 }}>
         <div className="modal-header">
-          <h2>Welcome back</h2>
-          <button
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <h2 id="account-picker-title">Welcome back</h2>
         </div>
         <p style={{ marginTop: 0, opacity: 0.75 }}>
           Which account do you want to open?
