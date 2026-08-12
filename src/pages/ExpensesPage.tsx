@@ -11,6 +11,7 @@ import { TripsTab } from '@/components/TripsTab';
 import { UndoToast } from '@/components/UndoToast';
 import { ExpenseReviewInbox } from '@/components/ExpenseReviewInbox';
 import { usePendingExpenses } from '@/hooks/usePendingExpenses';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { SOURCE_BADGES } from '@/lib/expense-source';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -99,6 +100,8 @@ export default function ExpensesPage() {
   // Owned here rather than inside the inbox so the tab's count badge and the
   // list share one instance — see ExpenseReviewInbox's `queue` prop.
   const reviewQueue = usePendingExpenses();
+  // Roster for per-person colour coding. Empty outside Family mode.
+  const { members: familyMembers } = useFamilyMembers();
   const [month, setMonth] = useState<string>(() => monthKey());
   const [category, setCategory] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -533,6 +536,38 @@ export default function ExpensesPage() {
             </div>
           ))}
 
+          {/* Key for the per-person dots. Only shown once there's more than
+              one member — a legend explaining a single colour is noise. */}
+          {mode === 'family' && Object.keys(familyMembers).length > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
+                padding: '0 4px 10px',
+                fontSize: '0.78rem',
+                opacity: 0.75,
+              }}
+            >
+              {Object.values(familyMembers).map((m) => (
+                <span
+                  key={m.user_id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: m.color,
+                    }}
+                  />
+                  {m.display_name}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="table-wrap">
             {error && (
               <p className="auth-error" style={{ padding: 16 }}>
@@ -612,6 +647,25 @@ export default function ExpensesPage() {
                           </span>
                         </td>
                         <td>
+                          {/* Shared family ledger: whose expense is this?
+                              Only meaningful in Family mode, where rows from
+                              every approved member share one table. */}
+                          {mode === 'family' && familyMembers[e.user_id] && (
+                            <span
+                              title={familyMembers[e.user_id].display_name}
+                              aria-label={`Added by ${familyMembers[e.user_id].display_name}`}
+                              style={{
+                                display: 'inline-block',
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                marginRight: 6,
+                                verticalAlign: 'middle',
+                                background: familyMembers[e.user_id].color,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
                           {e.description}
                           {/* Provenance badge. Rows can now arrive from four
                               places, and an auto-created row nobody can trace

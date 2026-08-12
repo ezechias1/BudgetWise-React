@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
+import { useFamilyGroupId } from '@/hooks/useFamilyMembers';
 import type { Expense, Mode, NewExpense } from '@/types';
 
 export type ExpensePatch = Partial<NewExpense>;
@@ -22,6 +23,7 @@ export type ExpensePatch = Partial<NewExpense>;
 export function useExpenses() {
   const { user } = useAuth();
   const { mode } = useMode();
+  const familyGroupId = useFamilyGroupId();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,10 +35,13 @@ export function useExpenses() {
     setError(null);
     // Personal mode also picks up legacy rows where account_mode IS NULL
     // (vanilla app wrote those before the mode column existed).
-    let query = supabase
-      .from('expenses')
-      .select('*')
-      .eq('user_id', user.id);
+    let query = supabase.from('expenses').select('*');
+    // Family mode is the shared household ledger: drop the owner filter and
+    // let RLS decide, so an approved partner's Family expenses come through
+    // too. Safe because the group policy is Family-mode-only and the
+    // account_mode filter below scopes the query regardless. Every other
+    // mode stays strictly owner-scoped.
+    if (mode !== 'family') query = query.eq('user_id', user.id);
     query =
       mode === 'personal'
         ? query.or('account_mode.is.null,account_mode.eq.personal')
@@ -71,10 +76,8 @@ export function useExpenses() {
     setLoading(true);
     setError(null);
     (async () => {
-      let query = supabase
-        .from('expenses')
-        .select('*')
-        .eq('user_id', user.id);
+      let query = supabase.from('expenses').select('*');
+      if (mode !== 'family') query = query.eq('user_id', user.id); // see load()
       query =
         mode === 'personal'
           ? query.or('account_mode.is.null,account_mode.eq.personal')
@@ -97,16 +100,29 @@ export function useExpenses() {
       // the inserted row's trip_id/business_expense and, if it landed inside
       // a trip's date range, immediately prompt "Business or Personal?"
       // without a second round trip.
+      // Stamp group_id on Family-mode rows so partners can see them. The
+      // write guard rejects a group_id the user isn't an approved member
+      // of, so this can only ever be their own group.
       const { data, error: err } = await supabase
         .from('expenses')
-        .insert({ ...input, user_id: user.id, account_mode: mode })
+        .insert({
+          ...input,
+          user_id: user.id,
+          account_mode: mode,
+          ...(mode === 'family' && familyGroupId
+            ? { group_id: familyGroupId }
+            : {}),
+        })
         .select()
         .single();
       if (err) return { error: err.message };
       await load();
       return { error: null, expense: data as Expense };
     },
-    [user, mode, load],
+    // familyGroupId resolves asynchronously after mount — without it here the
+    // callback would close over the initial null and silently save Family
+    // expenses with no group_id, invisible to the rest of the household.
+    [user, mode, load, familyGroupId],
   );
 
   const deleteExpense = useCallback(
