@@ -264,12 +264,27 @@ export default function SpendingTrackerPage() {
       setJoinError('Enter a code');
       return;
     }
-    const groupRes = await supabase
-      .from('family_groups')
-      .select('*')
-      .eq('family_code', code)
-      .maybeSingle();
-    if (!groupRes.data) {
+    // Resolve the invite code through an RPC, not a direct select.
+    //
+    // family_groups RLS restricts SELECT to owners and members, so a
+    // *prospective* member could never read the row they were trying to
+    // join — the direct query returned 200 with an empty array and the UI
+    // reported "Invalid invite code" for perfectly valid codes. Joining a
+    // family was therefore impossible.
+    //
+    // find_family_group_by_code is SECURITY DEFINER and returns only id +
+    // family_name — deliberately not owner_id, so holding a code doesn't
+    // reveal who owns the group before approval.
+    const { data: found, error: lookupErr } = await supabase.rpc(
+      'find_family_group_by_code',
+      { p_code: code },
+    );
+    const group = (found as { id: string; family_name: string }[] | null)?.[0];
+    if (lookupErr) {
+      setJoinError(`Could not check that code: ${lookupErr.message}`);
+      return;
+    }
+    if (!group) {
       setJoinError('Invalid invite code');
       return;
     }
@@ -277,7 +292,7 @@ export default function SpendingTrackerPage() {
       .from('family_links')
       .select('id')
       .eq('user_id', user.id)
-      .eq('group_id', (groupRes.data as FamilyGroup).id)
+      .eq('group_id', group.id)
       .maybeSingle();
     if (existing.data) {
       setJoinError('Already linked to this family');
@@ -287,7 +302,7 @@ export default function SpendingTrackerPage() {
     // display_name this silently 400'd, so joining a family by code has
     // never actually worked either.
     const { error: joinErr } = await supabase.from('family_links').insert({
-      group_id: (groupRes.data as FamilyGroup).id,
+      group_id: group.id,
       user_id: user.id,
       display_name: memberDisplayName(user),
       role: 'member',
