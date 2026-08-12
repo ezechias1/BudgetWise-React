@@ -9,6 +9,9 @@ import {
 import { ExpenseModal } from '@/components/ExpenseModal';
 import { TripsTab } from '@/components/TripsTab';
 import { UndoToast } from '@/components/UndoToast';
+import { ExpenseReviewInbox } from '@/components/ExpenseReviewInbox';
+import { usePendingExpenses } from '@/hooks/usePendingExpenses';
+import { SOURCE_BADGES } from '@/lib/expense-source';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
@@ -81,13 +84,21 @@ export default function ExpensesPage() {
   const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
   // Trips is Personal/Family only — bounce back to the Expenses list if the
   // user switches to Business mode while it's open.
-  const [activeTab, setActiveTab] = useState<'expenses' | 'trips'>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('tab') === 'trips' ? 'trips' : 'expenses';
-  });
+  const [activeTab, setActiveTab] = useState<'expenses' | 'trips' | 'review'>(
+    () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'trips') return 'trips';
+      if (tab === 'review') return 'review';
+      return 'expenses';
+    },
+  );
   useEffect(() => {
     if (mode === 'business' && activeTab === 'trips') setActiveTab('expenses');
   }, [mode, activeTab]);
+  // Owned here rather than inside the inbox so the tab's count badge and the
+  // list share one instance — see ExpenseReviewInbox's `queue` prop.
+  const reviewQueue = usePendingExpenses();
   const [month, setMonth] = useState<string>(() => monthKey());
   const [category, setCategory] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -361,15 +372,17 @@ export default function ExpensesPage() {
           )}
         </div>
 
-        {mode !== 'business' && (
-          <div className="expense-subtabs">
-            <button
-              type="button"
-              className={`tab-btn${activeTab === 'expenses' ? ' active' : ''}`}
-              onClick={() => setActiveTab('expenses')}
-            >
-              Expenses
-            </button>
+        {/* Review applies in every mode (Business imports statements too),
+            so the bar is no longer gated — only the Trips tab is. */}
+        <div className="expense-subtabs">
+          <button
+            type="button"
+            className={`tab-btn${activeTab === 'expenses' ? ' active' : ''}`}
+            onClick={() => setActiveTab('expenses')}
+          >
+            Expenses
+          </button>
+          {mode !== 'business' && (
             <button
               type="button"
               className={`tab-btn${activeTab === 'trips' ? ' active' : ''}`}
@@ -377,10 +390,22 @@ export default function ExpensesPage() {
             >
               Trips
             </button>
-          </div>
-        )}
+          )}
+          <button
+            type="button"
+            className={`tab-btn${activeTab === 'review' ? ' active' : ''}`}
+            onClick={() => setActiveTab('review')}
+          >
+            Review
+            {reviewQueue.pending.length > 0 && ` (${reviewQueue.pending.length})`}
+          </button>
+        </div>
 
-        {activeTab === 'trips' && mode !== 'business' ? (
+        {activeTab === 'review' ? (
+          <div className="chart-card full-width">
+            <ExpenseReviewInbox queue={reviewQueue} onReviewed={refresh} />
+          </div>
+        ) : activeTab === 'trips' && mode !== 'business' ? (
           <TripsTab />
         ) : (
         <div className="chart-card full-width">
@@ -586,7 +611,29 @@ export default function ExpensesPage() {
                             {e.category}
                           </span>
                         </td>
-                        <td>{e.description}</td>
+                        <td>
+                          {e.description}
+                          {/* Provenance badge. Rows can now arrive from four
+                              places, and an auto-created row nobody can trace
+                              is a row nobody trusts. Hidden for 'manual' so
+                              hand-entered ledgers stay uncluttered. */}
+                          {e.source && e.source !== 'manual' && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                padding: '1px 6px',
+                                borderRadius: 6,
+                                fontSize: '0.68rem',
+                                fontWeight: 600,
+                                opacity: 0.65,
+                                border: '1px solid currentColor',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {SOURCE_BADGES[e.source] ?? e.source}
+                            </span>
+                          )}
+                        </td>
                         <td>{e.recurring === 'no' ? '-' : e.recurring}</td>
                         <td>{formatCurrency(e.amount, currency)}</td>
                         <td style={{ display: 'flex', gap: 4, alignItems: 'center' }}>

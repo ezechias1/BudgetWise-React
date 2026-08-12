@@ -35,7 +35,27 @@ export interface Expense {
   /** null = needs review; only meaningful for expenses tagged to a trip. */
   business_expense: boolean | null;
   created_at: string;
+  /** How this row got here. Defaults to 'manual' for anything hand-entered. */
+  source: ExpenseSource;
+  /**
+   * Whether this row counts in the ledger. Imported rows arrive 'pending'
+   * and are excluded from totals/charts until confirmed — see useExpenses.
+   */
+  review_status: ExpenseReviewStatus;
+  /** Provider transaction id, unique per user. Null for anything not imported. */
+  external_id: string | null;
+  /** Which linked bank account this came from, if any. */
+  linked_account_id: string | null;
 }
+
+export type ExpenseSource =
+  | 'manual'
+  | 'csv'
+  | 'mono'
+  | 'alert'
+  | 'stokvel';
+
+export type ExpenseReviewStatus = 'pending' | 'confirmed' | 'dismissed';
 
 /** Trips are scoped to Personal and Family modes only — no Business trips. */
 export type TripMode = 'personal' | 'family';

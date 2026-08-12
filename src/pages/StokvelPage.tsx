@@ -363,7 +363,11 @@ export default function StokvelPage() {
         note: contribNote,
       });
 
-      // Also write an expenses row so it shows in totals/pie (app.js line 8971)
+      // Also write an expenses row so it shows in totals/pie (app.js line 8971).
+      // source='stokvel' is what stops this being double-counted once bank
+      // import is live: the same contribution also arrives as a bank debit,
+      // and the dedupe matcher uses source to tell the two apart. The
+      // migration backfilled existing rows; this tags new ones at write time.
       await supabase.from('expenses').insert({
         user_id: user.id,
         category: 'Stokvel',
@@ -372,6 +376,7 @@ export default function StokvelPage() {
         date: contribDate,
         recurring: 'no',
         account_mode: 'personal',
+        source: 'stokvel',
       });
 
       setContribTarget(null);

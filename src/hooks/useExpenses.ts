@@ -46,6 +46,12 @@ export function useExpenses() {
     // a second .or() ANDs it with the mode filter above (repeated top-level
     // Postgrest params AND together; confirmed against postgrest-js source).
     query = query.or('trip_id.is.null,business_expense.eq.false');
+    // Imported rows land 'pending' and must not reach totals, budget
+    // warnings or the pie chart until confirmed; 'dismissed' rows never do.
+    // Enforced here rather than in RLS on purpose — RLS answers "may this
+    // user see this row at all", and a policy hiding pending rows would
+    // break the review queue, which has to query for them deliberately.
+    query = query.eq('review_status', 'confirmed');
     const { data, error: err } = await query.order('date', { ascending: false });
     if (err) {
       setError(err.message);
@@ -74,6 +80,7 @@ export function useExpenses() {
           ? query.or('account_mode.is.null,account_mode.eq.personal')
           : query.eq('account_mode', mode);
       query = query.or('trip_id.is.null,business_expense.eq.false');
+      query = query.eq('review_status', 'confirmed'); // see load() above
       const { data, error: err } = await query.order('date', { ascending: false });
       if (cancelled) return;
       if (err) setError(err.message);
