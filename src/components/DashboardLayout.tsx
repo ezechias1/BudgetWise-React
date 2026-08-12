@@ -31,7 +31,21 @@ export function DashboardLayout() {
   >(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   // Just logged in, but we don't yet know whether they're entitled to pick.
-  const [pickerPending, setPickerPending] = useState(false);
+  //
+  // Seeded synchronously from sessionStorage rather than waiting for the
+  // effect below. useAuth can take seconds to populate `user` after the
+  // post-login navigate, and until it does there is nothing to hold the
+  // Outlet back — which meant the dashboard rendered and queried a full
+  // Personal-mode page for that entire window before the picker appeared.
+  // Reading the flag on first render closes that gap: the page is held
+  // from the very first paint.
+  const [pickerPending, setPickerPending] = useState(() => {
+    try {
+      return !!sessionStorage.getItem('bw-just-logged-in');
+    } catch {
+      return false; // private browsing / storage disabled
+    }
+  });
   const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user } = useAuth();

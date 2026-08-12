@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMode } from '@/contexts/ModeContext';
 import { useFamilyIncome } from '@/hooks/useFamilyIncome';
-import { pickMemberColor } from '@/hooks/useFamilyMembers';
+import { pickMemberColor, invalidateFamilyGroupCache } from '@/hooks/useFamilyMembers';
 import { FAMILY_CATEGORIES } from '@/lib/categories';
 
 /**
@@ -69,8 +70,45 @@ function randomCode(): string {
   return out;
 }
 
+
+/**
+ * This page is reached from two different nav items: "Spending Tracker" in
+ * Family mode and "Partners" in Business mode (App.tsx routes both to it).
+ * The underlying model is the same, but the wording was family-only — so a
+ * business user was being told to enter the invite code from their
+ * "parent/guardian". Copy switches on mode; nothing else does.
+ */
+function copyFor(isBusiness: boolean) {
+  return {
+    subtitle: isBusiness
+      ? 'Track real spending from linked partners'
+      : 'Track real spending from linked family members',
+    codeHeading: isBusiness ? 'Your Partner Invite Code' : 'Your Family Invite Code',
+    codeHelp: isBusiness
+      ? 'Share this code with a partner. They enter it in their app to link their spending to your business dashboard.'
+      : 'Share this code with family members. They enter it in their app to link their spending to your family dashboard.',
+    incomeHeading: isBusiness ? 'Combined Revenue' : 'Family Income',
+    incomeHelp: isBusiness
+      ? 'Combined monthly income from all linked partners. Each partner sets their own.'
+      : 'Combined income from all family members. Each parent sets their own contribution.',
+    membersHeading: isBusiness ? 'Linked Partners' : 'Linked Members',
+    feedHeading: isBusiness ? 'Partner Spending Feed' : 'Family Spending Feed',
+    joinHeading: isBusiness ? 'Join a Business' : 'Join a Family',
+    joinHelp: isBusiness
+      ? 'Enter the invite code from the account owner to link your spending.'
+      : 'Enter the invite code from your parent/guardian to link your spending.',
+    createOwn: isBusiness
+      ? 'Or create your own partner group'
+      : 'Or create your own family group',
+    linkedFallback: isBusiness ? 'Business' : 'Family',
+    unlink: isBusiness ? 'Unlink from Business' : 'Unlink from Family',
+  };
+}
+
 export default function SpendingTrackerPage() {
   const { user } = useAuth();
+  const { mode } = useMode();
+  const t = copyFor(mode === 'business');
   const [loading, setLoading] = useState(true);
   const [ownedGroup, setOwnedGroup] = useState<FamilyGroup | null>(null);
   const [myLink, setMyLink] = useState<
@@ -259,6 +297,7 @@ export default function SpendingTrackerPage() {
           role: 'owner',
           approved: true,
         });
+        invalidateFamilyGroupCache();
         if (linkErr) {
           alert(`Group created, but linking you to it failed: ${linkErr.message}`);
         }
@@ -337,6 +376,7 @@ export default function SpendingTrackerPage() {
       setJoinError(`Could not join: ${joinErr.message}`);
       return;
     }
+    invalidateFamilyGroupCache();
     setJoinCode('');
     loadState();
   };
@@ -419,7 +459,7 @@ export default function SpendingTrackerPage() {
         <div>
           <h1>Spending Tracker</h1>
           <p className="page-subtitle">
-            Track real spending from linked family members
+            {t.subtitle}
           </p>
         </div>
       </div>
@@ -432,14 +472,13 @@ export default function SpendingTrackerPage() {
             style={{ marginBottom: 16 }}
           >
             <h3 className="tracking-title" style={{ marginBottom: 12 }}>
-              Your Family Invite Code
+              {t.codeHeading}
             </h3>
             <p
               className="tracking-desc"
               style={{ fontSize: '0.82rem', marginBottom: 12 }}
             >
-              Share this code with family members. They enter it in their app
-              to link their spending to your family dashboard.
+              {t.codeHelp}
             </p>
             <div
               style={{
@@ -488,13 +527,12 @@ export default function SpendingTrackerPage() {
             style={{ marginBottom: 16 }}
             id="familyIncomeSection"
           >
-            <h3 style={{ marginBottom: 8 }}>Family Income</h3>
+            <h3 style={{ marginBottom: 8 }}>{t.incomeHeading}</h3>
             <p
               className="tracking-desc"
               style={{ fontSize: '0.78rem', marginBottom: 12 }}
             >
-              Combined income from all family members. Each parent sets their
-              own contribution.
+              {t.incomeHelp}
             </p>
             <div id="familyIncomeSummary">
               {familyIncome > 0 ? (
@@ -641,7 +679,7 @@ export default function SpendingTrackerPage() {
             className="chart-card full-width"
             style={{ marginBottom: 16 }}
           >
-            <h3 style={{ marginBottom: 4 }}>Linked Members</h3>
+            <h3 style={{ marginBottom: 4 }}>{t.membersHeading}</h3>
             <p
               className="tracking-desc"
               style={{ fontSize: '0.78rem', marginBottom: 14 }}
@@ -704,7 +742,7 @@ export default function SpendingTrackerPage() {
 
           {/* Spending feed */}
           <div className="chart-card full-width">
-            <h3 style={{ marginBottom: 12 }}>Family Spending Feed</h3>
+            <h3 style={{ marginBottom: 12 }}>{t.feedHeading}</h3>
             {/* Live feed — realtime via Supabase channel */}
             <div id="familySpendingFeed">
               {spendingFeed.length === 0 ? (
@@ -752,14 +790,13 @@ export default function SpendingTrackerPage() {
             style={{ marginBottom: 16 }}
           >
             <h3 className="tracking-title" style={{ marginBottom: 12 }}>
-              Join a Family
+              {t.joinHeading}
             </h3>
             <p
               className="tracking-desc"
               style={{ fontSize: '0.82rem', marginBottom: 12 }}
             >
-              Enter the invite code from your parent/guardian to link your
-              spending.
+              {t.joinHelp}
             </p>
             {!myLink ? (
               <div id="joinSection">
@@ -810,7 +847,7 @@ export default function SpendingTrackerPage() {
                     color: '#8b5cf6',
                   }}
                 >
-                  Or create your own family group
+                  {t.createOwn}
                 </button>
               </div>
             ) : (
@@ -829,7 +866,7 @@ export default function SpendingTrackerPage() {
                   <span style={{ fontSize: '1.3rem' }}>✅</span>
                   <div>
                     <div style={{ fontWeight: 700 }}>
-                      Linked to {myLink.family_groups?.family_name || 'Family'}
+                      Linked to {myLink.family_groups?.family_name || t.linkedFallback}
                     </div>
                     <div
                       className="tracking-desc"
@@ -852,7 +889,7 @@ export default function SpendingTrackerPage() {
                     width: '100%',
                   }}
                 >
-                  Unlink from Family
+                  {t.unlink}
                 </button>
               </div>
             )}
