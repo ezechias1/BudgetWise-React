@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFamilyIncome } from '@/hooks/useFamilyIncome';
 import { FAMILY_CATEGORIES } from '@/lib/categories';
 
 /**
@@ -72,7 +73,12 @@ export default function SpendingTrackerPage() {
   const [sharingEnabled, setSharingEnabled] = useState(false);
   const [shareScope, setShareScope] = useState<'all' | 'selected'>('all');
   const [shareCategories, setShareCategories] = useState<string[]>([]);
-  const [familyIncome, setFamilyIncome] = useState<number>(0);
+  // Household income now comes from the shared hook rather than an inline
+  // sum here. The old version only ran in the owner branch (so a joined
+  // spouse never saw a combined figure) and dropped user_id, making a
+  // per-person split impossible.
+  const household = useFamilyIncome();
+  const familyIncome = household.combined;
 
   const loadState = useCallback(async () => {
     if (!user) return;
@@ -109,22 +115,8 @@ export default function SpendingTrackerPage() {
       setLinkedMembers(links);
       setSpendingFeed((feedRes.data as FamilySpending[]) || []);
 
-      // Sum fam_income from all approved linked members' user_settings
-      const approvedIds = links
-        .filter((l) => l.approved)
-        .map((l) => l.user_id);
-      if (approvedIds.length > 0) {
-        const { data: settingsRows } = await supabase
-          .from('user_settings')
-          .select('fam_income')
-          .in('user_id', approvedIds);
-        const total = (settingsRows || []).reduce(
-          (sum: number, r: { fam_income?: number | null }) =>
-            sum + (r.fam_income || 0),
-          0,
-        );
-        setFamilyIncome(total);
-      }
+      // (Household income is loaded by useFamilyIncome above — it covers the
+      // member branch too, which this block never did.)
     } else {
       setOwnedGroup(null);
       const myLinkRes = await supabase
@@ -411,28 +403,74 @@ export default function SpendingTrackerPage() {
             </p>
             <div id="familyIncomeSummary">
               {familyIncome > 0 ? (
-                <div
-                  style={{
-                    fontSize: '1.6rem',
-                    fontWeight: 800,
-                    color: '#10b981',
-                  }}
-                >
-                  {familyIncome.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                  <span
+                <>
+                  <div
                     style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 400,
-                      opacity: 0.5,
-                      marginLeft: 6,
+                      fontSize: '1.6rem',
+                      fontWeight: 800,
+                      color: '#10b981',
                     }}
                   >
-                    / month (combined)
-                  </span>
-                </div>
+                    {familyIncome.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 400,
+                        opacity: 0.5,
+                        marginLeft: 6,
+                      }}
+                    >
+                      / month (combined)
+                    </span>
+                  </div>
+                  {/* Per-person split — the old inline query dropped user_id,
+                      so this breakdown was impossible before. */}
+                  {household.hasPartners && (
+                    <div style={{ display: 'grid', gap: 4, marginTop: 10 }}>
+                      {household.members.map((m) => (
+                        <div
+                          key={m.user_id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          <span style={{ opacity: 0.7 }}>{m.display_name}</span>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              opacity: m.visible ? 1 : 0.45,
+                            }}
+                          >
+                            {m.visible
+                              ? m.income.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : 'Hidden'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {household.partial && (
+                    <p
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#f59e0b',
+                        marginTop: 8,
+                      }}
+                    >
+                      At least one member's income couldn't be read, so this
+                      total is incomplete.
+                    </p>
+                  )}
+                </>
               ) : (
                 <p
                   style={{

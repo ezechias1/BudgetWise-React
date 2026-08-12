@@ -21,6 +21,8 @@ import {
 } from '@/components/overview/OverviewCharts';
 import { BudgetRing } from '@/components/overview/BudgetRing';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
+import { useFamilyIncome } from '@/hooks/useFamilyIncome';
+import { FamilyIncomeCard } from '@/components/overview/FamilyIncomeCard';
 import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { OverviewSkeleton } from '@/components/Skeleton';
@@ -64,6 +66,8 @@ export default function OverviewPage() {
     totalBalance: bankTotalBalance,
     crossModeAccounts,
   } = useLinkedAccounts();
+  // Household income per partner. No-ops outside Family mode.
+  const familyIncome = useFamilyIncome();
   const userFirstName = firstName(
     user?.user_metadata?.full_name as string | undefined,
     user?.email,
@@ -318,20 +322,24 @@ export default function OverviewPage() {
 
         {/* Stats grid — labels change per mode to match vanilla */}
         <div className="stats-grid">
-          <StatCard
-            label={
-              mode === 'business'
-                ? 'Monthly Revenue'
-                : mode === 'family'
-                  ? 'Family Income'
-                  : 'Monthly Income'
-            }
-            value={formatCurrency(stats.income, stats.currency)}
-            iconClass="stat-green"
-            icon={
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-            }
-          />
+          {mode === 'family' ? (
+            <FamilyIncomeCard
+              family={familyIncome}
+              currency={stats.currency}
+              fallbackIncome={stats.income}
+            />
+          ) : (
+            <StatCard
+              label={
+                mode === 'business' ? 'Monthly Revenue' : 'Monthly Income'
+              }
+              value={formatCurrency(stats.income, stats.currency)}
+              iconClass="stat-green"
+              icon={
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              }
+            />
+          )}
           <StatCard
             label={mode === 'business' ? 'Total Expenses' : 'Total Spent'}
             value={formatCurrency(stats.totalSpent, stats.currency)}
