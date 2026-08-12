@@ -27,6 +27,17 @@ interface FamilyGroup {
   family_code: string;
 }
 
+/**
+ * Name to store on a family_links row. The column is NOT NULL, so this must
+ * always return something — hence the final fallback.
+ */
+function memberDisplayName(user: { email?: string; user_metadata?: Record<string, unknown> }): string {
+  const full = user.user_metadata?.full_name;
+  if (typeof full === 'string' && full.trim()) return full.trim();
+  if (user.email) return user.email.split('@')[0];
+  return 'Member';
+}
+
 interface FamilyLink {
   id: string;
   group_id: string;
@@ -111,7 +122,32 @@ export default function SpendingTrackerPage() {
           .order('date', { ascending: false })
           .limit(50),
       ]);
-      const links = (linksRes.data as FamilyLink[]) || [];
+      let links = (linksRes.data as FamilyLink[]) || [];
+
+      // Self-heal owners orphaned by the display_name bug.
+      //
+      // The owner auto-link used to fail silently (23502, display_name is
+      // NOT NULL), so anyone who created a group before that fix owns a
+      // group they aren't a member of. Fixing the insert alone doesn't help
+      // them: createGroup only regenerates the code when a group already
+      // exists, so they'd never get a link. Without one they have no
+      // approved family_links row, which means no group_id on their
+      // expenses and no combined income.
+      if (!links.some((l) => l.user_id === user.id)) {
+        const { data: healed } = await supabase
+          .from('family_links')
+          .insert({
+            group_id: owned.id,
+            user_id: user.id,
+            display_name: memberDisplayName(user),
+            role: 'owner',
+            approved: true,
+          })
+          .select()
+          .single();
+        if (healed) links = [...links, healed as FamilyLink];
+      }
+
       setLinkedMembers(links);
       setSpendingFeed((feedRes.data as FamilySpending[]) || []);
 
@@ -187,13 +223,24 @@ export default function SpendingTrackerPage() {
         .single();
       if (data) {
         setOwnedGroup(data as FamilyGroup);
-        // Auto-link owner
-        await supabase.from('family_links').insert({
+        // Auto-link owner.
+        //
+        // display_name is NOT NULL in the live schema, and omitting it made
+        // this insert fail with 23502 every single time. The error was never
+        // checked, so group creation looked like it worked while the owner
+        // was never actually linked — which in turn left them with no
+        // approved family_links row, so useFamilyGroupId found no group and
+        // the whole shared-ledger/combined-income path stayed dormant.
+        const { error: linkErr } = await supabase.from('family_links').insert({
           group_id: (data as FamilyGroup).id,
           user_id: user.id,
+          display_name: memberDisplayName(user),
           role: 'owner',
           approved: true,
         });
+        if (linkErr) {
+          alert(`Group created, but linking you to it failed: ${linkErr.message}`);
+        }
         loadState();
       }
     }
@@ -236,12 +283,20 @@ export default function SpendingTrackerPage() {
       setJoinError('Already linked to this family');
       return;
     }
-    await supabase.from('family_links').insert({
+    // Same NOT NULL constraint as the owner link above — without
+    // display_name this silently 400'd, so joining a family by code has
+    // never actually worked either.
+    const { error: joinErr } = await supabase.from('family_links').insert({
       group_id: (groupRes.data as FamilyGroup).id,
       user_id: user.id,
+      display_name: memberDisplayName(user),
       role: 'member',
       approved: false,
     });
+    if (joinErr) {
+      setJoinError(`Could not join: ${joinErr.message}`);
+      return;
+    }
     setJoinCode('');
     loadState();
   };
