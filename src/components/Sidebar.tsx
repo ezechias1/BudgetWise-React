@@ -244,12 +244,15 @@ const NAV: NavEntry[] = [
       </svg>
     ),
   },
-  // Bank connect (not for family)
+  // Bank connect. Previously hidden in Family mode, which came across in a
+  // bulk port from the vanilla app rather than a deliberate decision — a
+  // couple couldn't link an account or import a CSV without switching to
+  // Personal. BankPage itself is mode-agnostic (its branches are all
+  // `!== 'business'`, and categoryOptionsForMode takes a full Mode).
   {
     to: '/dashboard/bank',
     fallback: 'Bank',
-    label: { personal: 'Bank', business: 'Banking' },
-    hideIn: ['family'],
+    label: { personal: 'Bank', business: 'Banking', family: 'Bank' },
     beta: true,
     icon: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
