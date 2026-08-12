@@ -12,6 +12,31 @@ export interface FamilyMemberInfo {
 /** Used when a member has no colour yet, or for rows we can't resolve. */
 export const FALLBACK_MEMBER_COLOR = '#94a3b8';
 
+/** Same palette the migration used to backfill existing rows. */
+export const MEMBER_COLORS = [
+  '#8b5cf6', '#10b981', '#f59e0b', '#ef4444',
+  '#3b82f6', '#ec4899', '#14b8a6', '#f97316',
+];
+
+/**
+ * Pick a colour for a new family_links row.
+ *
+ * Every insert site must call this. The migration backfilled colours for
+ * rows that already existed, but nothing assigned one to *new* members —
+ * so without this every member renders in FALLBACK_MEMBER_COLOR and the
+ * per-person colour coding silently does nothing.
+ *
+ * Prefers a colour nobody in the group is using; falls back to cycling the
+ * palette once a group is larger than it.
+ */
+export function pickMemberColor(taken: (string | null | undefined)[]): string {
+  const used = new Set(taken.filter(Boolean) as string[]);
+  return (
+    MEMBER_COLORS.find((c) => !used.has(c)) ??
+    MEMBER_COLORS[used.size % MEMBER_COLORS.length]
+  );
+}
+
 /**
  * The family group the signed-in user belongs to, if any.
  *

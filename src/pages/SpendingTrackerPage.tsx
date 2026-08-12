@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFamilyIncome } from '@/hooks/useFamilyIncome';
+import { pickMemberColor } from '@/hooks/useFamilyMembers';
 import { FAMILY_CATEGORIES } from '@/lib/categories';
 
 /**
@@ -43,6 +44,7 @@ interface FamilyLink {
   group_id: string;
   user_id: string;
   display_name: string | null;
+  color: string | null;
   role: string | null;
   approved: boolean | null;
   sharing_enabled: boolean | null;
@@ -140,12 +142,30 @@ export default function SpendingTrackerPage() {
             group_id: owned.id,
             user_id: user.id,
             display_name: memberDisplayName(user),
+            color: pickMemberColor(links.map((l) => l.color)),
             role: 'owner',
             approved: true,
           })
           .select()
           .single();
         if (healed) links = [...links, healed as FamilyLink];
+      }
+
+      // Backfill colours for members who don't have one. The migration
+      // backfilled rows that existed at the time, but anyone who joined
+      // between then and the insert-site fix has a null colour — and a null
+      // colour renders as the shared grey fallback, which quietly defeats
+      // the whole point of per-person colour coding.
+      const uncoloured = links.filter((l) => !l.color);
+      if (uncoloured.length > 0) {
+        const assigned: string[] = links.map((l) => l.color).filter(Boolean) as string[];
+        for (const l of uncoloured) {
+          const color = pickMemberColor(assigned);
+          assigned.push(color);
+          await supabase.from('family_links').update({ color }).eq('id', l.id);
+          l.color = color;
+        }
+        links = [...links];
       }
 
       setLinkedMembers(links);
@@ -235,6 +255,7 @@ export default function SpendingTrackerPage() {
           group_id: (data as FamilyGroup).id,
           user_id: user.id,
           display_name: memberDisplayName(user),
+          color: pickMemberColor([]),
           role: 'owner',
           approved: true,
         });
@@ -305,6 +326,10 @@ export default function SpendingTrackerPage() {
       group_id: group.id,
       user_id: user.id,
       display_name: memberDisplayName(user),
+      // Colour is picked blind here: a joiner can't read the group's other
+      // family_links rows (RLS), so collisions are possible and harmless —
+      // the owner can regenerate. Better than everyone sharing one grey.
+      color: pickMemberColor([]),
       role: 'member',
       approved: false,
     });
