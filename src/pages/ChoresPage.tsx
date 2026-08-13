@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -171,13 +172,64 @@ export default function ChoresPage() {
       })
       .eq('id', chore.id)
       .eq('user_id', user.id);
-    if (updErr) return;
+    // AUDIT: this used to be a bare `return` — the parent tapped Approve, the
+    // write failed, and nothing on screen changed or explained why.
+    if (updErr) {
+      alert(`Could not approve chore: ${updErr.message}`);
+      return;
+    }
+
+    // The approval above and the reward write below are separate statements
+    // with no transaction. Both reward writes used to discard their error, so a
+    // failure left the chore reading as approved while nobody was credited —
+    // for a Junior kid that is the child's money going missing silently. This
+    // puts the chore back exactly as we found it so it can be approved again.
+    const revertApproval = async (detail: string) => {
+      const { error: revertErr } = await supabase
+        .from('family_chores')
+        .update({
+          completed: chore.completed,
+          pending_approval: chore.pending_approval,
+          approved_at: chore.approved_at ?? null,
+        })
+        .eq('id', chore.id)
+        .eq('user_id', user.id);
+      if (revertErr) {
+        // Revert failed too: the chore really is stored as approved with no
+        // reward behind it. Keep local state matching what persisted and tell
+        // the parent, rather than leaving them to discover it later.
+        setChores((prev) =>
+          prev.map((c) =>
+            c.id === chore.id
+              ? {
+                  ...c,
+                  completed: true,
+                  pending_approval: false,
+                  approved_at: approvedAt,
+                }
+              : c,
+          ),
+        );
+        console.error('[write failed]', 'undo chore approval', revertErr.message);
+        alert(
+          `Could not record the reward: ${detail}\n\n` +
+            `The chore is still marked approved and could not be reset (${revertErr.message}), ` +
+            `so the reward was not credited. Reject it and approve it again to credit it.`,
+        );
+        return;
+      }
+      // Reverted cleanly: nothing persisted, so leave local state untouched.
+      reportWriteFailure(
+        'record the reward',
+        `${detail}. The approval was undone — approve the chore again to credit it.`,
+      );
+    };
 
     // Junior-only: write an IOU ledger row. A Junior kid has role='child' AND auth_user_id set.
     const isJuniorKid =
       assigneeMember?.role === 'child' && !!assigneeMember?.auth_user_id;
     if (isJuniorKid && chore.reward > 0) {
-      await supabase.from('kid_ledger').insert({
+      const { error: ledgerErr } = await supabase.from('kid_ledger').insert({
         user_id: user.id,
         member_id: assigneeMember.id,
         amount_cents: Math.round(chore.reward * 100),
@@ -186,17 +238,25 @@ export default function ChoresPage() {
         status: 'owed',
         notes: chore.name,
       });
+      if (ledgerErr) {
+        await revertApproval(ledgerErr.message);
+        return;
+      }
     } else if (!isJuniorKid && assigneeMember && chore.reward > 0) {
       // Legacy (pre-Junior) flow for adult/teen family members: credit the
       // reward onto their family_members.earned (and bump allowance).
       // Tracked in audit's Phase 2/3/4 section as a regression if dropped.
       const nextEarned = Math.round(((assigneeMember as FamilyMember).earned || 0) * 100 + chore.reward * 100) / 100;
       const nextAllowance = Math.round(((assigneeMember as FamilyMember).allowance || 0) * 100 + chore.reward * 100) / 100;
-      await supabase
+      const { error: creditErr } = await supabase
         .from('family_members')
         .update({ earned: nextEarned, allowance: nextAllowance })
         .eq('id', assigneeMember.id)
         .eq('user_id', user.id);
+      if (creditErr) {
+        await revertApproval(creditErr.message);
+        return;
+      }
       setMembers((prev) =>
         prev.map((m) =>
           m.id === assigneeMember.id
@@ -228,7 +288,12 @@ export default function ChoresPage() {
       })
       .eq('id', chore.id)
       .eq('user_id', user.id);
-    if (updErr) return;
+    // Previously returned silently: a failed reject left the chore sitting in
+    // "pending approval" while the parent believed they had rejected it.
+    if (updErr) {
+      reportWriteFailure('reject this chore', updErr.message);
+      return;
+    }
     setChores((prev) =>
       prev.map((c) =>
         c.id === chore.id
@@ -243,11 +308,18 @@ export default function ChoresPage() {
     if (!user) return;
     if (chore.completed) {
       // Un-complete
-      await supabase
+      // Previously discarded its error while flipping local state anyway, so
+      // the chore appeared un-completed until the next reload silently
+      // restored it.
+      const { error: uncompleteErr } = await supabase
         .from('family_chores')
         .update({ completed: false, pending_approval: false })
         .eq('id', chore.id)
         .eq('user_id', user.id);
+      if (uncompleteErr) {
+        reportWriteFailure('mark this chore as not done', uncompleteErr.message);
+        return;
+      }
       setChores((prev) =>
         prev.map((c) =>
           c.id === chore.id

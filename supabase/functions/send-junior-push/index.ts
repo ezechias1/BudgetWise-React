@@ -158,7 +158,10 @@ Deno.serve(async (req) => {
       } catch (e) {
         const statusCode = (e as { statusCode?: number }).statusCode;
         if (statusCode === 404 || statusCode === 410) {
-          await sb.from('push_subscriptions').delete().eq('id', s.id);
+          const { error: pruneErr } = await sb.from('push_subscriptions').delete().eq('id', s.id);
+          // Stale subscription left in place means we keep pushing to a dead
+          // endpoint on every run; log so it's visible in function logs.
+          if (pruneErr) console.error('[push] could not prune dead subscription', s.id, pruneErr.message);
           gone++;
         } else {
           console.warn('[send-junior-push] push failed', { sub: s.id, statusCode, error: String(e) });

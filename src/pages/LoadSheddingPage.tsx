@@ -3,6 +3,7 @@ import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency, getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { isPendingTripReview } from '@/lib/trip-review';
 import { TripExpenseReviewPrompt } from '@/components/TripExpenseReviewPrompt';
 import type { Expense } from '@/types';
@@ -102,10 +103,16 @@ export default function LoadSheddingPage() {
   const handleChooseReview = async (value: boolean) => {
     if (!pendingReview) return;
     setClassifying(true);
-    await supabase
+    // Previously discarded its error: the trip-review prompt closed and the
+    // expense stayed unreviewed, so the same prompt returned on next load.
+    const { error: reviewError } = await supabase
       .from('expenses')
       .update({ business_expense: value })
       .eq('id', pendingReview.id);
+    if (reviewError) {
+      reportWriteFailure('save that Business/Personal choice', reviewError.message);
+      return;
+    }
     setClassifying(false);
     setPendingReview(null);
   };

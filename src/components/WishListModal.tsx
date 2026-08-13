@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ok } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Wish {
@@ -55,11 +56,20 @@ export function WishListModal({ open, onClose, currency }: Props) {
 
   const save = async (next: Wish[]) => {
     if (!user) return;
+    const previous = wishes;
     setWishes(next);
-    await supabase
-      .from('user_settings')
-      .update({ wishes: next })
-      .eq('user_id', user.id);
+    // Previously discarded: the list is written optimistically, so a failed
+    // update left the added/saved/deleted wish on screen until the next
+    // reload, when it silently vanished. Roll the optimistic state back so
+    // what's shown matches what's stored.
+    const saved = await ok(
+      supabase
+        .from('user_settings')
+        .update({ wishes: next })
+        .eq('user_id', user.id),
+      'save your wish list',
+    );
+    if (!saved) setWishes(previous);
   };
 
   const handleAdd = async (e: FormEvent) => {

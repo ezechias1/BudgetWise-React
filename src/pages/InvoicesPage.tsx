@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency, todayIso } from '@/lib/format';
@@ -77,21 +78,45 @@ export default function InvoicesPage() {
 
   const markPaid = async (id: string) => {
     if (!user) return;
-    await supabase
-      .from('invoices')
-      .update({ status: 'paid' })
-      .eq('id', id)
-      .eq('user_id', user.id);
+    // Silently failed before: a rejected update still fell through to
+    // loadInvoices(), so the row flipped back to Pending on the next render
+    // with no explanation.
+    const paid = await ok(
+      supabase
+        .from('invoices')
+        .update({ status: 'paid' })
+        .eq('id', id)
+        .eq('user_id', user.id),
+      'mark this invoice as paid',
+    );
+    if (!paid) return;
     loadInvoices();
   };
 
   const deleteInvoice = async (id: string) => {
     if (!user) return;
-    await supabase
+    // Silently failed before: the delete discarded both its error and its
+    // result, so an RLS-blocked delete left the invoice in the database
+    // while the table re-rendered without it. .select() makes the database
+    // hand back the rows it actually deleted — no rows means nothing went.
+    const { data, error } = await supabase
       .from('invoices')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .select('id');
+    if (error) {
+      reportWriteFailure('delete this invoice', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      reportWriteFailure(
+        'delete this invoice',
+        'no matching invoice was removed. It may already have been deleted.',
+      );
+      loadInvoices();
+      return;
+    }
     loadInvoices();
   };
 
@@ -113,7 +138,14 @@ export default function InvoicesPage() {
       status: 'pending' as const,
       account_mode: 'business',
     };
-    await supabase.from('invoices').insert(inv);
+    // Silently failed before: a rejected insert still reset the form and
+    // closed the modal, so the user's typing was thrown away for an invoice
+    // that was never created. Keep the modal open on failure.
+    const created = await ok(
+      supabase.from('invoices').insert(inv),
+      'create this invoice',
+    );
+    if (!created) return;
     form.reset();
     closeModal();
     loadInvoices();

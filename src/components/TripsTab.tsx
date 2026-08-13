@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { CATEGORY_COLORS } from '@/lib/categories';
 import { formatCurrency, getCurrencySymbol } from '@/lib/format';
 import { exportExpensesToCSV, exportExpensesToPDF } from '@/lib/exports';
@@ -193,7 +194,28 @@ function BusinessCardsSection() {
   const handleRemove = async (acc: LinkedAccount) => {
     if (!user) return;
     if (!confirm('Remove this business card? Transaction history will be kept.')) return;
-    await supabase.from('linked_accounts').delete().eq('id', acc.id).eq('user_id', user.id);
+    // Silently failed before: the delete discarded both its error and its
+    // result, so a blocked removal left the card linked while the list
+    // re-rendered without it — the user only found out on their next visit.
+    // .select() returns the rows actually deleted; none means nothing went.
+    const { data, error } = await supabase
+      .from('linked_accounts')
+      .delete()
+      .eq('id', acc.id)
+      .eq('user_id', user.id)
+      .select('id');
+    if (error) {
+      reportWriteFailure('remove this business card', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      reportWriteFailure(
+        'remove this business card',
+        'no matching card was removed. It may already have been unlinked.',
+      );
+      await refresh();
+      return;
+    }
     await refresh();
   };
 

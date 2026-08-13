@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency } from '@/lib/format';
@@ -82,7 +83,14 @@ export default function ClientsPage() {
       company: (fd.get('clientCompany') as string) || null,
       account_mode: 'business',
     };
-    await supabase.from('clients').insert(client);
+    // Silently failed before: a rejected insert still reset the form and
+    // closed the modal, so the contact details the user typed were lost for
+    // a client that was never saved. Keep the modal open on failure.
+    const created = await ok(
+      supabase.from('clients').insert(client),
+      'add this client',
+    );
+    if (!created) return;
     form.reset();
     closeModal();
     loadClients();
@@ -91,11 +99,28 @@ export default function ClientsPage() {
   const deleteClient = async (id: string) => {
     if (!user) return;
     if (!confirm('Delete this client? Their invoices will remain.')) return;
-    await supabase
+    // Silently failed before: the delete discarded both its error and its
+    // result, so a blocked delete left the client in the database while the
+    // card vanished from the grid. .select() returns the rows that were
+    // actually deleted — no rows means nothing went.
+    const { data, error } = await supabase
       .from('clients')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .select('id');
+    if (error) {
+      reportWriteFailure('delete this client', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      reportWriteFailure(
+        'delete this client',
+        'no matching client was removed. They may already have been deleted.',
+      );
+      loadClients();
+      return;
+    }
     loadClients();
   };
 

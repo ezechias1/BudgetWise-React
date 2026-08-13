@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { useKidProfile } from '@/hooks/useKidProfile';
 
 export default function JuniorJarsPage() {
@@ -24,11 +25,19 @@ export default function JuniorJarsPage() {
   const handleSave = async () => {
     if (!member || !canSave) return;
     setSubmitting(true);
-    await supabase
+    // Previously discarded its error, so a kid's jar split could appear
+    // saved while the database kept the old values.
+    const { error: jarError } = await supabase
       .from('family_members')
       .update({ jar_split: { save, spend, give } })
       .eq('id', member.id);
     setSubmitting(false);
+    if (jarError) {
+      // Don't show the "Saved!" tick for something that wasn't saved — a kid
+      // would set their jars, see it confirm, and find the old split later.
+      reportWriteFailure('save your jars', jarError.message);
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

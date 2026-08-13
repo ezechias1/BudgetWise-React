@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     const accounts = gql?.data?.user?.bankAccounts ?? [];
 
     for (const acc of accounts) {
-      await sb.from('linked_accounts').upsert({
+      const { error: upsertErr } = await sb.from('linked_accounts').upsert({
         user_id: verified.user_id,
         provider: 'stitch',
         plaid_access_token: tokens.refresh_token, // reusing this generic column
@@ -169,6 +169,10 @@ Deno.serve(async (req) => {
         account_mode: verified.mode,
         is_business: verified.isBusinessCard,
       }, { onConflict: 'user_id,account_id' });
+      // Silently dropping this meant a "successful" bank link that stored no
+      // account — the user would return to a Bank page with nothing on it and
+      // no explanation anywhere.
+      if (upsertErr) console.error('[stitch-oauth] failed to store linked account for', verified.user_id, upsertErr.message);
     }
 
     return redirectTo(`${basePath}${joiner}stitch_linked=1`);

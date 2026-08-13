@@ -118,10 +118,20 @@ async function drainPendingNotifications(parentUserId: string): Promise<void> {
         tag: `bw-junior-${row.id}`,
         data: n.url,
       });
-      await supabase
+      // Previously discarded: if this update failed the row stayed 'pending',
+      // so the poller re-showed the same notification every 30 seconds
+      // forever — and nothing said why. No user is present in this polling
+      // context, so log rather than alert.
+      const { error: markErr } = await supabase
         .from('kid_notifications')
         .update({ status: 'sent', sent_at: new Date().toISOString() })
         .eq('id', row.id);
+      if (markErr) {
+        console.error(
+          '[junior-notifications] could not mark notification sent — it will be shown again on the next poll',
+          { id: row.id, error: markErr.message },
+        );
+      }
     } catch (e) {
       console.warn('[junior-notifications] showNotification failed', e);
     }

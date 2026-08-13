@@ -145,25 +145,42 @@ export default function JuniorGoalsPage() {
     }
     setAddingMoney(true);
     const goal = goals.find((g) => g.id === addMoneyGoalId);
-    // Same two-step pattern as the parent's own contribute() in
-    // FamilyGoalsPage.tsx — not atomic, matches the existing level of rigor.
+    // Two-step and not atomic. The contribution insert used to discard its
+    // error, so a failure left the goal showing the money with no record of
+    // which kid put it in — the same bug fixed in the parent's contribute()
+    // in FamilyGoalsPage.tsx. On failure we put the total back.
+    const previousSaved = goal?.saved ?? 0;
     const { error: updateError } = await supabase
       .from('family_goals')
-      .update({ saved: (goal?.saved ?? 0) + amount })
+      .update({ saved: previousSaved + amount })
       .eq('id', addMoneyGoalId);
-    if (!updateError) {
-      await supabase.from('family_goal_contributions').insert({
+    if (updateError) {
+      setAddingMoney(false);
+      setAddMoneyError(updateError.message);
+      return;
+    }
+    const { error: contribError } = await supabase
+      .from('family_goal_contributions')
+      .insert({
         goal_id: addMoneyGoalId,
         member_id: member.id,
         user_id: member.user_id,
         amount,
       });
-    }
-    setAddingMoney(false);
-    if (updateError) {
-      setAddMoneyError(updateError.message);
+    if (contribError) {
+      const { error: rollbackError } = await supabase
+        .from('family_goals')
+        .update({ saved: previousSaved })
+        .eq('id', addMoneyGoalId);
+      setAddingMoney(false);
+      setAddMoneyError(
+        rollbackError
+          ? `That didn't save, and the goal total is now ${formatRands(amount)} too high. Ask a parent to fix it.`
+          : "That didn't save. Please try again.",
+      );
       return;
     }
+    setAddingMoney(false);
     setAddMoneyAmount('');
     setAddMoneyGoalId(null);
     await Promise.all([load(), refreshLedger()]);

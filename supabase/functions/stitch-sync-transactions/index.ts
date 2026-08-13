@@ -143,7 +143,11 @@ async function syncAccount(acc: LinkedAccountRow): Promise<{ inserted: number; e
     // aggregator APIs. Confirm once this is live.
     const debits = transactions.filter((t) => t.amount.quantity < 0);
     if (debits.length === 0) {
-      await sb.from('linked_accounts').update({ last_synced: new Date().toISOString() }).eq('id', acc.id);
+      const { error: stampErr } = await sb.from('linked_accounts').update({ last_synced: new Date().toISOString() }).eq('id', acc.id);
+      // A dropped stamp makes the account look never-synced, so the next run
+      // re-fetches the same window. Harmless but wasteful, and invisible
+      // without this log.
+      if (stampErr) console.error('[stitch-sync] last_synced not updated for', acc.id, stampErr.message);
       return { inserted: 0 };
     }
 
@@ -173,7 +177,11 @@ async function syncAccount(acc: LinkedAccountRow): Promise<{ inserted: number; e
       .upsert(rows, { onConflict: 'user_id,external_ref', ignoreDuplicates: true, count: 'exact' });
     if (error) return { inserted: 0, error: error.message };
 
-    await sb.from('linked_accounts').update({ last_synced: new Date().toISOString() }).eq('id', acc.id);
+    const { error: stampErr } = await sb.from('linked_accounts').update({ last_synced: new Date().toISOString() }).eq('id', acc.id);
+      // A dropped stamp makes the account look never-synced, so the next run
+      // re-fetches the same window. Harmless but wasteful, and invisible
+      // without this log.
+      if (stampErr) console.error('[stitch-sync] last_synced not updated for', acc.id, stampErr.message);
     return { inserted: count ?? rows.length };
   } catch (err) {
     return { inserted: 0, error: (err as Error).message };

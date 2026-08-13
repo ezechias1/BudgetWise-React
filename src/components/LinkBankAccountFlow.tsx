@@ -123,10 +123,18 @@ const SA_BANKS: SABank[] = [
 interface Props {
   mode: Mode;
   isBusinessCard: boolean;
+  /**
+   * Show the "Add Account" button that opens the provider/region picker.
+   * Defaults to true. BankPage passes false while BANK_CONNECT_ENABLED is
+   * off, because no provider is actually wired — the Stitch edge functions
+   * were never deployed, so the flow leads to a bank login that cannot
+   * complete. "Add Manually" is unaffected and always renders.
+   */
+  showConnect?: boolean;
   onLinked: () => void;
 }
 
-export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked }: Props) {
+export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked, showConnect = true }: Props) {
   const { user } = useAuth();
   const [connecting, setConnecting] = useState(false);
   const [showRegionModal, setShowRegionModal] = useState(false);
@@ -243,24 +251,26 @@ export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked }: Props) {
       <button type="button" className="btn-export" onClick={() => setShowSAModal(true)}>
         Add Manually
       </button>
-      <button
-        type="button"
-        className="btn-primary btn-sm"
-        onClick={() => setShowRegionModal(true)}
-        disabled={connecting}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+      {showConnect && (
+        <button
+          type="button"
+          className="btn-primary btn-sm"
+          onClick={() => setShowRegionModal(true)}
+          disabled={connecting}
         >
-          <path d="M12 5v14m-7-7h14" />
-        </svg>
-        {connecting ? 'Connecting...' : 'Add Account'}
-      </button>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 5v14m-7-7h14" />
+          </svg>
+          {connecting ? 'Connecting...' : 'Add Account'}
+        </button>
+      )}
 
       {/* Region Selector Modal */}
       {showRegionModal && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
@@ -198,12 +199,47 @@ export default function FamilyGoalsPage() {
       alert(`Could not record contribution: ${updErr.message}`);
       return;
     }
-    await supabase.from('family_goal_contributions').insert({
-      goal_id: goal.id,
-      member_id: member.id,
-      amount: amt,
-      user_id: user.id,
-    });
+    // AUDIT: this insert used to discard its error. The two writes are not in a
+    // transaction, so a failed insert left the goal permanently showing the
+    // money as saved with no record of who put it in — and per-member
+    // attribution is the whole reason this page exists apart from Savings.
+    // On failure we hand-roll the rollback: put `saved` back to what it was.
+    const { error: contribErr } = await supabase
+      .from('family_goal_contributions')
+      .insert({
+        goal_id: goal.id,
+        member_id: member.id,
+        amount: amt,
+        user_id: user.id,
+      });
+    if (contribErr) {
+      const { error: rollbackErr } = await supabase
+        .from('family_goals')
+        .update({ saved: goal.saved })
+        .eq('id', goal.id)
+        .eq('user_id', user.id);
+      if (rollbackErr) {
+        // Rollback failed too, so the stored total really is ahead of the
+        // contributions by `amt` and we cannot fix it from here. Keep local
+        // state matching what actually persisted (raised total, no
+        // contribution) and say so plainly — a wrong total the user knows
+        // about beats a wrong total they don't.
+        setGoals((prev) =>
+          prev.map((g) => (g.id === goal.id ? { ...g, saved: nextSaved } : g)),
+        );
+        console.error('[write failed]', 'roll back goal total', rollbackErr.message);
+        alert(
+          `Could not record ${member.name}'s contribution: ${contribErr.message}\n\n` +
+            `The goal total was already raised to ${fmt(nextSaved, symbolFor(currency))} ` +
+            `and could not be put back (${rollbackErr.message}). ` +
+            `That total is now too high by ${fmt(amt, symbolFor(currency))} — please correct it manually.`,
+        );
+        return;
+      }
+      // Rolled back cleanly: nothing persisted, so leave local state untouched.
+      reportWriteFailure(`record ${member.name}'s contribution`, contribErr.message);
+      return;
+    }
     setGoals((prev) =>
       prev.map((g) => {
         if (g.id !== goal.id) return g;

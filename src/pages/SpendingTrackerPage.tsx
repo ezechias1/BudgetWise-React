@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useFamilyIncome } from '@/hooks/useFamilyIncome';
@@ -62,6 +63,29 @@ interface FamilySpending {
   date: string;
 }
 
+/**
+ * Master switch for the shared spending feed panel.
+ *
+ * `family_spending` has never received a single row: no client code, no
+ * database trigger and no edge function writes to that table anywhere in the
+ * app. The feed was therefore structurally incapable of showing anything — it
+ * could only ever render "Spending from linked members will appear here", on
+ * the first page a newly-linked family opens, which reads as "sharing is
+ * broken" rather than "not built yet".
+ *
+ * While this is false the panel shows an honest not-available-yet state. The
+ * loader, the feed state and the realtime subscription below are deliberately
+ * left in place so turning it back on is this one line.
+ *
+ * Flip to true only once something actually inserts into family_spending —
+ * i.e. bank sync (or a share-on-expense trigger) is live and writing rows for
+ * approved, sharing-enabled members.
+ *
+ * Typed as boolean, not the literal `false`, so both branches stay
+ * type-checked while the feature is off.
+ */
+const SPENDING_FEED_ENABLED: boolean = false;
+
 function randomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let out = '';
@@ -93,6 +117,10 @@ function copyFor(isBusiness: boolean) {
       : 'Combined income from all family members. Each parent sets their own contribution.',
     membersHeading: isBusiness ? 'Linked Partners' : 'Linked Members',
     feedHeading: isBusiness ? 'Partner Spending Feed' : 'Family Spending Feed',
+    // Shown while SPENDING_FEED_ENABLED is false — see the constant above.
+    feedUnavailable: isBusiness
+      ? 'Shared partner spending will appear here once bank sync is connected. Nothing is being recorded to this feed yet, so there is nothing to wait for — linking partners and combined revenue above are unaffected.'
+      : 'Shared family spending will appear here once bank sync is connected. Nothing is being recorded to this feed yet, so there is nothing to wait for — linking members and family income above are unaffected.',
     joinHeading: isBusiness ? 'Join a Business' : 'Join a Family',
     joinHelp: isBusiness
       ? 'Enter the invite code from the account owner to link your spending.'
@@ -102,6 +130,18 @@ function copyFor(isBusiness: boolean) {
       : 'Or create your own family group',
     linkedFallback: isBusiness ? 'Business' : 'Family',
     unlink: isBusiness ? 'Unlink from Business' : 'Unlink from Family',
+    // Verb phrases completing "Could not …" in write-failure messages.
+    createGroupAction: isBusiness
+      ? 'create your partner group'
+      : 'create your family group',
+    newCodeAction: isBusiness
+      ? 'generate a new partner invite code'
+      : 'generate a new family invite code',
+    unlinkAction: isBusiness
+      ? 'unlink you from this business'
+      : 'unlink you from this family',
+    approveAction: isBusiness ? 'approve this partner' : 'approve this member',
+    removeAction: isBusiness ? 'remove this partner' : 'remove this member',
   };
 }
 
@@ -174,7 +214,7 @@ export default function SpendingTrackerPage() {
       // approved family_links row, which means no group_id on their
       // expenses and no combined income.
       if (!links.some((l) => l.user_id === user.id)) {
-        const { data: healed } = await supabase
+        const { data: healed, error: healErr } = await supabase
           .from('family_links')
           .insert({
             group_id: owned.id,
@@ -186,6 +226,11 @@ export default function SpendingTrackerPage() {
           })
           .select()
           .single();
+        // Runs on load with no user action behind it, so this logs rather
+        // than alerting — but it must not vanish: if the heal keeps failing
+        // the owner silently has no group, and combined income and the
+        // shared ledger both stay dormant with no visible cause.
+        if (healErr) console.error('[family] owner self-heal failed:', healErr.message);
         if (healed) links = [...links, healed as FamilyLink];
       }
 
@@ -200,7 +245,23 @@ export default function SpendingTrackerPage() {
         for (const l of uncoloured) {
           const color = pickMemberColor(assigned);
           assigned.push(color);
-          await supabase.from('family_links').update({ color }).eq('id', l.id);
+          const { error: colorErr } = await supabase
+            .from('family_links')
+            .update({ color })
+            .eq('id', l.id);
+          // Previously discarded: a failed backfill left the member on the
+          // grey fallback with nothing said. Not alerted — this is a
+          // cosmetic self-heal that runs on every load (one alert per
+          // uncoloured member would be worse than the bug) and it retries
+          // next load. Leaving l.color unset keeps the UI honest about what
+          // is actually stored.
+          if (colorErr) {
+            console.error(
+              '[write failed] backfill member colour',
+              { link_id: l.id, error: colorErr.message },
+            );
+            continue;
+          }
           l.color = color;
         }
         links = [...links];
@@ -237,9 +298,12 @@ export default function SpendingTrackerPage() {
     loadState();
   }, [loadState]);
 
-  // Realtime subscription on family_spending for the parent view
+  // Realtime subscription on family_spending for the parent view.
+  // Kept intact but gated: while SPENDING_FEED_ENABLED is false nothing can
+  // ever INSERT into family_spending, so this channel would sit open waiting
+  // for an event that cannot arrive.
   useEffect(() => {
-    if (!ownedGroup) return;
+    if (!SPENDING_FEED_ENABLED || !ownedGroup) return;
     const channel = supabase
       .channel('family-spending-' + ownedGroup.id)
       .on(
@@ -264,13 +328,23 @@ export default function SpendingTrackerPage() {
     if (!user) return;
     const code = randomCode();
     if (ownedGroup) {
-      await supabase
-        .from('family_groups')
-        .update({ family_code: code })
-        .eq('id', ownedGroup.id);
+      // Previously discarded: on failure the UI still swapped in the new
+      // code, so the owner shared a code the database had never stored and
+      // everyone who typed it was told "Invalid invite code".
+      const updated = await ok(
+        supabase
+          .from('family_groups')
+          .update({ family_code: code })
+          .eq('id', ownedGroup.id),
+        t.newCodeAction,
+      );
+      if (!updated) return;
       setOwnedGroup({ ...ownedGroup, family_code: code });
     } else {
-      const { data } = await supabase
+      // Previously discarded: `const { data } = ...` dropped the error, so a
+      // failed insert simply fell through the `if (data)` below — the user
+      // pressed "create group", nothing happened, and nothing was said.
+      const { data, error: createErr } = await supabase
         .from('family_groups')
         .insert({
           owner_id: user.id,
@@ -279,30 +353,32 @@ export default function SpendingTrackerPage() {
         })
         .select()
         .single();
-      if (data) {
-        setOwnedGroup(data as FamilyGroup);
-        // Auto-link owner.
-        //
-        // display_name is NOT NULL in the live schema, and omitting it made
-        // this insert fail with 23502 every single time. The error was never
-        // checked, so group creation looked like it worked while the owner
-        // was never actually linked — which in turn left them with no
-        // approved family_links row, so useFamilyGroupId found no group and
-        // the whole shared-ledger/combined-income path stayed dormant.
-        const { error: linkErr } = await supabase.from('family_links').insert({
-          group_id: (data as FamilyGroup).id,
-          user_id: user.id,
-          display_name: memberDisplayName(user),
-          color: pickMemberColor([]),
-          role: 'owner',
-          approved: true,
-        });
-        invalidateFamilyGroupCache();
-        if (linkErr) {
-          alert(`Group created, but linking you to it failed: ${linkErr.message}`);
-        }
-        loadState();
+      if (createErr || !data) {
+        reportWriteFailure(t.createGroupAction, createErr?.message);
+        return;
       }
+      setOwnedGroup(data as FamilyGroup);
+      // Auto-link owner.
+      //
+      // display_name is NOT NULL in the live schema, and omitting it made
+      // this insert fail with 23502 every single time. The error was never
+      // checked, so group creation looked like it worked while the owner
+      // was never actually linked — which in turn left them with no
+      // approved family_links row, so useFamilyGroupId found no group and
+      // the whole shared-ledger/combined-income path stayed dormant.
+      const { error: linkErr } = await supabase.from('family_links').insert({
+        group_id: (data as FamilyGroup).id,
+        user_id: user.id,
+        display_name: memberDisplayName(user),
+        color: pickMemberColor([]),
+        role: 'owner',
+        approved: true,
+      });
+      invalidateFamilyGroupCache();
+      if (linkErr) {
+        alert(`Group created, but linking you to it failed: ${linkErr.message}`);
+      }
+      loadState();
     }
   };
 
@@ -384,11 +460,18 @@ export default function SpendingTrackerPage() {
   const unlink = async () => {
     if (!user || !myLink) return;
     if (!confirm('Unlink from this family?')) return;
-    await supabase
-      .from('family_links')
-      .delete()
-      .eq('id', myLink.id)
-      .eq('user_id', user.id);
+    // Previously discarded: on failure the link row survived but the UI
+    // cleared it, so the user was shown the "join a family" form while still
+    // sharing their spending with the group they thought they had left.
+    const unlinked = await ok(
+      supabase
+        .from('family_links')
+        .delete()
+        .eq('id', myLink.id)
+        .eq('user_id', user.id),
+      t.unlinkAction,
+    );
+    if (!unlinked) return;
     setMyLink(null);
     loadState();
   };
@@ -401,15 +484,22 @@ export default function SpendingTrackerPage() {
 
   const saveSharing = async () => {
     if (!user || !myLink) return;
-    await supabase
-      .from('family_links')
-      .update({
-        sharing_enabled: sharingEnabled,
-        share_all: shareScope === 'all',
-        share_categories: shareScope === 'selected' ? shareCategories : null,
-      })
-      .eq('id', myLink.id)
-      .eq('user_id', user.id);
+    // Previously discarded: "Sharing preferences saved" was shown
+    // unconditionally, so someone who turned sharing OFF could be told it was
+    // saved while their spending stayed shared.
+    const saved = await ok(
+      supabase
+        .from('family_links')
+        .update({
+          sharing_enabled: sharingEnabled,
+          share_all: shareScope === 'all',
+          share_categories: shareScope === 'selected' ? shareCategories : null,
+        })
+        .eq('id', myLink.id)
+        .eq('user_id', user.id),
+      'save your sharing preferences',
+    );
+    if (!saved) return;
     alert('Sharing preferences saved');
   };
 
@@ -418,10 +508,16 @@ export default function SpendingTrackerPage() {
   // Ownership is enforced by RLS via the parent relationship; tightening
   // via an RPC is tracked as follow-up (AUDIT C4 subset).
   const approveMember = async (link: FamilyLink) => {
-    await supabase
-      .from('family_links')
-      .update({ approved: true })
-      .eq('id', link.id);
+    // Previously discarded — the worst of the set. If this update failed
+    // (RLS rejecting the cross-user write, say) the row stayed approved =
+    // false, but the owner's list moved the member into "approved" anyway.
+    // The owner believed they had approved them; the member sat on "Waiting
+    // for approval..." forever, and neither side had any reason to retry.
+    const approvedOk = await ok(
+      supabase.from('family_links').update({ approved: true }).eq('id', link.id),
+      t.approveAction,
+    );
+    if (!approvedOk) return;
     setLinkedMembers((prev) =>
       prev.map((l) => (l.id === link.id ? { ...l, approved: true } : l)),
     );
@@ -429,7 +525,14 @@ export default function SpendingTrackerPage() {
 
   const removeLinkedMember = async (link: FamilyLink) => {
     if (!confirm('Remove this member?')) return;
-    await supabase.from('family_links').delete().eq('id', link.id);
+    // Previously discarded: a failed delete still dropped the member from the
+    // list, so they looked removed while their link row — and their access —
+    // survived until the next reload put them back.
+    const removed = await ok(
+      supabase.from('family_links').delete().eq('id', link.id),
+      t.removeAction,
+    );
+    if (!removed) return;
     setLinkedMembers((prev) => prev.filter((l) => l.id !== link.id));
   };
 
@@ -743,9 +846,21 @@ export default function SpendingTrackerPage() {
           {/* Spending feed */}
           <div className="chart-card full-width">
             <h3 style={{ marginBottom: 12 }}>{t.feedHeading}</h3>
-            {/* Live feed — realtime via Supabase channel */}
+            {/* Live feed — realtime via Supabase channel.
+                Off while SPENDING_FEED_ENABLED is false: nothing writes
+                family_spending, so the old empty state was a promise the app
+                could not keep. See the constant at the top of this file. */}
             <div id="familySpendingFeed">
-              {spendingFeed.length === 0 ? (
+              {!SPENDING_FEED_ENABLED ? (
+                <div className="empty-state" style={{ padding: 20 }}>
+                  <p style={{ fontWeight: 600, marginBottom: 6 }}>
+                    Not available yet
+                  </p>
+                  <p style={{ fontSize: '0.82rem', opacity: 0.6 }}>
+                    {t.feedUnavailable}
+                  </p>
+                </div>
+              ) : spendingFeed.length === 0 ? (
                 <div className="empty-state" style={{ padding: 20 }}>
                   <p>Spending from linked members will appear here.</p>
                 </div>

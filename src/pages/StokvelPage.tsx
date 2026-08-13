@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useExpenses } from '@/hooks/useExpenses';
 import { getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
+import { ok, reportWriteFailure } from '@/lib/db';
 
 /**
  * Ports #page-stokvel (dashboard.html lines 1002-1024) + the full stokvel
@@ -109,6 +110,14 @@ export default function StokvelPage() {
 
   // Copy code feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // NOTE: stokvel_groups has no `user_id` column — it is `owner_id`
+  // (migration 20260810000005). Three writes here filtered on `user_id`,
+  // so PostgREST rejected them with "column does not exist" and the
+  // discarded error meant nobody noticed: deleting a stokvel, advancing
+  // the payout rotation, and adding an approved member to the payout
+  // order have never worked. Now filtered on owner_id, which also matches
+  // the RLS policies (owner_id = auth.uid()).
 
   // Load everything — mirrors loadStokvelData() (app.js line 8995).
   // Uses Promise.all over member + contribution fetches per-group so the
@@ -255,17 +264,40 @@ export default function StokvelPage() {
         .select()
         .single();
 
-      if (result.data) {
-        await supabase.from('stokvel_members').insert({
+      // Was `if (result.data) { … }` with no else: when the insert failed the
+      // whole block was skipped in silence — the user pressed Create and
+      // literally nothing happened, not even an error message.
+      if (result.error || !result.data) {
+        reportWriteFailure('create this stokvel', result.error?.message);
+        setCBusy(false);
+        return;
+      }
+
+      // Was unchecked: on failure the creator owned a stokvel they were not a
+      // member of — the same class of bug that broke family linking — and the
+      // UI still closed the modal as if everything had worked.
+      const ownerAdded = await ok(
+        supabase.from('stokvel_members').insert({
           stokvel_id: result.data.id,
           user_id: user.id,
           display_name: user.email?.split('@')[0] ?? 'Owner',
           role: 'owner',
           approved: true,
-        });
-        setCreateOpen(false);
-        await loadStokvelData();
+        }),
+        'add you as the owner of this stokvel',
+      );
+      if (!ownerAdded) {
+        // Roll the group back rather than leave an ownerless stokvel behind.
+        await ok(
+          supabase.from('stokvel_groups').delete().eq('id', result.data.id),
+          'clean up the half-created stokvel — please delete it manually',
+        );
+        setCBusy(false);
+        return;
       }
+
+      setCreateOpen(false);
+      await loadStokvelData();
     } catch (err) {
       console.error('Create stokvel error:', err);
       alert('Error creating stokvel');
@@ -314,13 +346,20 @@ export default function StokvelPage() {
         setJoinBusy(false);
         return;
       }
-      await supabase.from('stokvel_members').insert({
+      // Was unchecked: a failed insert still closed the modal, so the user
+      // believed their join request was pending when no row existed at all.
+      const joinWrite = await supabase.from('stokvel_members').insert({
         stokvel_id: group.data.id,
         user_id: user.id,
         display_name: user.email?.split('@')[0] ?? 'Member',
         role: 'member',
         approved: false,
       });
+      if (joinWrite.error) {
+        setJoinError('Could not join: ' + joinWrite.error.message);
+        setJoinBusy(false);
+        return;
+      }
       setJoinOpen(false);
       await loadStokvelData();
     } catch (err) {
@@ -355,20 +394,38 @@ export default function StokvelPage() {
       const group = groups.find((g) => g.id === contribTarget.id);
       const groupName = group ? group.name : 'Stokvel';
 
-      await supabase.from('stokvel_contributions').insert({
-        stokvel_id: contribTarget.id,
-        user_id: user.id,
-        amount: amt,
-        date: contribDate,
-        note: contribNote,
-      });
+      // Was unchecked: a failed insert still closed the modal and reported
+      // success, so the contribution vanished from the group ledger with the
+      // member believing they had paid. In a stokvel the ledger IS the
+      // product, so bail out here rather than write the expenses row for a
+      // contribution that was never recorded.
+      const contribOk = await ok(
+        supabase.from('stokvel_contributions').insert({
+          stokvel_id: contribTarget.id,
+          user_id: user.id,
+          amount: amt,
+          date: contribDate,
+          note: contribNote,
+        }),
+        'record this contribution',
+      );
+      if (!contribOk) {
+        setContribBusy(false);
+        return;
+      }
 
       // Also write an expenses row so it shows in totals/pie (app.js line 8971).
       // source='stokvel' is what stops this being double-counted once bank
       // import is live: the same contribution also arrives as a bank debit,
       // and the dedupe matcher uses source to tell the two apart. The
       // migration backfilled existing rows; this tags new ones at write time.
-      await supabase.from('expenses').insert({
+      //
+      // Was unchecked: when this failed the contribution existed in the group
+      // ledger but never reached the member's own budget, and the two silently
+      // disagreed forever. The contribution above has already committed and
+      // there is no transaction spanning both tables, so say plainly what did
+      // and did not happen instead of leaving the user inconsistent.
+      const expenseWrite = await supabase.from('expenses').insert({
         user_id: user.id,
         category: 'Stokvel',
         description: groupName + (contribNote ? ' — ' + contribNote : ''),
@@ -378,6 +435,14 @@ export default function StokvelPage() {
         account_mode: 'personal',
         source: 'stokvel',
       });
+      if (expenseWrite.error) {
+        reportWriteFailure(
+          'add this contribution to your budget — it IS recorded in the ' +
+            groupName +
+            ' ledger, so add it manually as a "Stokvel" expense to keep your own totals in step',
+          expenseWrite.error.message,
+        );
+      }
 
       setContribTarget(null);
       await Promise.all([loadStokvelData(), refreshExpenses()]);
@@ -393,18 +458,30 @@ export default function StokvelPage() {
     // NOTE: stokvel_members is scoped by id only — the row's user_id is the
     // member being approved, not the caller. RLS must enforce that only the
     // group owner can update. Tightening via RPC is tracked as follow-up.
-    await supabase.from('stokvel_members').update({ approved: true }).eq('id', memberId);
+    // Was unchecked: a failed approval still reloaded the list and the member
+    // silently stayed pending, with the owner told nothing.
+    const approved = await ok(
+      supabase.from('stokvel_members').update({ approved: true }).eq('id', memberId),
+      'approve this member',
+    );
+    if (!approved) return;
     // Add to payout order — app.js line 9201
     const g = groups.find((gr) => gr.id === stokvelId);
     if (g) {
       const order = g.payout_order || [];
       if (order.indexOf(uid) === -1) {
         order.push(uid);
-        await supabase
-          .from('stokvel_groups')
-          .update({ payout_order: order })
-          .eq('id', g.id)
-          .eq('user_id', user.id);
+        // Was unchecked: on failure the member is approved and contributing
+        // but never enters the rotation, so they never get a payout turn.
+        await ok(
+          supabase
+            .from('stokvel_groups')
+            .update({ payout_order: order })
+            .eq('id', g.id)
+            .eq('owner_id', user.id),
+          'add this member to the payout rotation — they are approved, but ' +
+            'will not get a payout turn until this is retried',
+        );
       }
     }
     await loadStokvelData();
@@ -413,18 +490,30 @@ export default function StokvelPage() {
   const handleRejectMember = async (memberId: string) => {
     // See handleApproveMember note — stokvel_members ownership is via the
     // parent group, enforced by RLS. Not scoping by user_id here.
-    await supabase.from('stokvel_members').delete().eq('id', memberId);
+    // Was unchecked: a failed delete still reloaded, and the request quietly
+    // stayed in the pending list with no explanation.
+    const rejected = await ok(
+      supabase.from('stokvel_members').delete().eq('id', memberId),
+      'reject this join request',
+    );
+    if (!rejected) return;
     await loadStokvelData();
   };
 
   const handleDeleteStokvel = async (id: string) => {
     if (!user) return;
     if (!confirm('Delete this stokvel and all its data? This cannot be undone.')) return;
-    await supabase
-      .from('stokvel_groups')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    // Was unchecked: the user confirmed a destructive delete, the write failed,
+    // and the stokvel simply reappeared in the list with no error shown.
+    const deleted = await ok(
+      supabase
+        .from('stokvel_groups')
+        .delete()
+        .eq('id', id)
+        .eq('owner_id', user.id),
+      'delete this stokvel',
+    );
+    if (!deleted) return;
     await loadStokvelData();
   };
 
@@ -436,18 +525,34 @@ export default function StokvelPage() {
       const curIdx = g.current_payout_index || 0;
       const nextIdx = ((curIdx) + 1) % Math.max(order.length, 1);
       const month = monthKey();
-      await supabase.from('stokvel_payouts').insert({
-        stokvel_id: g.id,
-        recipient_id: order[curIdx],
-        amount,
-        month,
-        paid: true,
-      });
-      await supabase
+      // Was unchecked: the payout row could fail to write while the UI still
+      // advanced the rotation, losing the payout from the group ledger.
+      const payoutRecorded = await ok(
+        supabase.from('stokvel_payouts').insert({
+          stokvel_id: g.id,
+          recipient_id: order[curIdx],
+          amount,
+          month,
+          paid: true,
+        }),
+        'record this payout',
+      );
+      if (!payoutRecorded) return;
+      // Was unchecked: on failure the payout IS recorded but the rotation
+      // never moves on, so the same member comes up as next recipient.
+      const rotated = await supabase
         .from('stokvel_groups')
         .update({ current_payout_index: nextIdx })
         .eq('id', g.id)
-        .eq('user_id', user.id);
+        .eq('owner_id', user.id);
+      if (rotated.error) {
+        reportWriteFailure(
+          'advance the payout rotation — the payout to ' +
+            recipient +
+            ' was recorded, but the next payout still points at the same member',
+          rotated.error.message,
+        );
+      }
       await loadStokvelData();
     } catch (err) {
       console.error('Payout error:', err);
@@ -462,13 +567,21 @@ export default function StokvelPage() {
     amount: number,
   ) => {
     try {
-      await supabase.from('stokvel_contributions').insert({
-        stokvel_id: stokvelId,
-        user_id: uid,
-        amount,
-        date: todayIso(),
-        note: 'Confirmed by admin for ' + name,
-      });
+      // Was unchecked: on failure the member stayed unpaid in the ledger and
+      // the admin was told nothing, so they believed the payment was logged.
+      // Only stokvel_contributions is written here — the matching expenses row
+      // belongs to the member's own budget, which the admin cannot write to.
+      const confirmed = await ok(
+        supabase.from('stokvel_contributions').insert({
+          stokvel_id: stokvelId,
+          user_id: uid,
+          amount,
+          date: todayIso(),
+          note: 'Confirmed by admin for ' + name,
+        }),
+        'confirm this payment',
+      );
+      if (!confirmed) return;
       await loadStokvelData();
     } catch (err) {
       console.error('Confirm error:', err);

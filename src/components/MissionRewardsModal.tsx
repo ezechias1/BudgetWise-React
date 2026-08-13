@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ok } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Mission { id: string; title: string; unit: string; }
@@ -42,10 +43,18 @@ export function MissionRewardsModal({ onClose }: Props) {
         reward_amount_cents: Math.round(parseFloat(rewards[m.id] || '0') * 100),
       }))
       .filter((r) => r.reward_amount_cents >= 0);
-    await supabase
-      .from('kid_mission_rewards')
-      .upsert(rows, { onConflict: 'user_id,mission_id' });
+    // Previously discarded: a failed upsert still closed the modal, so the
+    // parent believed the reward amounts were saved while the kid's missions
+    // kept paying the old (or zero) amount. Keep the modal open on failure so
+    // the entered values aren't lost.
+    const saved = await ok(
+      supabase
+        .from('kid_mission_rewards')
+        .upsert(rows, { onConflict: 'user_id,mission_id' }),
+      'save the mission rewards',
+    );
     setSaving(false);
+    if (!saved) return;
     onClose();
   };
 

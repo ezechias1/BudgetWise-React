@@ -86,10 +86,21 @@ export async function disablePush(): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
-    await supabase
+    // Previously discarded: a failed delete left the row behind after the
+    // browser subscription was already dropped, so the sender kept pushing to
+    // a dead endpoint and the user still read as "subscribed" server-side —
+    // silently. disablePush runs without a user present to answer a prompt,
+    // so log the failure rather than alerting.
+    const { error } = await supabase
       .from('push_subscriptions')
       .delete()
       .eq('user_id', user.id)
       .eq('endpoint', endpoint);
+    if (error) {
+      console.error(
+        '[push] could not delete push subscription — the stale row will keep receiving pushes',
+        { endpoint, error: error.message },
+      );
+    }
   }
 }

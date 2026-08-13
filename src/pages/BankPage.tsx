@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -32,6 +33,35 @@ import { LinkBankAccountFlow } from '@/components/LinkBankAccountFlow';
 // rendered from the Trips tab now — regular Bank page users never travel
 // for work and shouldn't see that option here.
 // ==========================================================================
+
+// ==========================================================================
+// Bank connection kill switch.
+//
+// FALSE because no provider is actually wired up end to end. The connect
+// flow calls the `stitch-link-initiate` edge function, and that function has
+// never been deployed to the live project — the only stitch functions that
+// exist there are the older `stitch-link-token` / `stitch-exchange-token`
+// pair, which nothing in this codebase calls. `stitch-oauth-callback` and
+// `stitch-sync-transactions` are undeployed too, so even a successful link
+// would never sync. "Add Account" → region picker → South Africa therefore
+// ended in an error alert every single time. Bank linking is the feature
+// people judge a finance app on, so the page now says "coming soon" instead
+// of failing at the last step.
+//
+// Flip back to true when ALL of these hold:
+//   1. stitch-link-initiate, stitch-oauth-callback and
+//      stitch-sync-transactions are deployed to the live Supabase project.
+//   2. Stitch Connect credentials are configured on them and the OAuth
+//      callback redirect is registered for the production domain.
+//   3. A real account can be linked end to end and lands in linked_accounts
+//      with provider = 'stitch'.
+//
+// Flipping it is the only change needed: the connect copy, the provider
+// strip and LinkBankAccountFlow are all still here, untouched. Note this
+// gate covers the Bank page only — the Trips tab renders its own
+// LinkBankAccountFlow for business cards.
+// ==========================================================================
+const BANK_CONNECT_ENABLED = false;
 
 const PROVIDER_STRIP = [
   'Stitch',
@@ -78,26 +108,49 @@ export default function BankPage() {
     if (!user) return;
     const newBalance = prompt('Enter updated balance:');
     if (newBalance === null || isNaN(parseFloat(newBalance))) return;
-    await supabase
-      .from('linked_accounts')
-      .update({
-        balance_current: parseFloat(newBalance),
-        balance_available: parseFloat(newBalance),
-        last_synced: new Date().toISOString(),
-      })
-      .eq('id', acc.id)
-      .eq('user_id', user.id);
+    // Silently failed before: a rejected update still refreshed the cards,
+    // so the balance snapped back to the old figure with no explanation.
+    const updated = await ok(
+      supabase
+        .from('linked_accounts')
+        .update({
+          balance_current: parseFloat(newBalance),
+          balance_available: parseFloat(newBalance),
+          last_synced: new Date().toISOString(),
+        })
+        .eq('id', acc.id)
+        .eq('user_id', user.id),
+      'update this balance',
+    );
+    if (!updated) return;
     await loadLinkedAccounts();
   };
 
   const handleRemove = async (acc: LinkedAccount) => {
     if (!user) return;
     if (!confirm('Remove this account? Transaction history will be kept.')) return;
-    await supabase
+    // Silently failed before: the delete discarded both its error and its
+    // result, so a blocked removal left the account linked while the card
+    // disappeared until the next visit. .select() returns the rows actually
+    // deleted — none means nothing went.
+    const { data, error } = await supabase
       .from('linked_accounts')
       .delete()
       .eq('id', acc.id)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .select('id');
+    if (error) {
+      reportWriteFailure('remove this account', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      reportWriteFailure(
+        'remove this account',
+        'no matching account was removed. It may already have been unlinked.',
+      );
+      await loadLinkedAccounts();
+      return;
+    }
     await loadLinkedAccounts();
   };
 
@@ -230,11 +283,21 @@ export default function BankPage() {
             Bank Connect <span className="beta-tag">Beta</span>
           </h1>
           <p className="page-subtitle">
-            Link your bank for automatic expense tracking
+            {BANK_CONNECT_ENABLED
+              ? 'Link your bank for automatic expense tracking'
+              : 'Add an account manually or import a CSV statement — automatic bank links are coming soon'}
           </p>
         </div>
         <div className="header-actions">
-          <LinkBankAccountFlow mode={mode} isBusinessCard={false} onLinked={loadLinkedAccounts} />
+          {/* No provider is wired while BANK_CONNECT_ENABLED is false, so the
+              "Add Account" picker is hidden via a prop rather than CSS —
+              "Add Manually" and CSV import are real and stay available. */}
+          <LinkBankAccountFlow
+            mode={mode}
+            isBusinessCard={false}
+            onLinked={loadLinkedAccounts}
+            showConnect={BANK_CONNECT_ENABLED}
+          />
         </div>
       </div>
 
@@ -375,12 +438,49 @@ export default function BankPage() {
               >
                 <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v3m4-3v3m4-3v3" />
               </svg>
-              <h3>Connect Your Bank Account</h3>
-              <p>
-                Link your bank to automatically import transactions. We support
-                banks across 5 regions worldwide.
-              </p>
+              {BANK_CONNECT_ENABLED ? (
+                <>
+                  <h3>Connect Your Bank Account</h3>
+                  <p>
+                    Link your bank to automatically import transactions. We support
+                    banks across 5 regions worldwide.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3>
+                    Connect Your Bank Account{' '}
+                    <span className="beta-tag">Coming Soon</span>
+                  </h3>
+                  <p>
+                    Automatic bank connections are not available yet. We are
+                    still working through provider approvals, and we would
+                    rather say so here than send you to a bank login that
+                    cannot finish.
+                  </p>
+                  <p>
+                    What works today: <strong>Add Manually</strong> at the top
+                    of this page to add an account and keep its balance up to
+                    date, or <strong>Import CSV Bank Statement</strong> below
+                    to bring in transactions from your bank's own download.
+                  </p>
+                </>
+              )}
             </div>
+            {!BANK_CONNECT_ENABLED && (
+              <p
+                style={{
+                  textAlign: 'center',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  opacity: 0.4,
+                  margin: '20px 0 -12px',
+                }}
+              >
+                Providers we plan to support
+              </p>
+            )}
             <div className="bank-providers-strip">
               {PROVIDER_STRIP.map((p) => (
                 <span key={p}>{p}</span>
@@ -389,7 +489,13 @@ export default function BankPage() {
           </div>
 
           <div className="chart-card full-width bank-info-card">
-            <h3>How It Works</h3>
+            <h3>{BANK_CONNECT_ENABLED ? 'How It Works' : 'How It Will Work'}</h3>
+            {!BANK_CONNECT_ENABLED && (
+              <p style={{ fontSize: '0.85rem', opacity: 0.55, margin: '4px 0 0' }}>
+                Linking will take three steps once connections are switched on.
+                None of it is live yet.
+              </p>
+            )}
             <div className="bank-steps">
               <div className="bank-step">
                 <div className="bank-step-num">1</div>
