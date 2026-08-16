@@ -408,16 +408,6 @@ export default function BankPage() {
                     <button
                       className="btn-set-primary"
                       onClick={() => setPrimary(acc.id)}
-                      style={{
-                        background: 'rgba(16,185,129,0.1)',
-                        color: '#10b981',
-                        border: 'none',
-                        borderRadius: 6,
-                        padding: '4px 8px',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
                     >
                       ★ Set Main
                     </button>
@@ -576,7 +566,7 @@ export default function BankPage() {
                 opacity: 0.6,
               }}
             >
-              Upload a CSV from FNB, Capitec, Standard Bank, Absa or Nedbank.
+              Upload a CSV from FNB, Capitec, Standard Bank, Absa, Nedbank, TymeBank or Bidvest.
               We auto-detect columns and categorize each transaction.
             </p>
             {mode !== 'business' && (

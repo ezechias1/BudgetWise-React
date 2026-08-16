@@ -31,7 +31,7 @@ const REGIONS: RegionOption[] = [
     flag: '🇿🇦',
     title: 'South Africa',
     providerLabel: 'Powered by Stitch',
-    banks: 'FNB, Capitec, Standard Bank, Absa, Nedbank',
+    banks: 'FNB, Capitec, Standard Bank, Absa, Nedbank, TymeBank, Bidvest',
   },
   {
     provider: 'mono',
@@ -118,6 +118,11 @@ const SA_BANKS: SABank[] = [
   },
   { name: 'Absa', full: 'Absa Group Limited', color: '#af0028', initial: 'A' },
   { name: 'Nedbank', full: 'Nedbank Group', color: '#009946', initial: 'N' },
+  // TymeBank and Bidvest confirmed live on Mono's SA institution coverage
+  // (verified against their real API), so they belong here alongside the
+  // big five rather than forcing those customers to pick "Other".
+  { name: 'TymeBank', full: 'TymeBank', color: '#ffcb05', initial: 'T' },
+  { name: 'Bidvest', full: 'Bidvest Bank', color: '#00539f', initial: 'B' },
 ];
 
 interface Props {
