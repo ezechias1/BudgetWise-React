@@ -301,6 +301,20 @@ export default function BankPage() {
         </div>
       </div>
 
+      {/* Persistent "not live yet" notice.
+          The fuller explanation lives in the empty state below, but that only
+          renders when the user has no accounts — so anyone who already added
+          one manually (common in Personal mode) never saw it, and had no way
+          to know automatic linking isn't available. Shown in every mode. */}
+      {!BANK_CONNECT_ENABLED && hasAccounts && (
+        <div className="bank-coming-soon-note" role="status">
+          <strong>Automatic bank connections aren&rsquo;t live yet.</strong>{' '}
+          We&rsquo;re still working through provider approvals. For now, add
+          accounts manually or import a CSV statement from your bank &mdash;
+          both work fully.
+        </div>
+      )}
+
       {/* Total Balance Banner */}
       {hasAccounts && (
         <div className="bank-balance-banner" id="bankBalanceBanner">
