@@ -49,6 +49,15 @@ export function DashboardLayout() {
       return false; // private browsing / storage disabled
     }
   });
+
+  // Whether this session began from an invite link, captured at first render.
+  //
+  // Must NOT be re-read from storage later: useAutoJoinFamily clears the
+  // stashed code as soon as its effect runs, and hook effects fire in
+  // declaration order, so by the time the picker effect below looked the
+  // code was already gone — and the invitee got the account picker anyway,
+  // which is exactly what it was supposed to prevent.
+  const [fromInvite] = useState(() => !!readStashedInvite());
   const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user } = useAuth();
@@ -90,7 +99,7 @@ export function DashboardLayout() {
     // account to open would be a question they can't meaningfully answer,
     // in front of a household they haven't joined yet. useAutoJoinFamily
     // sets the mode for them.
-    if (readStashedInvite()) {
+    if (fromInvite) {
       return;
     }
     if (userIsPro) {
@@ -98,7 +107,7 @@ export function DashboardLayout() {
     } else {
       setMode('personal');
     }
-  }, [pickerPending, settingsLoading, userIsPro, setMode]);
+  }, [pickerPending, settingsLoading, userIsPro, setMode, fromInvite]);
 
   const handlePickAccount = (m: Mode) => {
     setMode(m);
