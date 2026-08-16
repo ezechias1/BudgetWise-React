@@ -79,13 +79,31 @@ export async function shareInvite(
   const who = familyName?.trim() ? familyName.trim() : 'our family';
   const text = `Join ${who} on BudgetWise so we can budget together. Tap this link and sign up — the code is already in it.`;
 
-  if (typeof navigator !== 'undefined' && 'share' in navigator) {
+  // Only attempt the native sheet on a touch device.
+  //
+  // `'share' in navigator` is true in desktop Chrome, but the call there can
+  // hang without ever settling — no sheet, no rejection. Awaiting it meant
+  // the button did nothing at all: no share, no clipboard fallback, and no
+  // message, forever. Caught by clicking it in a desktop browser and waiting
+  // eight seconds for an outcome that never came.
+  //
+  // A coarse pointer is the honest signal for "this device has a share
+  // sheet". Desktop takes the clipboard path, which always works.
+  const canNativeShare =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    (typeof navigator.canShare !== 'function' || navigator.canShare({ url })) &&
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(pointer: coarse)').matches === true;
+
+  if (canNativeShare) {
     try {
       await navigator.share({ title: 'Join us on BudgetWise', text, url });
       return 'shared';
     } catch (err) {
       // AbortError is the user closing the sheet — not a failure.
       if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
+      // Anything else falls through to the clipboard below.
     }
   }
 
