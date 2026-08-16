@@ -5,6 +5,7 @@ import { useMode } from '@/contexts/ModeContext';
 import { useParticleBackground } from '@/hooks/useParticleBackground';
 import { PasswordInput } from '@/components/PasswordInput';
 import type { Mode } from '@/types';
+import { readInviteFromUrl, stashInvite } from '@/lib/family-invite';
 
 type Tab = 'login' | 'signup' | 'forgot' | 'reset';
 
@@ -91,7 +92,18 @@ export default function AuthPage() {
   // Task #35: when Supabase fires PASSWORD_RECOVERY after the user clicks the
   // email reset link, force the reset tab. Previously the app bounced them
   // straight to /dashboard without ever showing a change-password form.
-  const [tab, setTab] = useState<Tab>(passwordRecovery ? 'reset' : 'login');
+  // Arrived from a family invite link (?join=CODE). Stash the code straight
+  // away: the invitee still has to confirm their email, which on a phone can
+  // reopen the app in a different tab, and the code must survive that.
+  const [inviteCode] = useState<string | null>(() => {
+    const code = readInviteFromUrl();
+    if (code) stashInvite(code);
+    return code;
+  });
+
+  const [tab, setTab] = useState<Tab>(
+    passwordRecovery ? 'reset' : inviteCode ? 'signup' : 'login',
+  );
   useEffect(() => {
     if (passwordRecovery) setTab('reset');
   }, [passwordRecovery]);
@@ -111,7 +123,10 @@ export default function AuthPage() {
   const [loginError, setLoginError] = useState('');
 
   // Signup form state
-  const [signupType, setSignupType] = useState<Mode>('personal');
+  // An invitee is joining a household, so Family is the only sensible
+  // starting point — they should not have to know which of three account
+  // types to pick before they can accept an invitation.
+  const [signupType, setSignupType] = useState<Mode>(inviteCode ? 'family' : 'personal');
 
   // Update page accent colours when account type changes — mirrors auth.js lines 126-147
   useEffect(() => {
@@ -328,6 +343,33 @@ export default function AuthPage() {
 
         <div className="auth-right">
           <div className="auth-card">
+            {/* An invitee arrives with no idea what this app is — say what
+                happens next before asking for a password. The code is already
+                captured; they never type it.
+
+                Shown on BOTH tabs on purpose. The person being invited often
+                already uses BudgetWise for their own budget, and signing up
+                again with an existing email just errors — so logging in has
+                to read as an equal path, not a fallback.
+
+                The privacy line matters: someone joining a household needs to
+                know their own spending isn't about to become visible. It's
+                true — the shared read is Family-mode only, in both the RLS
+                policy and the query. */}
+            {inviteCode && (tab === 'signup' || tab === 'login') && (
+              <div className="auth-invite-banner" role="status">
+                <strong>You&rsquo;ve been invited to a family</strong>
+                <span>
+                  {tab === 'signup'
+                    ? 'Create your account and you’ll join automatically — no code to type. Already use BudgetWise? Log in instead and you’ll join the same way.'
+                    : 'Log in and you’ll join automatically — no code to type. Everything you already have stays yours.'}
+                </span>
+                <span className="auth-invite-privacy">
+                  Only what you put in Family mode is shared. Your Personal and
+                  Business budgets stay private.
+                </span>
+              </div>
+            )}
             {tab !== 'reset' && (
               <div className="auth-tabs">
                 <button

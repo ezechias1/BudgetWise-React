@@ -676,3 +676,27 @@ body.light .auth-legal {
 .type-btn svg {
     flex-shrink: 0;
 }
+
+
+/* Family invite banner — shown on the signup form when the user arrived
+   from a ?join=CODE link. Uses the family accent, which AuthPage has
+   already applied to --accent by the time this renders. */
+.auth-invite-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.auth-invite-banner strong { font-size: 0.92rem; }
+.auth-invite-banner span { opacity: 0.85; }
+
+.auth-invite-privacy {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}

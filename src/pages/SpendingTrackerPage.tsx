@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useFamilyIncome } from '@/hooks/useFamilyIncome';
 import { pickMemberColor, invalidateFamilyGroupCache } from '@/hooks/useFamilyMembers';
+import { shareInvite } from '@/lib/family-invite';
 import { FAMILY_CATEGORIES } from '@/lib/categories';
 
 /**
@@ -392,6 +393,23 @@ export default function SpendingTrackerPage() {
     }
   };
 
+  /**
+   * Send the invite as a link rather than a bare code.
+   *
+   * People pass these along on WhatsApp, so this uses the phone's own share
+   * sheet where it exists and falls back to the clipboard on desktop. The
+   * link carries the code, so the person receiving it never types anything —
+   * they sign up and land joined.
+   */
+  const shareCode = async () => {
+    if (!ownedGroup?.family_code) return;
+    const outcome = await shareInvite(ownedGroup.family_code, ownedGroup.family_name);
+    if (outcome === 'copied') alert('Invite link copied — paste it to them.');
+    else if (outcome === 'failed') alert(`Could not share. The code is ${ownedGroup.family_code}.`);
+    // 'shared' needs no confirmation (the share sheet is its own feedback),
+    // and 'cancelled' means they closed it deliberately.
+  };
+
   const joinFamily = async () => {
     if (!user) return;
     setJoinError('');
@@ -619,6 +637,13 @@ export default function SpendingTrackerPage() {
                   style={{ padding: '12px 18px', whiteSpace: 'nowrap' }}
                 >
                   Copy
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={shareCode}
+                  style={{ padding: '12px 18px', whiteSpace: 'nowrap' }}
+                >
+                  Send invite
                 </button>
               </div>
             </div>

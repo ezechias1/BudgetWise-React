@@ -4,6 +4,9 @@ import { Sidebar } from './Sidebar';
 import { AccountPickerModal } from './AccountPickerModal';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { isProUser } from '@/lib/access';
+import { useAutoJoinFamily } from '@/hooks/useAutoJoinFamily';
+import { readStashedInvite } from '@/lib/family-invite';
+import { useJoinConfirmations } from '@/hooks/useJoinConfirmations';
 import { TripReviewBanner } from './TripReviewBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +54,10 @@ export function DashboardLayout() {
   const { user } = useAuth();
   const { setMode } = useMode();
   const { isProFromSettings, loading: settingsLoading } = useUserSettings();
+  // Completes a ?join= invite the moment the invitee lands here.
+  const autoJoin = useAutoJoinFamily();
+  // "You're in" for approvals that happened while the app was closed.
+  const { items: joinConfirmations, acknowledge } = useJoinConfirmations();
   const userIsPro = isProUser(isProFromSettings, user);
   const { isChild, loading: kidLoading } = useKidProfile();
   const { permission, request } = useNotificationPermission();
@@ -79,6 +86,13 @@ export function DashboardLayout() {
   useEffect(() => {
     if (!pickerPending || settingsLoading) return;
     setPickerPending(false);
+    // Someone arriving on an invite link has already chosen — asking which
+    // account to open would be a question they can't meaningfully answer,
+    // in front of a household they haven't joined yet. useAutoJoinFamily
+    // sets the mode for them.
+    if (readStashedInvite()) {
+      return;
+    }
     if (userIsPro) {
       setShowAccountPicker(true);
     } else {
@@ -189,6 +203,35 @@ export function DashboardLayout() {
       </div>
 
       <main className="main-content loaded">
+        {/* Approval usually lands while the app is shut, so this is the only
+            moment the person learns they're actually in. Dismissing it is
+            what marks it read — there's no separate "seen" state to drift. */}
+        {joinConfirmations.map((c) => (
+          <div key={c.key} role="status" className="invite-result is-joined">
+            <span>
+              You&rsquo;ve joined <strong>{c.name}</strong>
+              {c.kind === 'stokvel'
+                ? ' — you can see contributions and payouts now.'
+                : ' — you can see the shared budget now.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => acknowledge(c.key)}
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+
+        {autoJoin && (
+          <div
+            role="status"
+            className={`invite-result ${autoJoin.kind === 'failed' ? 'is-error' : ''}`}
+          >
+            {autoJoin.message}
+          </div>
+        )}
         {/* Kids don't have trips — only parent accounts see this. */}
         {user && !kidLoading && !isChild && <TripReviewBanner />}
         {sundayBanner && (
