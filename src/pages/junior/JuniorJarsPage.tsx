@@ -27,23 +27,23 @@ export default function JuniorJarsPage() {
     setSubmitting(true);
     // Previously discarded its error, so a kid's jar split could appear
     // saved while the database kept the old values.
-    // .select() is load-bearing, not decoration. An UPDATE that RLS blocks
-    // returns HTTP 200 with zero rows and NO error — verified against
-    // production with a real kid session. Without asking for the rows back
-    // there is nothing to check, so the kid saw "Saved!" every time while
-    // the database kept the old split. Checking the error alone is not
-    // enough for an update; you have to confirm a row actually changed.
-    const { data: updated, error: jarError } = await supabase
-      .from('family_members')
-      .update({ jar_split: { save, spend, give } })
-      .eq('id', member.id)
-      .select('id');
+    // Goes through set_my_jar_split rather than updating family_members
+    // directly. A kid has no write access to that table and never should:
+    // it also holds earned, allowance, spent and role, and a policy broad
+    // enough to permit jar_split would also let a child award themselves
+    // money. The RPC accepts only the three numbers and resolves which kid
+    // is calling from the JWT, so it can't be aimed at a sibling.
+    //
+    // Before this existed the direct UPDATE returned 200 with zero rows and
+    // no error, so the kid saw "Saved!" while nothing changed.
+    const { error: jarError } = await supabase.rpc('set_my_jar_split', {
+      p_save: save,
+      p_spend: spend,
+      p_give: give,
+    });
     setSubmitting(false);
-    if (jarError || !updated || updated.length === 0) {
-      reportWriteFailure(
-        'save your jars',
-        jarError?.message ?? "your account doesn't have permission to change this yet",
-      );
+    if (jarError) {
+      reportWriteFailure('save your jars', jarError.message);
       return;
     }
     setSaved(true);
