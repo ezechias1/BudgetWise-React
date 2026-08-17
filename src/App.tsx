@@ -24,8 +24,32 @@ import { JuniorLangProvider } from '@/i18n/junior';
 function lazyWithRetry<T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>,
 ): ReturnType<typeof lazy<T>> {
+  const RETRY_KEY = 'budgetwise-chunk-retry';
+
   return lazy(() =>
-    factory().catch(async (err: Error) => {
+    factory()
+      .then((mod) => {
+        // Disarm the one-shot guard now that a chunk has actually loaded.
+        //
+        // The guard used to be set and never cleared, so it was "one retry
+        // per TAB" rather than "one retry per failure": after the first
+        // successful auto-recovery, every later chunk failure — and there is
+        // one every time a deploy lands while a tab is open — skipped the
+        // reload entirely and fell straight to the error screen.
+        //
+        // Cleared HERE and not on App mount on purpose. The app mounts
+        // before any lazy chunk resolves, so clearing on mount would re-arm
+        // the retry before we know loading works; a genuinely missing chunk
+        // would then reload, mount, clear, fail, and reload forever. A
+        // resolved chunk is proof the problem is over.
+        try {
+          sessionStorage.removeItem(RETRY_KEY);
+        } catch {
+          // Private browsing — the guard just stays as it was.
+        }
+        return mod;
+      })
+      .catch(async (err: Error) => {
       const msg = err?.message ?? '';
       if (
         msg.includes('Failed to fetch dynamically imported module') ||
@@ -33,7 +57,7 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
       ) {
         // One-shot reload guard via session storage so we don't loop forever
         // if the chunk genuinely is gone.
-        const key = 'budgetwise-chunk-retry';
+        const key = RETRY_KEY;
         if (!sessionStorage.getItem(key)) {
           sessionStorage.setItem(key, '1');
           // Purge SW caches + unregister the SW BEFORE reload — otherwise the
