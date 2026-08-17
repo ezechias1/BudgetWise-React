@@ -150,13 +150,21 @@ export default function JuniorGoalsPage() {
     // which kid put it in — the same bug fixed in the parent's contribute()
     // in FamilyGoalsPage.tsx. On failure we put the total back.
     const previousSaved = goal?.saved ?? 0;
-    const { error: updateError } = await supabase
+    // .select() matters here: an UPDATE that RLS blocks returns 200 with zero
+    // rows and no error, so without it a kid would be told their money went
+    // in while the goal never changed — and the contribution insert below
+    // would then be rolled back against a total that was never raised.
+    const { data: raised, error: updateError } = await supabase
       .from('family_goals')
       .update({ saved: previousSaved + amount })
-      .eq('id', addMoneyGoalId);
-    if (updateError) {
+      .eq('id', addMoneyGoalId)
+      .select('id');
+    if (updateError || !raised || raised.length === 0) {
       setAddingMoney(false);
-      setAddMoneyError(updateError.message);
+      setAddMoneyError(
+        updateError?.message ??
+          "That didn't save — your account can't change this goal yet. Ask a parent.",
+      );
       return;
     }
     const { error: contribError } = await supabase
@@ -168,13 +176,16 @@ export default function JuniorGoalsPage() {
         amount,
       });
     if (contribError) {
-      const { error: rollbackError } = await supabase
+      const { data: restored, error: rollbackError } = await supabase
         .from('family_goals')
         .update({ saved: previousSaved })
-        .eq('id', addMoneyGoalId);
+        .eq('id', addMoneyGoalId)
+        .select('id');
+      const rollbackFailed =
+        !!rollbackError || !restored || restored.length === 0;
       setAddingMoney(false);
       setAddMoneyError(
-        rollbackError
+        rollbackFailed
           ? `That didn't save, and the goal total is now ${formatRands(amount)} too high. Ask a parent to fix it.`
           : "That didn't save. Please try again.",
       );

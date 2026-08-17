@@ -27,15 +27,23 @@ export default function JuniorJarsPage() {
     setSubmitting(true);
     // Previously discarded its error, so a kid's jar split could appear
     // saved while the database kept the old values.
-    const { error: jarError } = await supabase
+    // .select() is load-bearing, not decoration. An UPDATE that RLS blocks
+    // returns HTTP 200 with zero rows and NO error — verified against
+    // production with a real kid session. Without asking for the rows back
+    // there is nothing to check, so the kid saw "Saved!" every time while
+    // the database kept the old split. Checking the error alone is not
+    // enough for an update; you have to confirm a row actually changed.
+    const { data: updated, error: jarError } = await supabase
       .from('family_members')
       .update({ jar_split: { save, spend, give } })
-      .eq('id', member.id);
+      .eq('id', member.id)
+      .select('id');
     setSubmitting(false);
-    if (jarError) {
-      // Don't show the "Saved!" tick for something that wasn't saved — a kid
-      // would set their jars, see it confirm, and find the old split later.
-      reportWriteFailure('save your jars', jarError.message);
+    if (jarError || !updated || updated.length === 0) {
+      reportWriteFailure(
+        'save your jars',
+        jarError?.message ?? "your account doesn't have permission to change this yet",
+      );
       return;
     }
     setSaved(true);

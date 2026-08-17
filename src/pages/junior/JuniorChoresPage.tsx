@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { enqueueApprovalNudge } from '@/lib/junior-notifications';
 
@@ -40,11 +41,23 @@ export default function JuniorChoresPage() {
   const markDone = async (chore: Chore) => {
     if (marking) return;
     setMarking(chore.id);
-    const { error } = await supabase
+    // .select() so a blocked update is detectable: RLS rejection returns 200
+    // with zero rows and no error, which would show the chore as sent for
+    // approval when nothing was written.
+    const { data: marked, error } = await supabase
       .from('family_chores')
       .update({ pending_approval: true })
-      .eq('id', chore.id);
-    if (!error && member) {
+      .eq('id', chore.id)
+      .select('id');
+    if (error || !marked || marked.length === 0) {
+      setMarking(null);
+      reportWriteFailure(
+        'send that chore for approval',
+        error?.message ?? "it didn't save — ask a parent to check",
+      );
+      return;
+    }
+    if (member) {
       // Enqueue a notification for the parent to approve. Fire-and-forget —
       // failure here shouldn't block the kid's UI feedback.
       void enqueueApprovalNudge(
