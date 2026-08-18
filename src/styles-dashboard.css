@@ -215,7 +215,7 @@ body::after {
 }
 
 .mode-chevron {
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     transition: transform 0.2s;
 }
 
@@ -314,13 +314,13 @@ body.light .mode-dropdown-btn {
 body.light .mode-dropdown-btn:hover {
     background: rgba(0,0,0,0.07);
 }
-body.light .mode-chevron { color: rgba(0,0,0,0.3); }
+body.light .mode-chevron { color: rgba(0,0,0,0.6); }
 body.light .mode-dropdown-menu {
     background: #fff;
     border-color: rgba(0,0,0,0.08);
     box-shadow: 0 12px 40px rgba(0,0,0,0.15);
 }
-body.light .mode-option { color: rgba(0,0,0,0.55); }
+body.light .mode-option { color: rgba(0,0,0,0.6); }
 body.light .mode-option:hover { background: rgba(0,0,0,0.04); color: #1a1a2e; }
 body.light .mode-option.active { color: var(--accent); }
 
@@ -421,7 +421,7 @@ body.light .mode-option.active { color: var(--accent); }
 .biz-cancel-btn {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-size: 0.85rem;
     font-family: inherit;
     cursor: pointer;
@@ -439,7 +439,7 @@ body.light .business-setup-icon {
 }
 
 body.light .biz-cancel-btn {
-    color: rgba(0,0,0,0.35);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .biz-cancel-btn:hover {
@@ -457,7 +457,7 @@ body.light .mode-transition {
 }
 
 body.light .mode-transition-label {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 .sidebar-nav {
@@ -504,7 +504,7 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
     gap: 12px;
     padding: 12px 16px;
     border-radius: 12px;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
     transition: all 0.2s;
     font-size: 0.88rem;
@@ -554,7 +554,7 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 
 .user-info span {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -563,7 +563,7 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 .btn-logout {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
     padding: 8px;
     border-radius: 8px;
@@ -670,7 +670,7 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 }
 
 .page-subtitle {
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     font-size: 0.85rem;
     margin-top: 6px;
 }
@@ -806,7 +806,7 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 
 .stat-label {
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     font-weight: 600;
@@ -824,10 +824,10 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 /* Secondary caption under a stat value (Load Shedding summary tiles). */
 .stat-sub {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
-body.light .stat-sub { color: rgba(0,0,0,0.45); }
+body.light .stat-sub { color: rgba(0,0,0,0.6); }
 
 /* Charts */
 .charts-grid {
@@ -875,7 +875,7 @@ body.light .stat-sub { color: rgba(0,0,0,0.45); }
 }
 
 .chart-subtitle {
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
     margin-top: -12px;
     margin-bottom: 16px;
@@ -894,7 +894,7 @@ body.light .stat-sub { color: rgba(0,0,0,0.45); }
     align-items: center;
     justify-content: center;
     gap: 10px;
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.5);
     pointer-events: none;
 }
 
@@ -908,7 +908,7 @@ body.light .stat-sub { color: rgba(0,0,0,0.45); }
 }
 
 body.light .chart-empty {
-    color: rgba(0,0,0,0.2);
+    color: rgba(0,0,0,0.6);
 }
 
 .chart-wide {
@@ -950,7 +950,7 @@ body.light .chart-empty {
     display: flex;
     justify-content: space-between;
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-weight: 500;
 }
 
@@ -970,7 +970,7 @@ body.light .chart-empty {
     text-align: left;
     padding: 12px 16px;
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.8px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -1004,7 +1004,7 @@ body.light .chart-empty {
 .btn-delete {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
     padding: 8px;
     border-radius: 8px;
@@ -1018,7 +1018,7 @@ body.light .chart-empty {
 
 .empty-state {
     text-align: center;
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.5);
     padding: 50px 20px;
     font-size: 0.9rem;
     font-weight: 400;
@@ -1090,7 +1090,7 @@ body.modal-open {
 
 .modal p,
 .modal-desc {
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-size: 0.85rem;
     margin-bottom: 24px;
     line-height: 1.5;
@@ -1099,7 +1099,7 @@ body.modal-open {
 .modal-close {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 1.3rem;
     cursor: pointer;
     width: 36px;
@@ -1123,7 +1123,7 @@ body.modal-open {
 .modal .field label {
     display: block;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 6px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1145,7 +1145,7 @@ body.modal-open {
 }
 
 .modal .field input::placeholder {
-    color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.5);
 }
 
 .modal .field input:focus,
@@ -1234,7 +1234,7 @@ body.modal-open {
 }
 
 .inline-form .field input::placeholder {
-    color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.5);
 }
 
 .inline-form .field input:focus {
@@ -1245,7 +1245,7 @@ body.modal-open {
 .inline-form .field label {
     display: block;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 6px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1314,7 +1314,7 @@ body.light .btn-danger:hover {
 .converter-side label {
     display: block;
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -1358,12 +1358,12 @@ body.light .btn-danger:hover {
 }
 
 .converter-arrow {
-    color: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
     padding-bottom: 8px;
 }
 
 .rate-info {
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     font-size: 0.78rem;
 }
 
@@ -1374,12 +1374,12 @@ body.light .btn-danger:hover {
 
 .comfort-subtitle {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 20px;
 }
 
 body.light .comfort-subtitle {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 .comfort-grid {
@@ -1416,12 +1416,12 @@ body.light .comfort-item.comfort-total {
 
 .comfort-label {
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
     font-weight: 500;
 }
 
 body.light .comfort-label {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 .comfort-total .comfort-label {
@@ -1447,12 +1447,12 @@ body.light .comfort-value {
 .comfort-note {
     margin-top: 16px;
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     line-height: 1.6;
 }
 
 body.light .comfort-note {
-    color: rgba(0,0,0,0.35);
+    color: rgba(0,0,0,0.6);
 }
 
 /* Account Page */
@@ -1895,7 +1895,7 @@ body.light .upgrade-modal .modal-header h2 {
 body.light .upgrade-modal .modal-close {
     background: rgba(0,0,0,0.06);
     border-color: rgba(0,0,0,0.1);
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .upgrade-modal .modal-close:hover {
@@ -2147,7 +2147,7 @@ body.light .plan-features li { color: #1f2937; }
 .light-early .plan-features li.excluded,
 body.light .plan-features li.excluded { color: #9ca3af; }
 body.light .plan-per-month { color: #059669; }
-body.light .upgrade-note { color: rgba(0,0,0,0.4); }
+body.light .upgrade-note { color: rgba(0,0,0,0.6); }
 body.light .trial-banner {
     background: rgba(16,185,129,0.08);
     border-color: rgba(16,185,129,0.15);
@@ -2233,12 +2233,12 @@ body.light .account-row {
 
 .account-label {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-weight: 500;
 }
 
 body.light .account-label {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 .account-value {
@@ -2382,7 +2382,7 @@ body.light .account-value {
 
 .advice-card p {
     font-size: 0.84rem;
-    color: rgba(255,255,255,0.38);
+    color: rgba(255,255,255,0.5);
     line-height: 1.65;
 }
 
@@ -2623,12 +2623,12 @@ body.light .account-value {
 
     .expense-table td:first-child {
         font-size: 0.72rem;
-        color: rgba(255,255,255,0.3);
+        color: rgba(255,255,255,0.5);
         margin-bottom: 4px;
     }
 
     body.light .expense-table td:first-child {
-        color: rgba(0,0,0,0.35);
+        color: rgba(0,0,0,0.6);
     }
 
     .expense-table td:nth-child(3) {
@@ -3234,7 +3234,7 @@ body.light .sidebar-brand {
 }
 
 body.light .nav-item {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .nav-item:hover {
@@ -3336,11 +3336,11 @@ body.light .install-banner-text strong {
 
 .install-banner-text span {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .install-banner-text span {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 .install-banner-btn {
@@ -3365,7 +3365,7 @@ body.light .install-banner-text span {
 .install-banner-dismiss {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     font-size: 1.2rem;
     cursor: pointer;
     padding: 4px;
@@ -3373,7 +3373,7 @@ body.light .install-banner-text span {
 }
 
 body.light .install-banner-dismiss {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 @media (max-width: 768px) {
@@ -3435,7 +3435,7 @@ body.light .nav-install {
 }
 
 body.light .streak-label {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 .streak-badge.hidden {
@@ -3476,7 +3476,7 @@ body.light .monthly-summary {
 .summary-dismiss {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     font-size: 1.3rem;
     cursor: pointer;
     padding: 4px;
@@ -3484,7 +3484,7 @@ body.light .monthly-summary {
 }
 
 body.light .summary-dismiss {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 .monthly-summary.hidden {
@@ -3582,12 +3582,12 @@ body.light .bw-cat {
 }
 
 .bw-detail {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
 }
 
 body.light .bw-detail {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 .bw-bar {
@@ -3735,11 +3735,11 @@ body.light .achievement-title {
 
 .achievement-desc {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .achievement-desc {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .sidebar-footer {
@@ -3747,7 +3747,7 @@ body.light .sidebar-footer {
 }
 
 body.light .user-info span {
-    color: rgba(0,0,0,0.55);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .user-avatar {
@@ -3755,7 +3755,7 @@ body.light .user-avatar {
 }
 
 body.light .btn-logout {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .btn-logout:hover {
@@ -3800,7 +3800,7 @@ body.light .page-header h1 {
 }
 
 body.light .page-subtitle {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .stat-card {
@@ -3825,7 +3825,7 @@ body.light .stat-blue { background: linear-gradient(135deg, rgba(59,130,246,0.15
 body.light .stat-purple { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.08)); box-shadow: 0 4px 12px rgba(139,92,246,0.12); }
 
 body.light .stat-label {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .stat-value {
@@ -3852,7 +3852,7 @@ body.light .chart-card h3 {
 }
 
 body.light .chart-subtitle {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .progress-track {
@@ -3861,11 +3861,11 @@ body.light .progress-track {
 }
 
 body.light .progress-labels {
-    color: rgba(0,0,0,0.55);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .expense-table th {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
     border-bottom: 2px solid rgba(var(--accent-rgb),0.1);
 }
 
@@ -3879,7 +3879,7 @@ body.light .expense-table tr:hover td {
 }
 
 body.light .btn-delete {
-    color: rgba(0,0,0,0.25);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .btn-delete:hover {
@@ -3888,7 +3888,7 @@ body.light .btn-delete:hover {
 }
 
 body.light .empty-state {
-    color: rgba(0,0,0,0.35);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .btn-add {
@@ -3924,13 +3924,13 @@ body.light .modal h2 {
 
 body.light .modal p,
 body.light .modal-desc {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .modal-close {
     background: rgba(0,0,0,0.05);
     border-color: rgba(0,0,0,0.08);
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .modal-close:hover {
@@ -3941,7 +3941,7 @@ body.light .modal-close:hover {
 body.light .modal .field label,
 body.light .inline-form .field label,
 body.light .converter-side label {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .modal .field input,
@@ -3958,7 +3958,7 @@ body.light .month-filter {
 
 body.light .modal .field input::placeholder,
 body.light .inline-form .field input::placeholder {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .modal .field input:focus,
@@ -3989,7 +3989,7 @@ body.light .converter-arrow {
 }
 
 body.light .rate-info {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .advice-card {
@@ -4028,7 +4028,7 @@ body.light .advice-card h3 {
 }
 
 body.light .advice-card p {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .goal-card {
@@ -4048,7 +4048,7 @@ body.light .goal-card h4 {
 }
 
 body.light .goal-stats {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .goal-stats span:nth-child(2) {
@@ -4057,7 +4057,7 @@ body.light .goal-stats span:nth-child(2) {
 }
 
 body.light .goal-advice {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
     border-top-color: rgba(var(--accent-rgb),0.1);
 }
 
@@ -4115,7 +4115,7 @@ body.light .sidebar-overlay.active {
 }
 
 .welcome-banner p {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 0.85rem;
 }
 
@@ -4125,7 +4125,7 @@ body.light .welcome-banner {
 }
 
 body.light .welcome-banner p {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 /* Search & toolbar */
@@ -4155,7 +4155,7 @@ body.light .welcome-banner p {
 }
 
 .search-box svg {
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     flex-shrink: 0;
 }
 
@@ -4171,7 +4171,7 @@ body.light .welcome-banner p {
 }
 
 .search-box input::placeholder {
-    color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .search-box {
@@ -4180,7 +4180,7 @@ body.light .search-box {
 }
 
 body.light .search-box svg {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .search-box input {
@@ -4188,7 +4188,7 @@ body.light .search-box input {
 }
 
 body.light .search-box input::placeholder {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 .category-filter {
@@ -4244,7 +4244,7 @@ body.light .category-filter option {
 body.light .btn-export {
     background: rgba(255,255,255,0.8);
     border-color: rgba(0,0,0,0.1);
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .btn-export:hover {
@@ -4299,14 +4299,14 @@ body.light .custom-cat-item {
 
 .custom-cat-item .badge-default {
     font-size: 0.7rem;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     padding: 2px 8px;
     border-radius: 6px;
     background: rgba(255,255,255,0.04);
 }
 
 body.light .custom-cat-item .badge-default {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
     background: rgba(0,0,0,0.04);
 }
 
@@ -4363,12 +4363,12 @@ body.light .drill-day-header strong {
     display: flex;
     justify-content: space-between;
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     padding: 2px 0;
 }
 
 body.light .drill-item {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 
 .drill-item .drill-amount {
@@ -4454,7 +4454,7 @@ body.light .drill-item .drill-amount {
     display: flex;
     justify-content: space-between;
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-weight: 500;
 }
 
@@ -4465,7 +4465,7 @@ body.light .drill-item .drill-amount {
 
 .goal-advice {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     line-height: 1.5;
     padding-top: 10px;
     border-top: 1px solid rgba(255,255,255,0.04);
@@ -4516,7 +4516,7 @@ body.light .drill-item .drill-amount {
 }
 
 .ai-placeholder {
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-size: 0.88rem;
     text-align: center;
     padding: 20px 0;
@@ -4551,7 +4551,7 @@ body.light .drill-item .drill-amount {
 
 .ai-insight-content p {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
     line-height: 1.5;
 }
 
@@ -4564,8 +4564,8 @@ body.light .drill-item .drill-amount {
 .ai-insight.neutral .ai-insight-icon { background: rgba(59,130,246,0.1); }
 
 body.light .ai-insight { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
-body.light .ai-insight-content p { color: rgba(0,0,0,0.5); }
-body.light .ai-placeholder { color: rgba(0,0,0,0.4); }
+body.light .ai-insight-content p { color: rgba(0,0,0,0.6); }
+body.light .ai-placeholder { color: rgba(0,0,0,0.6); }
 
 /* =============================================
    SHARED BUDGETS
@@ -4580,7 +4580,7 @@ body.light .ai-placeholder { color: rgba(0,0,0,0.4); }
     grid-column: 1 / -1;
     text-align: center;
     padding: 60px 20px;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-size: 0.9rem;
     line-height: 1.6;
 }
@@ -4607,7 +4607,7 @@ body.light .ai-placeholder { color: rgba(0,0,0,0.4); }
 
 .shared-group-card .group-meta {
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 16px;
 }
 
@@ -4630,7 +4630,7 @@ body.light .ai-placeholder { color: rgba(0,0,0,0.4); }
     display: flex;
     justify-content: space-between;
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 16px;
 }
 
@@ -4682,12 +4682,12 @@ body.light .ai-placeholder { color: rgba(0,0,0,0.4); }
 }
 
 body.light .shared-group-card { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.08); }
-body.light .shared-group-card .group-meta { color: rgba(0,0,0,0.4); }
+body.light .shared-group-card .group-meta { color: rgba(0,0,0,0.6); }
 body.light .shared-group-card .group-budget-bar { background: rgba(0,0,0,0.06); }
-body.light .shared-group-card .group-budget-text { color: rgba(0,0,0,0.45); }
+body.light .shared-group-card .group-budget-text { color: rgba(0,0,0,0.6); }
 body.light .group-member-avatar { border-color: #f5f5f5; }
-body.light .group-actions button { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: rgba(0,0,0,0.5); }
-body.light .empty-state { color: rgba(0,0,0,0.4); }
+body.light .group-actions button { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: rgba(0,0,0,0.6); }
+body.light .empty-state { color: rgba(0,0,0,0.6); }
 
 .btn-sm {
     padding: 8px 16px !important;
@@ -4723,7 +4723,7 @@ body.light .empty-state { color: rgba(0,0,0,0.4); }
 }
 
 .bank-hero p {
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
     font-size: 0.88rem;
     line-height: 1.6;
     max-width: 500px;
@@ -4764,7 +4764,7 @@ body.light .empty-state { color: rgba(0,0,0,0.4); }
 
 .bank-step p {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     line-height: 1.4;
 }
 
@@ -4772,8 +4772,8 @@ body.light .empty-state { color: rgba(0,0,0,0.4); }
     border: 1px dashed rgba(255,255,255,0.08);
 }
 
-body.light .bank-hero p { color: rgba(0,0,0,0.5); }
-body.light .bank-step p { color: rgba(0,0,0,0.45); }
+body.light .bank-hero p { color: rgba(0,0,0,0.6); }
+body.light .bank-step p { color: rgba(0,0,0,0.6); }
 body.light .bank-info-card { border-color: rgba(0,0,0,0.1); }
 
 /* Bank Balance Banner */
@@ -4803,7 +4803,7 @@ body.light .bank-info-card { border-color: rgba(0,0,0,0.1); }
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 8px;
 }
 
@@ -4820,13 +4820,13 @@ body.light .bank-info-card { border-color: rgba(0,0,0,0.1); }
 
 .balance-sub {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .bank-balance-banner { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.08); }
-body.light .balance-label { color: rgba(0,0,0,0.45); }
+body.light .balance-label { color: rgba(0,0,0,0.6); }
 body.light .balance-amount { -webkit-text-fill-color: transparent; }
-body.light .balance-sub { color: rgba(0,0,0,0.4); }
+body.light .balance-sub { color: rgba(0,0,0,0.6); }
 
 /* Bank Cards Grid */
 .bank-cards-grid {
@@ -4926,7 +4926,7 @@ body.light .balance-sub { color: rgba(0,0,0,0.4); }
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     margin-bottom: 2px;
 }
 
@@ -4992,7 +4992,7 @@ body.light .balance-sub { color: rgba(0,0,0,0.4); }
 }
 
 .bank-search-wrap .input::placeholder {
-    color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.5);
 }
 
 .bank-search-wrap .input:focus {
@@ -5008,7 +5008,7 @@ body.light .bank-search-wrap .input {
 }
 
 body.light .bank-search-wrap .input::placeholder {
-    color: rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.6);
 }
 
 body.light .bank-search-wrap .input:focus {
@@ -5090,13 +5090,13 @@ body.light .bank-search-wrap .input:focus {
 
 .region-banks {
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     line-height: 1.4;
 }
 
 body.light .region-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); color: #1a1a2e; }
 body.light .region-card:hover { border-color: rgba(var(--accent-rgb),0.3); background: rgba(var(--accent-rgb),0.04); }
-body.light .region-banks { color: rgba(0,0,0,0.4); }
+body.light .region-banks { color: rgba(0,0,0,0.6); }
 
 /* Beta Badge (nav) */
 .beta-badge {
@@ -5233,7 +5233,7 @@ body.light .beta-badge, body.light .beta-tag { background: linear-gradient(135de
 
 .sa-bank-full {
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     display: block;
     margin-top: 1px;
 }
@@ -5291,8 +5291,8 @@ body.light .sa-bank-btn { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0
 body.light .sa-bank-btn:hover { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); }
 body.light .sa-bank-btn.selected { border-color: var(--accent); background: rgba(var(--accent-rgb),0.06); }
 body.light .sa-bank-name { color: #1a1a2e; }
-body.light .sa-bank-full { color: rgba(0,0,0,0.4); }
-body.light #saBankForm label { color: rgba(0,0,0,0.5); }
+body.light .sa-bank-full { color: rgba(0,0,0,0.6); }
+body.light #saBankForm label { color: rgba(0,0,0,0.6); }
 body.light #saBankForm .input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.1); color: #1a1a2e; }
 body.light #saBankForm .input:focus { border-color: var(--accent); background: rgba(0,0,0,0.02); }
 body.light #saBankForm select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(0,0,0,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
@@ -5313,14 +5313,14 @@ body.light #saBankForm select.input { background-image: url("data:image/svg+xml,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     padding: 4px 12px;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 20px;
 }
 
 body.light .bank-providers-strip { border-top-color: rgba(0,0,0,0.06); }
-body.light .bank-providers-strip span { color: rgba(0,0,0,0.3); border-color: rgba(0,0,0,0.08); }
+body.light .bank-providers-strip span { color: rgba(0,0,0,0.6); border-color: rgba(0,0,0,0.08); }
 
 /* ============================================================
    BUSINESS PAGES: Invoices, Clients, P&L, Tax
@@ -5420,7 +5420,7 @@ body.light .bank-providers-strip span { color: rgba(0,0,0,0.3); border-color: rg
 
 .client-info span {
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -5451,7 +5451,7 @@ body.light .bank-providers-strip span { color: rgba(0,0,0,0.3); border-color: rg
 
 .client-stat-lbl {
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-top: 2px;
@@ -5521,20 +5521,20 @@ body.light .bank-providers-strip span { color: rgba(0,0,0,0.3); border-color: rg
 
 .pnl-pct {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     min-width: 40px;
     text-align: right;
 }
 
 /* Light mode overrides for business pages */
-body.light .client-info span { color: rgba(0,0,0,0.4); }
+body.light .client-info span { color: rgba(0,0,0,0.6); }
 body.light .client-stats { border-top-color: rgba(0,0,0,0.06); }
 body.light .client-stat-val { color: #1a1a2e; }
-body.light .client-stat-lbl { color: rgba(0,0,0,0.4); }
+body.light .client-stat-lbl { color: rgba(0,0,0,0.6); }
 body.light .pnl-row-left span { color: rgba(0,0,0,0.6); }
 body.light .pnl-bar-track { background: rgba(0,0,0,0.06); }
 body.light .pnl-amount { color: #1a1a2e; }
-body.light .pnl-pct { color: rgba(0,0,0,0.35); }
+body.light .pnl-pct { color: rgba(0,0,0,0.6); }
 body.light .status-paid { background: rgba(16,185,129,0.1); }
 body.light .status-pending { background: rgba(245,158,11,0.1); }
 body.light .status-overdue { background: rgba(239,68,68,0.1); }
@@ -5647,7 +5647,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .member-stat-lbl {
     font-size: 0.7rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
@@ -5729,7 +5729,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .allowance-amount {
     font-size: 0.85rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
 .allowance-progress {
@@ -5754,7 +5754,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
     display: flex;
     justify-content: space-between;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
 .allowance-spent { color: var(--accent); font-weight: 600; }
@@ -5766,7 +5766,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .allowance-log h5 {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 8px;
@@ -5850,12 +5850,12 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .chore-card.completed .chore-name {
     text-decoration: line-through;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
 .chore-meta {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
 .chore-reward {
@@ -5877,7 +5877,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
     padding: 4px 8px;
     border: none;
     background: transparent;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.2s;
@@ -5917,7 +5917,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .family-goal-deadline {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
 .family-goal-progress {
@@ -5946,7 +5946,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 }
 
 .family-goal-saved { color: var(--accent); font-weight: 700; }
-.family-goal-target { color: rgba(255,255,255,0.4); }
+.family-goal-target { color: rgba(255,255,255,0.5); }
 
 .family-goal-contributors {
     border-top: 1px solid rgba(255,255,255,0.06);
@@ -5955,7 +5955,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 
 .family-goal-contributors h5 {
     font-size: 0.7rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 8px;
@@ -6114,7 +6114,7 @@ body.light .status-overdue { background: rgba(239,68,68,0.1); }
 /* Light mode - family */
 body.light .member-info h4 { color: #1a1a2e; }
 body.light .member-stat-val { color: #1a1a2e; }
-body.light .member-stat-lbl { color: rgba(0,0,0,0.4); }
+body.light .member-stat-lbl { color: rgba(0,0,0,0.6); }
 body.light .member-stats { border-top-color: rgba(0,0,0,0.06); }
 body.light .member-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
 /* Edit / Remove / Reset PIN / Link PIN. The base rule paints these white-on-
@@ -6131,11 +6131,11 @@ body.light .allowance-bar-track { background: rgba(0,0,0,0.06); }
 body.light .allowance-entry-desc { color: rgba(0,0,0,0.6); }
 body.light .chore-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
 body.light .chore-name { color: #1a1a2e; }
-body.light .chore-meta { color: rgba(0,0,0,0.4); }
+body.light .chore-meta { color: rgba(0,0,0,0.6); }
 body.light .family-goal-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
 body.light .family-goal-name { color: #1a1a2e; }
 body.light .family-goal-bar-track { background: rgba(0,0,0,0.06); }
-body.light .family-goal-target { color: rgba(0,0,0,0.4); }
+body.light .family-goal-target { color: rgba(0,0,0,0.6); }
 body.light .color-dot.active { border-color: #1a1a2e; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
 body.light .family-spending-name { color: #1a1a2e; }
 body.light .family-spending-bar { background: rgba(0,0,0,0.06); }
@@ -6272,7 +6272,7 @@ body.light .undo-message {
     border-color: rgba(var(--accent-rgb), 0.4);
 }
 
-.quick-input::placeholder { color: rgba(255,255,255,0.2); }
+.quick-input::placeholder { color: rgba(255,255,255,0.5); }
 
 .quick-desc { flex: 1; min-width: 120px; }
 
@@ -6314,7 +6314,7 @@ body.light .quick-input {
 }
 
 body.light .quick-select option { background: #fff; color: #1a1a2e; }
-body.light .quick-input::placeholder { color: rgba(0,0,0,0.3); }
+body.light .quick-input::placeholder { color: rgba(0,0,0,0.6); }
 
 @media (max-width: 768px) {
     .quick-add-bar { flex-direction: column; gap: 8px; }
@@ -6376,11 +6376,11 @@ body.light .month-comparison.same { background: rgba(99,102,241,0.06); }
 
 .empty-state-action p {
     font-size: 0.9rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .empty-state-action p {
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 .empty-action-btn {
@@ -6458,12 +6458,12 @@ body.light .budget-ring-bg {
 
 .budget-ring-label {
     font-size: 0.65rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-body.light .budget-ring-label { color: rgba(0,0,0,0.4); }
+body.light .budget-ring-label { color: rgba(0,0,0,0.6); }
 
 .budget-ring-details {
     display: flex;
@@ -6489,7 +6489,7 @@ body.light .budget-ring-label { color: rgba(0,0,0,0.4); }
     color: rgba(255,255,255,0.5);
 }
 
-body.light .ring-detail-label { color: rgba(0,0,0,0.5); }
+body.light .ring-detail-label { color: rgba(0,0,0,0.6); }
 
 .ring-detail-value {
     font-weight: 700;
@@ -6583,7 +6583,7 @@ body.light .tour-tooltip {
     margin-bottom: 16px;
 }
 
-body.light .tour-tooltip p { color: rgba(0,0,0,0.55); }
+body.light .tour-tooltip p { color: rgba(0,0,0,0.6); }
 
 .tour-actions {
     display: flex;
@@ -6629,13 +6629,13 @@ body.light .tour-dot { background: rgba(0,0,0,0.12); }
 .tour-skip {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-family: 'Inter', sans-serif;
     font-size: 0.78rem;
     cursor: pointer;
 }
 
-body.light .tour-skip { color: rgba(0,0,0,0.35); }
+body.light .tour-skip { color: rgba(0,0,0,0.6); }
 
 /* =============================================
    PAGE MINI-TOUR (hints on complex pages)
@@ -6684,13 +6684,13 @@ body.light .page-hint-text { color: rgba(0,0,0,0.6); }
     right: 8px;
     background: none;
     border: none;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     font-size: 1rem;
     cursor: pointer;
     line-height: 1;
 }
 
-body.light .page-hint-close { color: rgba(0,0,0,0.3); }
+body.light .page-hint-close { color: rgba(0,0,0,0.6); }
 
 .page-hint-pulse {
     position: relative;
@@ -6738,7 +6738,7 @@ body.light .page-hint-close { color: rgba(0,0,0,0.3); }
 body.light .hint-step {
     background: rgba(16,185,129,0.04);
     border-color: rgba(16,185,129,0.1);
-    color: rgba(0,0,0,0.55);
+    color: rgba(0,0,0,0.6);
 }
 
 .hint-step-num {
@@ -6760,7 +6760,7 @@ body.light .hint-step {
     border: none;
     border-radius: 8px;
     background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-family: 'Inter', sans-serif;
     font-size: 0.72rem;
     cursor: pointer;
@@ -6769,7 +6769,7 @@ body.light .hint-step {
 
 body.light .hint-dismiss-all {
     background: rgba(0,0,0,0.04);
-    color: rgba(0,0,0,0.4);
+    color: rgba(0,0,0,0.6);
 }
 
 @media (max-width: 480px) {
@@ -6854,7 +6854,7 @@ body.light .help-card-icon {
 }
 
 body.light .help-card p {
-    color: rgba(0,0,0,0.55);
+    color: rgba(0,0,0,0.6);
 }
 
 .help-card p strong {
@@ -6918,7 +6918,7 @@ body.light .help-card p {
     border-radius: 10px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-family: 'Inter', sans-serif;
     font-size: 0.82rem;
     cursor: pointer;
@@ -6934,7 +6934,7 @@ body.light .help-card p {
 body.light .global-search-trigger {
     background: rgba(0,0,0,0.03);
     border-color: rgba(0,0,0,0.08);
-    color: rgba(0,0,0,0.35);
+    color: rgba(0,0,0,0.6);
 }
 
 .global-search-overlay {
@@ -6986,10 +6986,10 @@ body.light .global-search-box {
 body.light .global-search-input { color: #111; }
 
 .global-search-input::placeholder {
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
 }
 
-body.light .global-search-input::placeholder { color: rgba(0,0,0,0.3); }
+body.light .global-search-input::placeholder { color: rgba(0,0,0,0.6); }
 
 .global-search-results {
     max-height: 320px;
@@ -7044,10 +7044,10 @@ body.light .search-result-item:hover {
 
 .search-result-meta {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
-body.light .search-result-meta { color: rgba(0,0,0,0.4); }
+body.light .search-result-meta { color: rgba(0,0,0,0.6); }
 
 .search-result-amount {
     font-weight: 700;
@@ -7058,11 +7058,11 @@ body.light .search-result-meta { color: rgba(0,0,0,0.4); }
 .search-no-results {
     padding: 24px;
     text-align: center;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     font-size: 0.85rem;
 }
 
-body.light .search-no-results { color: rgba(0,0,0,0.35); }
+body.light .search-no-results { color: rgba(0,0,0,0.6); }
 
 .search-result-group {
     padding: 8px 20px 4px;
@@ -7070,10 +7070,10 @@ body.light .search-no-results { color: rgba(0,0,0,0.35); }
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
 }
 
-body.light .search-result-group { color: rgba(0,0,0,0.3); }
+body.light .search-result-group { color: rgba(0,0,0,0.6); }
 
 /* =============================================
    RECURRING AUTO-DETECT BANNER
@@ -7144,7 +7144,7 @@ body.light .recurring-suggestion-text strong { color: #111; }
 
 body.light .recurring-dismiss {
     background: rgba(0,0,0,0.05);
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 @media (max-width: 480px) {
@@ -7196,7 +7196,7 @@ body.light .recurring-dismiss {
 
 .template-card-desc {
     font-size: 0.68rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .template-card {
@@ -7204,7 +7204,7 @@ body.light .template-card {
     background: rgba(0,0,0,0.02);
 }
 
-body.light .template-card-desc { color: rgba(0,0,0,0.4); }
+body.light .template-card-desc { color: rgba(0,0,0,0.6); }
 
 @media (max-width: 390px) {
     .template-grid { grid-template-columns: 1fr; }
@@ -7318,7 +7318,7 @@ body.light .tip-banner-text { color: rgba(0,0,0,0.6); }
 .tip-dismiss {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
     font-size: 1.1rem;
     margin-left: auto;
@@ -7361,10 +7361,10 @@ body.light .wish-card {
 
 .wish-cost {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
-body.light .wish-cost { color: rgba(0,0,0,0.4); }
+body.light .wish-cost { color: rgba(0,0,0,0.6); }
 
 .wish-progress-mini {
     width: 60px;
@@ -7411,7 +7411,7 @@ body.light .wish-progress-mini { background: rgba(0,0,0,0.06); }
 
 body.light .btn-wish-delete {
     background: rgba(0,0,0,0.05);
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 /* =============================================
@@ -7520,7 +7520,7 @@ body.light .report-row { border-bottom-color: rgba(0,0,0,0.04); }
     color: rgba(255,255,255,0.6);
 }
 
-body.light .report-row-label { color: rgba(0,0,0,0.55); }
+body.light .report-row-label { color: rgba(0,0,0,0.6); }
 
 /* ==========================================
    SMOOTHNESS & POLISH
@@ -7672,7 +7672,7 @@ body.light .expense-table tr:hover td {
 
 /* Tracking page (family + business partners) */
 .tracking-desc {
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.5);
 }
 .invite-code-box {
     background: rgba(16,185,129,0.08);
@@ -7680,7 +7680,7 @@ body.light .expense-table tr:hover td {
     color: inherit;
 }
 body.light .tracking-desc {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 body.light .invite-code-box {
     background: rgba(16,185,129,0.12);
@@ -7689,7 +7689,7 @@ body.light .invite-code-box {
 }
 body.light #copyCodeBtn {
     background: rgba(0,0,0,0.06) !important;
-    color: rgba(0,0,0,0.5) !important;
+    color: rgba(0,0,0,0.6) !important;
 }
 
 /* === STOKVEL === */
@@ -7709,7 +7709,7 @@ body.light #copyCodeBtn {
     margin-bottom: 4px;
 }
 .stokvel-card .stokvel-goal {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
     margin-bottom: 12px;
 }
@@ -7720,7 +7720,7 @@ body.light #copyCodeBtn {
     margin-bottom: 12px;
 }
 .stokvel-card .stokvel-stat-label {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -7771,7 +7771,7 @@ body.light .stokvel-card {
 }
 body.light .stokvel-card .stokvel-goal,
 body.light .stokvel-card .stokvel-stat-label {
-    color: rgba(0,0,0,0.45);
+    color: rgba(0,0,0,0.6);
 }
 body.light .stokvel-progress {
     background: rgba(0,0,0,0.06);
@@ -7823,7 +7823,7 @@ body.light .account-picker-desc {
     margin-top: 18px;
     font-size: 0.82rem;
     text-align: center;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 
 body.light .account-picker-hint {
@@ -7861,7 +7861,7 @@ body.light .sunday-banner {
     color: #92400e;
 }
 body.light .sunday-banner strong { color: #78350f; }
-body.light .sunday-banner button { color: rgba(0,0,0,0.4); }
+body.light .sunday-banner button { color: rgba(0,0,0,0.6); }
 
 .trip-review-banner {
     background: rgba(245,158,11,0.12);
@@ -7890,7 +7890,7 @@ body.light .trip-review-banner {
     border-color: #fbbf24;
     color: #92400e;
 }
-body.light .trip-review-banner button { color: rgba(0,0,0,0.4); }
+body.light .trip-review-banner button { color: rgba(0,0,0,0.6); }
 
 .permission-banner {
     background: rgba(99,102,241,0.1);
@@ -7985,10 +7985,10 @@ body.light .inline-form .field input {
     color: #111;
 }
 body.light .inline-form .field input::placeholder {
-    color: rgba(0,0,0,0.35);
+    color: rgba(0,0,0,0.6);
 }
 body.light .inline-form .field label {
-    color: rgba(0,0,0,0.5);
+    color: rgba(0,0,0,0.6);
 }
 
 /* Theme-aware tithe/automation toggle slider (vanilla forgot light mode) */
@@ -8030,7 +8030,7 @@ body.light .sms-coming-soon p {
     color: rgba(255,255,255,0.55); font-size: 1.1rem;
 }
 .admin-page .loading, .admin-page .empty {
-    text-align: center; padding: 3rem; color: rgba(255,255,255,0.4);
+    text-align: center; padding: 3rem; color: rgba(255,255,255,0.5);
 }
 
 /* Stats grid — scoped so it doesn't collide with dashboard .stat-card */
@@ -8075,7 +8075,7 @@ body.light .sms-coming-soon p {
 .admin-page .table-wrap { overflow-x: auto; }
 .admin-page table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .admin-page th {
-    text-align: left; color: rgba(255,255,255,0.45); font-weight: 600;
+    text-align: left; color: rgba(255,255,255,0.5); font-weight: 600;
     padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08);
     white-space: nowrap;
 }
@@ -8321,7 +8321,7 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
     font-size: 0.95rem;
 }
 .trip-card-dates {
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
     margin-top: 4px;
 }
@@ -8366,7 +8366,7 @@ body.light .admin-page .badge-gray { background: rgba(100,116,139,0.1); color: #
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
 }
 .trip-split-value {
     font-size: 1.15rem;
@@ -8491,7 +8491,7 @@ body.light .trip-review-prompt { color: #64748b; }
     font-size: 0.95rem;
 }
 .trip-review-standalone-meta {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
     margin-top: 4px;
 }
