@@ -27,6 +27,10 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<InvoiceLite[]>([]);
   const [showModal, setShowModal] = useState(false);
+  // Without this the page renders "No clients yet / Total Clients: 0" for as
+  // long as the query takes — a confident empty state that reads as data loss
+  // on a slow connection, for a list that is about to arrive.
+  const [loading, setLoading] = useState(true);
 
   const loadClients = useCallback(async () => {
     if (!user) return;
@@ -37,6 +41,7 @@ export default function ClientsPage() {
       .eq('account_mode', 'business')
       .order('created_at', { ascending: false });
     setClients((data ?? []) as Client[]);
+    setLoading(false);
   }, [user]);
 
   const loadInvoices = useCallback(async () => {
@@ -170,7 +175,11 @@ export default function ClientsPage() {
           </div>
         </div>
         <div className="clients-grid" id="clientsGrid">
-          {clients.length === 0 ? (
+          {loading ? (
+            <div className="empty-state">
+              <p>Loading clients…</p>
+            </div>
+          ) : clients.length === 0 ? (
             <div className="empty-state empty-state-action" id="emptyClients">
               <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3 }}>
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />

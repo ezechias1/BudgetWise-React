@@ -29,7 +29,6 @@ interface CustomCategoryRow {
   account_mode: Mode;
   name: string;
   color: string | null;
-  icon: string | null;
 }
 
 type BudgetLimits = Record<string, number>;
@@ -1352,7 +1351,10 @@ function ManageCategoriesModal({
     setLoading(true);
     const { data, error: qErr } = await supabase
       .from('custom_categories')
-      .select('id, user_id, account_mode, name, color, icon')
+      // `icon` is deliberately absent: the column does not exist on
+      // custom_categories, and asking for it made every load 400 — the list
+      // stayed empty while the raw Postgres error was shown to the user.
+      .select('id, user_id, account_mode, name, color')
       .eq('user_id', userId)
       .eq('account_mode', mode);
     if (qErr) setErr(qErr.message);

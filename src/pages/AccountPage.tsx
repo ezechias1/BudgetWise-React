@@ -176,12 +176,14 @@ export default function AccountPage() {
     if (!user) return;
     const next = { ...automations, [key]: !automations[key] };
     setAutomations(next);
-    // Match the vanilla write pattern (js/app.js:35) — update + eq user_id,
-    // not upsert, since the PK on user_settings is `id`, not `user_id`.
+    // Upsert, not update. Roughly half of all accounts have no user_settings
+    // row yet, and an UPDATE that matches zero rows reports no error — the
+    // toggle lit up, nothing failed, and the choice was gone on reload.
+    // `user_id` carries its own UNIQUE index, so it is a valid conflict target
+    // even though the primary key is `id`.
     const { error } = await supabase
       .from('user_settings')
-      .update({ automations: next })
-      .eq('user_id', user.id);
+      .upsert({ user_id: user.id, automations: next }, { onConflict: 'user_id' });
     if (error) {
       setAutomations((prev) => ({ ...prev, [key]: !next[key] }));
       alert(`Failed to save automation: ${error.message}`);
@@ -224,10 +226,11 @@ export default function AccountPage() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      // Upsert for the same reason as toggleAutomation: an account with no
+      // settings row would swallow the write and show the old avatar back.
       const { error } = await supabase
         .from('user_settings')
-        .update({ avatar_url: dataUrl })
-        .eq('user_id', user.id);
+        .upsert({ user_id: user.id, avatar_url: dataUrl }, { onConflict: 'user_id' });
       if (error) throw error;
       // AUDIT Imp #23: refresh settings in place instead of reloading the whole
       // tab — avoids nuking unsaved state elsewhere in the app.
