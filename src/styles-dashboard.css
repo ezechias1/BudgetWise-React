@@ -8866,3 +8866,30 @@ body.light .bsmart-form input {
         height: min(70vh, calc(100vh - 110px));
     }
 }
+
+/* Opener suggestions, shown only until the first question is asked. */
+.bsmart-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+.bsmart-chips button {
+    padding: 6px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    background: rgba(var(--accent-rgb), 0.08);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: left;
+}
+.bsmart-chips button:hover {
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: var(--accent);
+}
+
+/* Answers carry short paragraphs; keep the gaps from doubling up with the
+   pre-wrap newlines already in the text. */
+.bsmart-msg strong { font-weight: 650; }

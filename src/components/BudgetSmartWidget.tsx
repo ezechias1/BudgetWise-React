@@ -1,6 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useMode } from '@/contexts/ModeContext';
+import { findAnswer, suggestionsFor, NO_ANSWER } from '@/lib/budgetsmart-faq';
+
+/**
+ * Whether an unmatched question goes on to the AI.
+ *
+ * `false` keeps BudgetSmart entirely free: known questions are answered from
+ * the built-in bank, and anything else is pointed at the support address.
+ * Flip to `true` once ANTHROPIC_API_KEY is set on the `budgetsmart` edge
+ * function and a spend cap is in place — nothing else needs to change.
+ */
+const AI_FALLBACK_ENABLED = false;
 
 /**
  * BudgetSmart — the floating help assistant, bottom-right on every dashboard
@@ -22,6 +33,21 @@ interface ChatMessage {
 const GREETING =
   "Hi, I'm BudgetSmart. Ask me anything about using BudgetWise — adding expenses, invoices, family invites, Junior, whatever's got you stuck.";
 
+/**
+ * Renders the `**bold**` in an answer without handing raw HTML to the DOM.
+ * Splitting on the delimiter keeps this a React tree, so a stray asterisk in
+ * an answer can never become markup.
+ */
+function formatAnswer(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 export function BudgetSmartWidget() {
   const { mode } = useMode();
   const [open, setOpen] = useState(false);
@@ -29,6 +55,11 @@ export function BudgetSmartWidget() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Openers, tuned to the mode you're in — Business gets invoices, Family
+  // gets invites. Gives people something to press when they don't yet know
+  // what to ask, which is most of the first minute.
+  const suggestions = useMemo(() => suggestionsFor(mode), [mode]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -79,6 +110,23 @@ export function BudgetSmartWidget() {
       setMessages(outgoing);
       setDraft('');
       setError(null);
+
+      // Most questions are one of the same forty. Answering those from the
+      // built-in bank is instant, works on a bad connection, and costs
+      // nothing — only what it can't place is worth sending anywhere.
+      const known = findAnswer(trimmed, mode);
+      if (known) {
+        setMessages([...outgoing, { role: 'assistant', content: known.answer }]);
+        return;
+      }
+
+      // No match. Say so and hand the person to a human rather than guessing
+      // — a confident wrong answer costs more support time than no answer.
+      if (!AI_FALLBACK_ENABLED) {
+        setMessages([...outgoing, { role: 'assistant', content: NO_ANSWER }]);
+        return;
+      }
+
       setSending(true);
 
       const controller = new AbortController();
@@ -198,17 +246,32 @@ export function BudgetSmartWidget() {
           <div className="bsmart-scroll" ref={scrollRef}>
             <div className="bsmart-msg is-assistant">{GREETING}</div>
 
+            {messages.length === 0 && (
+              <div className="bsmart-chips">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => void send(s.question)}
+                  >
+                    {s.question}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {messages.map((m, i) => (
               <div
                 key={i}
                 className={`bsmart-msg ${m.role === 'user' ? 'is-user' : 'is-assistant'}`}
               >
-                {m.content ||
-                  (sending && i === messages.length - 1 ? (
-                    <span className="bsmart-typing" aria-label="BudgetSmart is typing">
-                      <i /><i /><i />
-                    </span>
-                  ) : null)}
+                {m.content ? (
+                  m.role === 'assistant' ? formatAnswer(m.content) : m.content
+                ) : sending && i === messages.length - 1 ? (
+                  <span className="bsmart-typing" aria-label="BudgetSmart is typing">
+                    <i /><i /><i />
+                  </span>
+                ) : null}
               </div>
             ))}
 
