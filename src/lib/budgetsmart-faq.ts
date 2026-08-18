@@ -162,7 +162,7 @@ export const FAQ: FaqEntry[] = [
     id: 'custom-categories',
     question: 'Can I make my own categories?',
     answer:
-      'Sidebar → Expenses → **Categories**. Type a name, pick a colour, **Add**.\n\nHonest heads-up: your own categories show in that list but don\'t yet appear in the dropdown when adding an expense. It\'s a known gap. For now the built-in categories are the ones you can actually pick.',
+      'Sidebar → Expenses → **Categories**. Type a name, pick a colour, **Add**.\n\nIt then shows up wherever you pick a category — adding an expense, the quick-add box on Overview, and the filter above the list. Your own categories sit just above "Other".\n\nThey\'re per mode, so one added in Personal won\'t appear in Business.',
     keywords: ['custom category', 'own category', 'add category', 'new category', 'my own categories', 'category list', 'cant find category'],
   },
   {

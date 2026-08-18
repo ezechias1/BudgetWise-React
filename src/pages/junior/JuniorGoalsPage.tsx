@@ -170,9 +170,12 @@ export default function JuniorGoalsPage() {
     const { error: contribError } = await supabase
       .from('family_goal_contributions')
       .insert({
+        // No user_id: the column doesn't exist on this table, and sending it
+        // made every contribution 400. Ownership is already established —
+        // the kid policy checks member_id, the parent policy reads user_id
+        // off the parent goal row.
         goal_id: addMoneyGoalId,
         member_id: member.id,
-        user_id: member.user_id,
         amount,
       });
     if (contribError) {

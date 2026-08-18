@@ -207,10 +207,12 @@ export default function FamilyGoalsPage() {
     const { error: contribErr } = await supabase
       .from('family_goal_contributions')
       .insert({
+        // No user_id — the column doesn't exist on this table. Sending it
+        // 400'd every contribution, parent and child alike; the policy reads
+        // ownership off the goal row instead.
         goal_id: goal.id,
         member_id: member.id,
         amount: amt,
-        user_id: user.id,
       });
     if (contribErr) {
       const { error: rollbackErr } = await supabase
