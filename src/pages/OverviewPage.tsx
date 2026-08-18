@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scanReceipt, type ParsedReceipt } from '@/lib/receipt-scan';
 import { useExpenses } from '@/hooks/useExpenses';
@@ -11,7 +11,7 @@ import { CATEGORY_COLORS } from '@/lib/categories';
 import { ExpenseModal } from '@/components/ExpenseModal';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { TransferMoneyModal } from '@/components/TransferMoneyModal';
-import { getCategoriesForMode } from '@/lib/categories';
+import { useCategories } from '@/hooks/useCategories';
 import { todayIso } from '@/lib/format';
 import type { Expense, Mode } from '@/types';
 import {
@@ -132,7 +132,7 @@ export default function OverviewPage() {
   };
 
   // Quick Add bar state — ports the inline `quickAddBar` from dashboard.html:499-507
-  const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
+  const { categories: modeCategories } = useCategories();
   const [quickCategory, setQuickCategory] = useState<string>(
     modeCategories[0]?.value ?? 'Other',
   );
@@ -279,6 +279,7 @@ export default function OverviewPage() {
             <input
               ref={receiptInputRef}
               type="file"
+              aria-label="Upload a receipt photo to scan"
               accept="image/*"
               capture="environment"
               onChange={handleReceiptFile}
@@ -534,6 +535,7 @@ export default function OverviewPage() {
           <select
             id="quickCategory"
             className="quick-select"
+            aria-label="Category for quick expense"
             value={quickCategory}
             onChange={(ev) => setQuickCategory(ev.target.value)}
           >

@@ -18,7 +18,8 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { CATEGORY_COLORS, getCategoriesForMode } from '@/lib/categories';
+import { CATEGORY_COLORS, type CategoryOption } from '@/lib/categories';
+import { useCategories } from '@/hooks/useCategories';
 import { formatCurrency, getCurrencySymbol, monthKey } from '@/lib/format';
 import { exportExpensesToCSV, exportExpensesToPDF } from '@/lib/exports';
 import type { Expense, Mode } from '@/types';
@@ -81,7 +82,9 @@ export default function ExpensesPage() {
   const { mode } = useMode();
   const { user } = useAuth();
 
-  const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
+  // Custom categories land here too, so adding one under Categories makes
+  // it selectable everywhere on this page.
+  const { categories: modeCategories, refreshCategories } = useCategories();
   // Trips is Personal/Family only — bounce back to the Expenses list if the
   // user switches to Business mode while it's open.
   const [activeTab, setActiveTab] = useState<'expenses' | 'trips' | 'review'>(
@@ -310,6 +313,7 @@ export default function ExpensesPage() {
             <div className="header-actions">
               <select
                 className="month-filter"
+                aria-label="Filter expenses by month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
               >
@@ -433,6 +437,7 @@ export default function ExpensesPage() {
             </div>
             <select
               className="category-filter"
+              aria-label="Filter expenses by category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
@@ -826,7 +831,12 @@ export default function ExpensesPage() {
           userId={user.id}
           mode={mode}
           modeCategories={modeCategories}
-          onClose={() => setCategoriesOpen(false)}
+          onClose={() => {
+            setCategoriesOpen(false);
+            // Pull the list again so a category added just now is selectable
+            // straight away, rather than only after a reload.
+            void refreshCategories();
+          }}
         />
       )}
 
@@ -971,7 +981,7 @@ const fieldInput: CSSProperties = {
 
 interface EditExpenseModalProps {
   expense: Expense;
-  modeCategories: ReturnType<typeof getCategoriesForMode>;
+  modeCategories: CategoryOption[];
   onClose: () => void;
   onSave: (patch: {
     category: string;
@@ -1142,7 +1152,7 @@ function EditExpenseModal({
 }
 
 interface BudgetLimitsModalProps {
-  modeCategories: ReturnType<typeof getCategoriesForMode>;
+  modeCategories: CategoryOption[];
   currency: string;
   currencySymbol: string;
   initial: BudgetLimits;
@@ -1330,7 +1340,7 @@ function BudgetLimitsModal({
 interface ManageCategoriesModalProps {
   userId: string;
   mode: Mode;
-  modeCategories: ReturnType<typeof getCategoriesForMode>;
+  modeCategories: CategoryOption[];
   onClose: () => void;
 }
 

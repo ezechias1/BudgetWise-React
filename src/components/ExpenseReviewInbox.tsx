@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { usePendingExpenses } from '@/hooks/usePendingExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { useMode } from '@/contexts/ModeContext';
-import { getCategoriesForMode } from '@/lib/categories';
+import { useCategories } from '@/hooks/useCategories';
 import { formatCurrency } from '@/lib/format';
 import { SOURCE_LABELS } from '@/lib/expense-source';
 
@@ -30,8 +29,7 @@ interface Props {
 export function ExpenseReviewInbox({ queue, onReviewed }: Props) {
   const { pending, loading, confirm, dismiss } = queue;
   const { currency } = useUserSettings();
-  const { mode } = useMode();
-  const categories = useMemo(() => getCategoriesForMode(mode), [mode]);
+  const { categories } = useCategories();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const act = async (fn: () => Promise<{ error: string | null }>, id: string) => {

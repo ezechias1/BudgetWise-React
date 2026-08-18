@@ -170,6 +170,7 @@ export default function PnLPage() {
         <select
           className="month-filter"
           id="pnlMonthFilter"
+          aria-label="Filter profit and loss by month"
           value={filterVal}
           onChange={(e) => setFilterVal(e.target.value)}
         >

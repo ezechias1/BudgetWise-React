@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { getCategoriesForMode } from '@/lib/categories';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useCategories } from '@/hooks/useCategories';
 import { todayIso } from '@/lib/format';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { useMode } from '@/contexts/ModeContext';
 import { supabase } from '@/lib/supabase';
 import { reportWriteFailure } from '@/lib/db';
 import { isPendingTripReview } from '@/lib/trip-review';
@@ -46,8 +45,8 @@ export function ExpenseModal({
   onAfterClassify,
 }: Props) {
   const { income, currency } = useUserSettings();
-  const { mode } = useMode();
-  const modeCategories = useMemo(() => getCategoriesForMode(mode), [mode]);
+  // Includes the user's own categories, not just the built-in list.
+  const { categories: modeCategories, refreshCategories } = useCategories();
 
   const [category, setCategory] = useState(defaultCategory ?? '');
   const [description, setDescription] = useState('');
@@ -74,8 +73,12 @@ export function ExpenseModal({
       setRecurring('no');
       setError(null);
       setPendingReview(null);
+      // This modal stays mounted between opens, so its category list would
+      // otherwise be whatever existed at page load — a category added under
+      // Expenses → Categories a moment ago would be missing from the picker.
+      void refreshCategories();
     }
-  }, [open, defaultCategory, defaultValues]);
+  }, [open, defaultCategory, defaultValues, refreshCategories]);
 
   // Close on Escape — but not while a trip-review decision is pending; that
   // must be answered before the modal can close.
