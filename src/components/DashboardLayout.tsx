@@ -8,6 +8,7 @@ import { useAutoJoinFamily } from '@/hooks/useAutoJoinFamily';
 import { readStashedInvite } from '@/lib/family-invite';
 import { useJoinConfirmations } from '@/hooks/useJoinConfirmations';
 import { TripReviewBanner } from './TripReviewBanner';
+import { BudgetSmartWidget } from './BudgetSmartWidget';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
@@ -292,6 +293,14 @@ export function DashboardLayout() {
           <Outlet />
         )}
       </main>
+
+      {/* Kids have their own simplified UI at /junior and shouldn't be handed
+          a free-text assistant; hold it back until we know which this is,
+          rather than flashing it at a child for a beat. Also hidden behind
+          the account picker so it can't be clicked before a mode is chosen. */}
+      {user && !kidLoading && !isChild && !showAccountPicker && !pickerPending && (
+        <BudgetSmartWidget />
+      )}
     </>
   );
 }
