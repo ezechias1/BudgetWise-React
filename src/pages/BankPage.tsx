@@ -14,9 +14,9 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency } from '@/lib/format';
 import {
   parseBankStatementCsv,
-  categoryOptionsForMode,
   type ParsedTransaction,
 } from '@/lib/csv-import';
+import { useCategories } from '@/hooks/useCategories';
 import {
   useLinkedAccounts,
   type LinkedAccount,
@@ -176,10 +176,10 @@ export default function BankPage() {
     Array<{ row: number; description: string; error: string }>
   >([]);
 
-  const csvCategoryOptions = useMemo(
-    () => categoryOptionsForMode(mode),
-    [mode]
-  );
+  // Same list the rest of the app offers, so a category you made yourself is
+  // selectable while correcting rows in the import preview. Keyed on the
+  // current mode exactly as categoryOptionsForMode(mode) was.
+  const { categories: csvCategoryOptions } = useCategories();
 
   const csvTotalAmount = useMemo(
     () => csvPreview.reduce((sum, t) => sum + t.amount, 0),

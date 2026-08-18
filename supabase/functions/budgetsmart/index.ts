@@ -10,7 +10,16 @@ import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.71.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
+
+/**
+ * Questions per person per day. High enough that nobody asking in good faith
+ * will notice, low enough that one person — or one runaway loop — can't drain
+ * the Anthropic balance. Counted server-side in a table the user cannot read
+ * or reset.
+ */
+const DAILY_QUESTION_LIMIT = 50;
 
 const ALLOWED_ORIGINS = new Set([
   "https://budget-wise-react.vercel.app",
@@ -98,6 +107,29 @@ serve(async (req) => {
     });
     const { data: { user: caller } } = await anonClient.auth.getUser();
     if (!caller) return json(origin, 401, { error: "Not signed in" });
+
+    // Count this question before spending anything on it. Deliberately fails
+    // closed: a rate limiter that lets everything through when the database
+    // hiccups isn't protecting the balance, and the caller just falls back to
+    // the same "email support" message they'd get for an unknown question.
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const { data: withinLimit, error: limitError } = await admin.rpc(
+      "budgetsmart_bump",
+      { p_user: caller.id, p_limit: DAILY_QUESTION_LIMIT },
+    );
+    if (limitError) {
+      console.error("[budgetsmart] usage check failed", limitError);
+      return json(origin, 503, {
+        error: "BudgetSmart is unavailable right now. Please email support.",
+      });
+    }
+    if (withinLimit === false) {
+      return json(origin, 429, {
+        error:
+          `You've reached today's ${DAILY_QUESTION_LIMIT}-question limit. ` +
+          "It resets tomorrow — or email support if it's urgent.",
+      });
+    }
 
     const body = await req.json().catch(() => null);
     const rawMessages = body?.messages;
