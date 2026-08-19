@@ -47,9 +47,15 @@ export function useAutoJoinFamily(): AutoJoinResult | null {
     const code = readStashedInvite();
     if (!code) return;
 
+    // `cancelled` gates state updates only. It must never gate the join
+    // itself: the previous version cleared the stash up front and bailed on
+    // `cancelled` before the insert, so any re-run of this effect mid-flight
+    // lost the invite for good — the first pass had already thrown the code
+    // away, the second found nothing to do, and the invitee silently never
+    // joined. React StrictMode reproduces that on every mount in development;
+    // in production a token refresh changing the `user` identity does the
+    // same thing, less often and far harder to spot.
     let cancelled = false;
-    // Clear first: one attempt per invite, never a retry loop.
-    clearStashedInvite();
 
     (async () => {
       const { data, error } = await supabase.rpc('find_family_group_by_code', {
@@ -57,8 +63,10 @@ export function useAutoJoinFamily(): AutoJoinResult | null {
       });
       const group = (data as { id: string; family_name: string }[] | null)?.[0];
 
-      if (cancelled) return;
       if (error || !group) {
+        // A bad code is definitive — drop it so this doesn't retry forever.
+        clearStashedInvite();
+        if (cancelled) return;
         setResult({
           kind: 'failed',
           message: `That invite link didn't work (code ${code}). Ask for a new one, or enter the code on the Spending Tracker page.`,
@@ -72,9 +80,10 @@ export function useAutoJoinFamily(): AutoJoinResult | null {
         .eq('user_id', user.id)
         .eq('group_id', group.id)
         .maybeSingle();
-      if (cancelled) return;
 
       if (existing.data) {
+        clearStashedInvite();
+        if (cancelled) return;
         setMode('family');
         setResult({
           kind: 'already',
@@ -96,9 +105,15 @@ export function useAutoJoinFamily(): AutoJoinResult | null {
         role: 'member',
         approved: false,
       });
-      if (cancelled) return;
 
-      if (joinErr) {
+      // 23505 on the (group_id, user_id) unique index means a concurrent run
+      // of this same effect already inserted the row. That's the join having
+      // succeeded, not failed — telling the invitee it went wrong would be
+      // both alarming and untrue.
+      if (joinErr && joinErr.code !== '23505') {
+        // Leave the stash in place: a transient failure here should get
+        // another go on the next dashboard mount rather than stranding them.
+        if (cancelled) return;
         setResult({
           kind: 'failed',
           message: `Could not join ${group.family_name}: ${joinErr.message}`,
@@ -106,6 +121,9 @@ export function useAutoJoinFamily(): AutoJoinResult | null {
         return;
       }
 
+      // Joined for real — now the code has done its job.
+      clearStashedInvite();
+      if (cancelled) return;
       setMode('family');
       setResult({
         kind: 'joined',

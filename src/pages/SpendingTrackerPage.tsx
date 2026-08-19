@@ -196,12 +196,18 @@ export default function SpendingTrackerPage() {
           .select('*')
           .eq('group_id', owned.id)
           .order('joined_at', { ascending: true }),
-        supabase
-          .from('family_spending')
-          .select('*')
-          .eq('group_id', owned.id)
-          .order('date', { ascending: false })
-          .limit(50),
+        // Gated like the realtime channel below. `family_spending` was one of
+        // the dead tables dropped from the database, so this fetch 404'd on
+        // every load of this page — harmless to the UI, which already says
+        // "Not available yet", but a real error in everyone's console.
+        SPENDING_FEED_ENABLED
+          ? supabase
+              .from('family_spending')
+              .select('*')
+              .eq('group_id', owned.id)
+              .order('date', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [] as FamilySpending[] }),
       ]);
       let links = (linksRes.data as FamilyLink[]) || [];
 
