@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   memberId: string;
@@ -14,6 +15,7 @@ interface Props {
  */
 export function ShowKidLinkModal({ memberId, kidName, onClose }: Props) {
   const [copied, setCopied] = useState(false);
+  const dialog = useDialogA11y();
   const loginUrl = `${window.location.origin}/junior/login?as=${memberId}`;
 
   const handleCopy = async () => {
@@ -28,10 +30,17 @@ export function ShowKidLinkModal({ memberId, kidName, onClose }: Props) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kid-link-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{kidName}&apos;s login link</h2>
+          <h2 id="kid-link-title">{kidName}&apos;s login link</h2>
           <button
             className="modal-close"
             onClick={onClose}

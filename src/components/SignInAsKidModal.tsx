@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { signInAsKid } from '@/lib/junior-auth';
 import { supabase } from '@/lib/supabase';
 import { rememberDeviceKid } from '@/lib/junior-device-kids';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   memberId: string;
@@ -16,6 +17,7 @@ export function SignInAsKidModal({ memberId, name, color, onClose }: Props) {
   const [pin, setPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialogA11y();
   const canSubmit = /^\d{4}$/.test(pin) && !submitting;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -51,10 +53,17 @@ export function SignInAsKidModal({ memberId, name, color, onClose }: Props) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sign-in-as-kid-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Sign in as {name}</h2>
+          <h2 id="sign-in-as-kid-title">Sign in as {name}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             ×
           </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import type { NewSavingsGoal } from '@/types';
 
 interface NewGoalProps {
@@ -15,6 +16,7 @@ export function NewGoalModal({ open, onClose, onSubmit }: NewGoalProps) {
   const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialogA11y(open);
 
   useEffect(() => {
     if (open) {
@@ -64,13 +66,17 @@ export function NewGoalModal({ open, onClose, onSubmit }: NewGoalProps) {
   return (
     <div
       className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-goal-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className="modal">
         <div className="modal-header">
-          <h2>New Savings Goal</h2>
+          <h2 id="new-goal-title">New Savings Goal</h2>
           <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>
@@ -144,6 +150,7 @@ export function AddToGoalModal({ open, onClose, goalName, onSubmit }: AddToGoalP
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialogA11y(open);
 
   useEffect(() => {
     if (open) {
@@ -183,13 +190,17 @@ export function AddToGoalModal({ open, onClose, goalName, onSubmit }: AddToGoalP
   return (
     <div
       className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-to-goal-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className="modal">
         <div className="modal-header">
-          <h2>Add Money to Goal</h2>
+          <h2 id="add-to-goal-title">Add Money to Goal</h2>
           <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>

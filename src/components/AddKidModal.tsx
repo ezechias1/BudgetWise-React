@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ageFromDob, bracketFor } from '@/lib/junior-age';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 const COLORS = ['#8b5cf6', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
 
@@ -18,6 +19,8 @@ export function AddKidModal({ onClose, onAdded }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const formDialog = useDialogA11y();
+  const readyDialog = useDialogA11y(loginUrl !== null);
 
   const computedAge = ageFromDob(dob);
   const ageValid = computedAge !== null && computedAge >= 7 && computedAge <= 17;
@@ -88,10 +91,17 @@ export function AddKidModal({ onClose, onAdded }: Props) {
 
   if (loginUrl) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-overlay"
+        {...readyDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kid-ready-title"
+        onClick={onClose}
+      >
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>{name} is ready</h2>
+            <h2 id="kid-ready-title">{name} is ready</h2>
             <button
               className="modal-close"
               onClick={onClose}
@@ -156,10 +166,17 @@ export function AddKidModal({ onClose, onAdded }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...formDialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-kid-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add a kid</h2>
+          <h2 id="add-kid-title">Add a kid</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             ×
           </button>

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { formatCurrency, todayIso } from '@/lib/format';
 
 interface Client {
@@ -29,6 +30,7 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const invoiceDialog = useDialogA11y(showModal);
 
   const loadInvoices = useCallback(async () => {
     if (!user) return;
@@ -304,10 +306,17 @@ export default function InvoicesPage() {
       </section>
 
       {/* Invoice Modal */}
-      <div className={`modal-overlay${showModal ? '' : ' hidden'}`} id="invoiceModal">
+      <div
+        className={`modal-overlay${showModal ? '' : ' hidden'}`}
+        id="invoiceModal"
+        {...invoiceDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-invoice-title"
+      >
         <div className="modal">
           <div className="modal-header">
-            <h2>New Invoice</h2>
+            <h2 id="new-invoice-title">New Invoice</h2>
             <button className="modal-close" id="closeInvoiceModal" onClick={closeModal}>
               &times;
             </button>

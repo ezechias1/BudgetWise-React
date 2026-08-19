@@ -7,6 +7,8 @@
  * users; it's wired in so the gates are ready when the flag flips.
  */
 
+import { useDialogA11y } from '@/hooks/useDialogA11y';
+
 interface Props {
   reason: 'kids' | 'chores' | 'missions';
   current: number;
@@ -15,6 +17,7 @@ interface Props {
 }
 
 export function JuniorUpgradeModal({ reason, current, limit, onClose }: Props) {
+  const dialog = useDialogA11y();
   const copy = {
     kids: `You've reached the free limit of ${limit} child. Upgrade to Pro to add more kids.`,
     chores: `This kid already has ${current} of ${limit} free chores. Upgrade to Pro to add unlimited chores.`,
@@ -22,10 +25,17 @@ export function JuniorUpgradeModal({ reason, current, limit, onClose }: Props) {
   }[reason];
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="junior-upgrade-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Upgrade to Pro</h2>
+          <h2 id="junior-upgrade-title">Upgrade to Pro</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <p>{copy}</p>

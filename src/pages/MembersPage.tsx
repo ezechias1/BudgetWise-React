@@ -5,6 +5,7 @@ import { AddKidModal } from '@/components/AddKidModal';
 import { ShowKidLinkModal } from '@/components/ShowKidLinkModal';
 import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { checkJuniorGate, isProUser, JUNIOR_FREE_LIMITS } from '@/lib/access';
 import { ageFromDob, bracketFor, daysUntilBirthday } from '@/lib/junior-age';
 
@@ -67,6 +68,7 @@ export default function MembersPage() {
   const [color, setColor] = useState('#8b5cf6');
   const [allowance, setAllowance] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const memberDialog = useDialogA11y(showModal);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -479,10 +481,17 @@ export default function MembersPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" id="memberModal">
+        <div
+          className="modal-overlay"
+          id="memberModal"
+          {...memberDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="member-modal-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>{editingMember ? 'Edit Family Member' : 'Add Family Member'}</h2>
+              <h2 id="member-modal-title">{editingMember ? 'Edit Family Member' : 'Add Family Member'}</h2>
               <button
                 className="modal-close"
                 onClick={() => { setShowModal(false); resetForm(); }}

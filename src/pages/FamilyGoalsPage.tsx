@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 /**
  * Ports #page-family-goals from dashboard.html (line 1815) and
@@ -65,6 +66,7 @@ export default function FamilyGoalsPage() {
   const [target, setTarget] = useState('');
   const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const goalDialog = useDialogA11y(showModal);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -462,10 +464,17 @@ export default function FamilyGoalsPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" id="familyGoalModal">
+        <div
+          className="modal-overlay"
+          id="familyGoalModal"
+          {...goalDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="family-goal-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>New Family Goal</h2>
+              <h2 id="family-goal-title">New Family Goal</h2>
               <button
                 className="modal-close"
                 onClick={() => setShowModal(false)}

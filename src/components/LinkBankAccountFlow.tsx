@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import type { Mode } from '@/types';
 
 // Extracted from BankPage.tsx so the same "link a bank account" flow can be
@@ -150,6 +151,8 @@ export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked, showConnec
   const [saAccountName, setSaAccountName] = useState('');
   const [saAccountType, setSaAccountType] = useState('cheque');
   const [saBalance, setSaBalance] = useState('');
+  const regionDialog = useDialogA11y(showRegionModal);
+  const saDialog = useDialogA11y(showSAModal);
 
   // Stitch's hosted Link flow: get a consent URL from our edge function
   // (user-JWT authenticated) and redirect. The OAuth callback function does
@@ -279,10 +282,17 @@ export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked, showConnec
 
       {/* Region Selector Modal */}
       {showRegionModal && (
-        <div className="modal-overlay" id="regionModal">
+        <div
+          className="modal-overlay"
+          id="regionModal"
+          {...regionDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="select-region-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>Select Your Region</h2>
+              <h2 id="select-region-title">Select Your Region</h2>
               <button
                 className="modal-close"
                 onClick={() => setShowRegionModal(false)}
@@ -369,10 +379,17 @@ export function LinkBankAccountFlow({ mode, isBusinessCard, onLinked, showConnec
 
       {/* SA Bank Modal */}
       {showSAModal && (
-        <div className="modal-overlay" id="saBankModal">
+        <div
+          className="modal-overlay"
+          id="saBankModal"
+          {...saDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-sa-bank-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>Add South African Bank</h2>
+              <h2 id="add-sa-bank-title">Add South African Bank</h2>
               <button
                 className="modal-close"
                 onClick={() => {

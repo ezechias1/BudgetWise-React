@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatCurrency } from '@/lib/format';
 import type { LinkedAccount } from '@/hooks/useLinkedAccounts';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   accounts: LinkedAccount[];
@@ -25,14 +26,21 @@ export function IncomeRoutingModal({
   const [selected, setSelected] = useState<string>(
     accounts.find((a) => a.is_primary)?.id || accounts[0]?.id || '',
   );
+  const dialog = useDialogA11y();
 
   if (accounts.length === 0) return null;
 
   return (
-    <div className="modal-overlay">
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="income-routing-title"
+    >
       <div className="modal" style={{ maxWidth: 440 }}>
         <div className="modal-header">
-          <h2 style={{ fontSize: '1rem' }}>Where does this income go?</h2>
+          <h2 id="income-routing-title" style={{ fontSize: '1rem' }}>Where does this income go?</h2>
           <button className="modal-close" onClick={onSkip}>
             ×
           </button>

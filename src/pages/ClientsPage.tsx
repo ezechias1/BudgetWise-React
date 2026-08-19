@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { ok, reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { formatCurrency } from '@/lib/format';
 
 interface Client {
@@ -31,6 +32,7 @@ export default function ClientsPage() {
   // long as the query takes — a confident empty state that reads as data loss
   // on a slow connection, for a list that is about to arrive.
   const [loading, setLoading] = useState(true);
+  const clientDialog = useDialogA11y(showModal);
 
   const loadClients = useCallback(async () => {
     if (!user) return;
@@ -233,10 +235,17 @@ export default function ClientsPage() {
       </section>
 
       {/* Client Modal */}
-      <div className={`modal-overlay${showModal ? '' : ' hidden'}`} id="clientModal">
+      <div
+        className={`modal-overlay${showModal ? '' : ' hidden'}`}
+        id="clientModal"
+        {...clientDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-client-title"
+      >
         <div className="modal">
           <div className="modal-header">
-            <h2>Add Client</h2>
+            <h2 id="add-client-title">Add Client</h2>
             <button className="modal-close" id="closeClientModal" onClick={closeModal}>
               &times;
             </button>

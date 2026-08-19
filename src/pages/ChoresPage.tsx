@@ -4,6 +4,7 @@ import { reportWriteFailure } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { JuniorUpgradeModal } from '@/components/JuniorUpgradeModal';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { checkJuniorGate, isProUser } from '@/lib/access';
 
 /**
@@ -60,6 +61,7 @@ export default function ChoresPage() {
   const [reward, setReward] = useState('');
   const [frequency, setFrequency] = useState('once');
   const [submitting, setSubmitting] = useState(false);
+  const choreDialog = useDialogA11y(showModal);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -483,10 +485,17 @@ export default function ChoresPage() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" id="choreModal">
+        <div
+          className="modal-overlay"
+          id="choreModal"
+          {...choreDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-chore-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>Add Chore</h2>
+              <h2 id="add-chore-title">Add Chore</h2>
               <button
                 className="modal-close"
                 onClick={() => setShowModal(false)}

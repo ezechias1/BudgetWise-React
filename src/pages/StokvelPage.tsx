@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useExpenses } from '@/hooks/useExpenses';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
 import { ok, reportWriteFailure } from '@/lib/db';
 
@@ -86,6 +87,10 @@ export default function StokvelPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [contribTarget, setContribTarget] = useState<{ id: string; amount: number } | null>(null);
   const [detailTarget, setDetailTarget] = useState<string | null>(null);
+  const createDialog = useDialogA11y(createOpen);
+  const joinDialog = useDialogA11y(joinOpen);
+  const contribDialog = useDialogA11y(contribTarget !== null);
+  const detailDialog = useDialogA11y(detailTarget !== null);
 
   // Create form
   const [cName, setCName] = useState('');
@@ -1157,13 +1162,17 @@ export default function StokvelPage() {
         <div
           className="modal-overlay"
           id="stokvelModal"
+          {...createDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-stokvel-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) setCreateOpen(false);
           }}
         >
           <div className="modal">
             <div className="modal-header">
-              <h2>Create Stokvel</h2>
+              <h2 id="create-stokvel-title">Create Stokvel</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1271,13 +1280,17 @@ export default function StokvelPage() {
         <div
           className="modal-overlay"
           id="stokvelJoinModal"
+          {...joinDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="join-stokvel-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) setJoinOpen(false);
           }}
         >
           <div className="modal">
             <div className="modal-header">
-              <h2>Join a Stokvel</h2>
+              <h2 id="join-stokvel-title">Join a Stokvel</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1322,13 +1335,17 @@ export default function StokvelPage() {
         <div
           className="modal-overlay"
           id="stokvelContribModal"
+          {...contribDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="record-contribution-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) setContribTarget(null);
           }}
         >
           <div className="modal">
             <div className="modal-header">
-              <h2>Record Contribution</h2>
+              <h2 id="record-contribution-title">Record Contribution</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1392,6 +1409,10 @@ export default function StokvelPage() {
           <div
             className="modal-overlay"
             id="stokvelDetailModal"
+            {...detailDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stokvelDetailName"
             onClick={(e) => {
               if (e.target === e.currentTarget) setDetailTarget(null);
             }}

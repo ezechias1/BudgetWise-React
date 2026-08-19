@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Kid {
   id: string;
@@ -40,6 +41,7 @@ export function MoneyRequestModal({ kid, currencySymbol, onClose, onDecided }: P
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialogA11y();
   const sym = currencySymbol;
 
   const load = useCallback(async () => {
@@ -119,10 +121,17 @@ export function MoneyRequestModal({ kid, currencySymbol, onClose, onDecided }: P
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="money-requests-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Money requests from {kid.name}</h2>
+          <h2 id="money-requests-title">Money requests from {kid.name}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 

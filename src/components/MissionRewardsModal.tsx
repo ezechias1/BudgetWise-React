@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ok } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Mission { id: string; title: string; unit: string; }
 interface Reward { mission_id: string; reward_amount_cents: number; }
@@ -14,6 +15,7 @@ export function MissionRewardsModal({ onClose }: Props) {
   const [rewards, setRewards] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const dialog = useDialogA11y();
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -65,10 +67,17 @@ export function MissionRewardsModal({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mission-rewards-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="modal-header">
-          <h2>Mission rewards</h2>
+          <h2 id="mission-rewards-title">Mission rewards</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <p>Set how much each mission earns when your kid finishes it. Leave at 0 if you don&apos;t want it to pay.</p>

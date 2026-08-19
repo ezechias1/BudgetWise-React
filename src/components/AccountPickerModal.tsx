@@ -1,4 +1,5 @@
 import type { Mode } from '@/types';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Props {
   onPick: (mode: Mode) => void;
@@ -68,9 +69,11 @@ const OPTIONS: Array<{
 ];
 
 export function AccountPickerModal({ onPick }: Props) {
+  const dialog = useDialogA11y();
   return (
     <div
       className="modal-overlay"
+      {...dialog}
       style={{ zIndex: 200 }}
       role="dialog"
       aria-modal="true"

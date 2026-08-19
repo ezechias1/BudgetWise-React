@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { formatCurrency, getCurrencySymbol, monthKey, todayIso } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { reportWriteFailure } from '@/lib/db';
@@ -59,6 +60,8 @@ export default function LoadSheddingPage() {
   // needs a Business/Personal decision — mirrors ExpenseModal's popup.
   const [pendingReview, setPendingReview] = useState<Expense | null>(null);
   const [classifying, setClassifying] = useState(false);
+  const addDialog = useDialogA11y(addOpen);
+  const reviewDialog = useDialogA11y(pendingReview !== null);
 
   const openAdd = () => {
     setSubCat(LS_SUB_CATEGORIES[0]);
@@ -275,13 +278,17 @@ export default function LoadSheddingPage() {
         <div
           className="modal-overlay"
           id="lsModal"
+          {...addDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ls-add-cost-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) setAddOpen(false);
           }}
         >
           <div className="modal">
             <div className="modal-header">
-              <h2>Add Load Shedding Cost</h2>
+              <h2 id="ls-add-cost-title">Add Load Shedding Cost</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -359,10 +366,16 @@ export default function LoadSheddingPage() {
       )}
 
       {pendingReview && (
-        <div className="modal-overlay">
+        <div
+          className="modal-overlay"
+          {...reviewDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ls-sort-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>Sort this expense</h2>
+              <h2 id="ls-sort-title">Sort this expense</h2>
             </div>
             <TripExpenseReviewPrompt
               expense={pendingReview}

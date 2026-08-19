@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface FamilyMember {
   id: string;
@@ -49,6 +50,7 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
   const [expenses, setExpenses] = useState<Array<{ category: string; amount: number }>>([]);
   const [loading, setLoading] = useState(true);
+  const dialog = useDialogA11y(open);
 
   const s = sym(currency);
   const now = new Date();
@@ -104,10 +106,16 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
     .slice(0, 5);
 
   return (
-    <div className="modal-overlay">
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="family-report-title"
+    >
       <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
-          <h2>Family Report — {monthLabel}</h2>
+          <h2 id="family-report-title">Family Report — {monthLabel}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 

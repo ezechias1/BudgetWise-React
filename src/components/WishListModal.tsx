@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ok } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Wish {
   id: string;
@@ -37,6 +38,7 @@ export function WishListModal({ open, onClose, currency }: Props) {
   const [name, setName] = useState('');
   const [cost, setCost] = useState('');
   const [celebrated, setCelebrated] = useState<string | null>(null);
+  const dialog = useDialogA11y(open);
 
   const sym = symbolFor(currency);
 
@@ -109,10 +111,16 @@ export function WishListModal({ open, onClose, currency }: Props) {
   if (!open) return null;
 
   return (
-    <div className="modal-overlay">
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wish-list-title"
+    >
       <div className="modal" style={{ maxWidth: 460 }}>
         <div className="modal-header">
-          <h2>Wish List</h2>
+          <h2 id="wish-list-title">Wish List</h2>
           <button className="modal-close" onClick={onClose}>
             ×
           </button>

@@ -21,6 +21,7 @@ import {
 } from '@/components/overview/OverviewCharts';
 import { BudgetRing } from '@/components/overview/BudgetRing';
 import { useLinkedAccounts } from '@/hooks/useLinkedAccounts';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { useFamilyIncome } from '@/hooks/useFamilyIncome';
 import { FamilyIncomeCard } from '@/components/overview/FamilyIncomeCard';
 import { CrossModeDepositBanner } from '@/components/CrossModeDepositBanner';
@@ -143,6 +144,8 @@ export default function OverviewPage() {
   // Business/Personal decision — mirrors ExpenseModal's popup.
   const [pendingReview, setPendingReview] = useState<Expense | null>(null);
   const [classifying, setClassifying] = useState(false);
+  const reviewDialog = useDialogA11y(pendingReview !== null);
+  const moveDialog = useDialogA11y(moveTargetId !== null);
 
   // Reset the selected category when mode changes so it doesn't keep a
   // personal-mode value while in business mode.
@@ -831,10 +834,16 @@ export default function OverviewPage() {
       />
 
       {pendingReview && (
-        <div className="modal-overlay">
+        <div
+          className="modal-overlay"
+          {...reviewDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="overview-sort-title"
+        >
           <div className="modal">
             <div className="modal-header">
-              <h2>Sort this expense</h2>
+              <h2 id="overview-sort-title">Sort this expense</h2>
             </div>
             <TripExpenseReviewPrompt
               expense={pendingReview}
@@ -902,6 +911,10 @@ export default function OverviewPage() {
       {moveTarget && (
         <div
           className="modal-overlay"
+          {...moveDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="move-expense-title"
           style={{
             position: 'fixed',
             inset: 0,
@@ -918,7 +931,7 @@ export default function OverviewPage() {
             onClick={(ev) => ev.stopPropagation()}
             style={{ maxWidth: 400 }}
           >
-            <h2 style={{ marginTop: 0 }}>Move Expense</h2>
+            <h2 id="move-expense-title" style={{ marginTop: 0 }}>Move Expense</h2>
             <div className="drill-day" style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600 }}>{moveTarget.category}</div>
               <div className="drill-item" style={{ fontSize: '0.85rem' }}>

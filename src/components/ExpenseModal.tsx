@@ -1,12 +1,10 @@
 import {
-  useCallback,
   useEffect,
-  useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useCategories } from '@/hooks/useCategories';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { todayIso } from '@/lib/format';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { supabase } from '@/lib/supabase';
@@ -68,39 +66,8 @@ export function ExpenseModal({
   const [pendingReview, setPendingReview] = useState<Expense | null>(null);
   const [classifying, setClassifying] = useState(false);
 
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  /** Elements a keyboard user can land on, in DOM order, inside the dialog. */
-  const focusablesIn = (root: HTMLElement) =>
-    Array.from(
-      root.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((el) => el.offsetParent !== null);
-
-  /**
-   * Keeps Tab inside the dialog. Without this the caret walks straight out
-   * into the page behind — 35 controls on the Expenses page — while the modal
-   * is still covering it, so a keyboard user is editing something they can't
-   * see.
-   */
-  const trapTab = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Tab') return;
-    const root = overlayRef.current;
-    if (!root) return;
-    const items = focusablesIn(root);
-    if (items.length === 0) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = document.activeElement as HTMLElement | null;
-    if (e.shiftKey && (active === first || !root.contains(active))) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }, []);
+  const dialog = useDialogA11y<HTMLDivElement>(open);
+  const reviewDialog = useDialogA11y<HTMLDivElement>(pendingReview !== null);
 
   // Reset form every time the modal opens so it doesn't show stale state.
   // `defaultValues` (from the receipt scanner) seeds amount/description/date
@@ -118,13 +85,6 @@ export function ExpenseModal({
       // otherwise be whatever existed at page load — a category added under
       // Expenses → Categories a moment ago would be missing from the picker.
       void refreshCategories();
-      // Put the caret in the dialog rather than leaving it on <body>, so a
-      // keyboard user doesn't have to tab through the whole page to reach a
-      // form that's already covering it.
-      requestAnimationFrame(() => {
-        const root = overlayRef.current;
-        if (root) focusablesIn(root)[0]?.focus();
-      });
     }
   }, [open, defaultCategory, defaultValues, refreshCategories]);
 
@@ -200,10 +160,16 @@ export function ExpenseModal({
 
   if (pendingReview) {
     return (
-      <div className="modal-overlay">
+      <div
+        className="modal-overlay"
+        {...reviewDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="expense-sort-title"
+      >
         <div className="modal">
           <div className="modal-header">
-            <h2>Sort this expense</h2>
+            <h2 id="expense-sort-title">Sort this expense</h2>
           </div>
           <TripExpenseReviewPrompt
             expense={pendingReview}
@@ -219,11 +185,10 @@ export function ExpenseModal({
   return (
     <div
       className="modal-overlay"
-      ref={overlayRef}
+      {...dialog}
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-expense-title"
-      onKeyDown={trapTab}
       onClick={(e) => {
         // Close when clicking the backdrop (vanilla behavior)
         if (e.target === e.currentTarget) onClose();

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { todayIso } from '@/lib/format';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import type { NewTrip } from '@/types';
 
 interface Props {
@@ -15,6 +16,7 @@ export function TripModal({ open, onClose, onSubmit }: Props) {
   const [endDate, setEndDate] = useState(todayIso);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const dialog = useDialogA11y(open);
 
   useEffect(() => {
     if (open) {
@@ -64,13 +66,17 @@ export function TripModal({ open, onClose, onSubmit }: Props) {
   return (
     <div
       className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-trip-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className="modal">
         <div className="modal-header">
-          <h2>New Trip</h2>
+          <h2 id="new-trip-title">New Trip</h2>
           <button
             type="button"
             className="modal-close"

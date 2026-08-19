@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useKidLedger, type KidLedgerRow } from '@/hooks/useKidLedger';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 
 interface Kid {
   id: string;
@@ -25,6 +26,7 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
   const [method, setMethod] = useState<'cash' | 'eft' | 'other'>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialogA11y();
 
   useEffect(() => {
     refresh();
@@ -59,10 +61,17 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      {...dialog}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settle-up-title"
+      onClick={onClose}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Settle up with {kid.name}</h2>
+          <h2 id="settle-up-title">Settle up with {kid.name}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
