@@ -70,6 +70,12 @@ const EMPTY: Omit<FamilyIncomeState, 'refresh'> = {
  * Until that migration is applied the RPC won't exist, so a missing
  * function degrades to self-only with `partial` true — an honest
  * "incomplete" state rather than a wrong household total.
+ *
+ * Business mode ("Partners" routes to the same page) reads `biz_income`
+ * instead. The RPC is hard-wired to `fam_income` in its return type and
+ * body, so until a parameterised RPC exists Business mode reports only the
+ * caller's own `biz_income`, marked `partial` whenever other approved
+ * partners exist — never family income dressed up as combined revenue.
  */
 export function useFamilyIncome(): FamilyIncomeState {
   const { user } = useAuth();
@@ -78,11 +84,26 @@ export function useFamilyIncome(): FamilyIncomeState {
   const [state, setState] = useState<Omit<FamilyIncomeState, 'refresh'>>(EMPTY);
 
   const load = useCallback(async () => {
-    if (!user || mode !== 'family') {
+    // Was `mode !== 'family'` — but App.tsx routes the Business "Partners"
+    // page here too, so Combined Revenue was hard-coded to zero for every
+    // business user no matter how many partners were linked.
+    if (!user || (mode !== 'family' && mode !== 'business')) {
       setState(EMPTY);
       return;
     }
     setState((s) => ({ ...s, loading: true }));
+
+    // The per-mode income column: Business mode's figure lives in
+    // `biz_income`, not `fam_income`.
+    const incomeColumn = mode === 'business' ? 'biz_income' : 'fam_income';
+    const readOwnIncome = async (): Promise<number> => {
+      const { data: own } = await supabase
+        .from('user_settings')
+        .select(incomeColumn)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return Number((own as Record<string, unknown> | null)?.[incomeColumn] ?? 0);
+    };
 
     // Find the group this user belongs to — owned or joined, both live in
     // family_links (the owner is auto-linked with role 'owner' on create).
@@ -98,18 +119,43 @@ export function useFamilyIncome(): FamilyIncomeState {
     // No group yet — a one-person "family". Fall back to just this user so
     // the card still renders a real number instead of blanking out.
     if (!groupId) {
-      const { data: own } = await supabase
-        .from('user_settings')
-        .select('fam_income')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const income = Number(own?.fam_income ?? 0);
+      const income = await readOwnIncome();
       setState({
         members: [
           { user_id: user.id, display_name: 'You', income, is_self: true, visible: true },
         ],
         combined: income,
         partial: false,
+        hasPartners: false,
+        loading: false,
+      });
+      return;
+    }
+
+    if (mode === 'business') {
+      // get_family_income is hard-wired to fam_income, so calling it here
+      // would present the group's FAMILY income as business revenue — worse
+      // than showing nothing. Until a parameterised RPC exists, report the
+      // caller's own biz_income and mark the total partial whenever other
+      // approved partners exist, so it is never passed off as the full
+      // combined figure.
+      const [income, linksRes] = await Promise.all([
+        readOwnIncome(),
+        supabase
+          .from('family_links')
+          .select('user_id')
+          .eq('group_id', groupId)
+          .eq('approved', true),
+      ]);
+      const others = ((linksRes.data ?? []) as { user_id: string }[]).filter(
+        (l) => l.user_id !== user.id,
+      ).length;
+      setState({
+        members: [
+          { user_id: user.id, display_name: 'You', income, is_self: true, visible: true },
+        ],
+        combined: income,
+        partial: others > 0,
         hasPartners: false,
         loading: false,
       });
@@ -128,12 +174,7 @@ export function useFamilyIncome(): FamilyIncomeState {
       // Migration not applied yet (or the call was rejected). Fall back to
       // this user alone and mark the total partial — never present a
       // one-person figure as the household total.
-      const { data: own } = await supabase
-        .from('user_settings')
-        .select('fam_income')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const income = Number(own?.fam_income ?? 0);
+      const income = await readOwnIncome();
       setState({
         members: [
           { user_id: user.id, display_name: 'You', income, is_self: true, visible: true },

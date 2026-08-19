@@ -149,6 +149,10 @@ export function ExpenseModal({
       .update({ business_expense: value })
       .eq('id', pendingReview.id);
     if (reviewError) {
+      // Re-enable the prompt's buttons before bailing — this prompt suppresses
+      // Escape while pending, so leaving `classifying` true hard-locked the
+      // modal behind two permanently disabled buttons until a reload.
+      setClassifying(false);
       reportWriteFailure('save that Business/Personal choice', reviewError.message);
       return;
     }

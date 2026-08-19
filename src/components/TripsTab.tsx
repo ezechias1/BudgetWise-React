@@ -384,14 +384,26 @@ function TripDetail({ trip, currency, income, onBack }: TripDetailProps) {
                           <button
                             type="button"
                             className="trip-review-btn"
-                            onClick={() => setBusinessFlag(e.id, true)}
+                            onClick={async () => {
+                              // Previously discarded: a failed write reverted
+                              // the optimistic row with no message at all.
+                              const res = await setBusinessFlag(e.id, true);
+                              if (res.error) {
+                                reportWriteFailure('mark this expense as business', res.error);
+                              }
+                            }}
                           >
                             Business
                           </button>
                           <button
                             type="button"
                             className="trip-review-btn"
-                            onClick={() => setBusinessFlag(e.id, false)}
+                            onClick={async () => {
+                              const res = await setBusinessFlag(e.id, false);
+                              if (res.error) {
+                                reportWriteFailure('mark this expense as personal', res.error);
+                              }
+                            }}
                           >
                             Personal
                           </button>
@@ -400,7 +412,12 @@ function TripDetail({ trip, currency, income, onBack }: TripDetailProps) {
                         <button
                           type="button"
                           className={`trip-type-badge ${e.business_expense ? 'is-business' : 'is-personal'}`}
-                          onClick={() => setBusinessFlag(e.id, null)}
+                          onClick={async () => {
+                            const res = await setBusinessFlag(e.id, null);
+                            if (res.error) {
+                              reportWriteFailure('put this expense back into review', res.error);
+                            }
+                          }}
                           title="Click to mark for review again"
                         >
                           {e.business_expense ? 'Business' : 'Personal'}

@@ -113,6 +113,10 @@ export default function LoadSheddingPage() {
       .update({ business_expense: value })
       .eq('id', pendingReview.id);
     if (reviewError) {
+      // Re-enable the prompt's buttons before bailing — this modal has no
+      // close control, so leaving `classifying` true hard-locked the page
+      // behind two permanently disabled buttons until a reload.
+      setClassifying(false);
       reportWriteFailure('save that Business/Personal choice', reviewError.message);
       return;
     }

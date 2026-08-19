@@ -325,17 +325,40 @@ export default function StokvelPage() {
     }
     setJoinBusy(true);
     try {
-      const group = await supabase
-        .from('stokvel_groups')
-        .select('*')
-        .eq('stokvel_code', code)
-        .maybeSingle();
-      if (!group.data) {
+      // A direct select on stokvel_groups can never find the group here: the
+      // only SELECT policy is owner-or-member, and a first-time joiner is
+      // neither, so every valid code came back as zero rows and was reported
+      // as "Invalid code". The SECURITY DEFINER RPC resolves the code
+      // server-side and returns only id/name/monthly_amount.
+      const { data: lookupData, error: lookupError } = await supabase.rpc(
+        'find_stokvel_group_by_code',
+        { p_code: code },
+      );
+      if (lookupError) {
+        // A real failure is not the same as an unknown code — don't send the
+        // user back to the admin over a network hiccup.
+        setJoinError('Could not check that code: ' + lookupError.message);
+        setJoinBusy(false);
+        return;
+      }
+      const group = (
+        lookupData as { id: string; name: string; monthly_amount: number }[] | null
+      )?.[0];
+      if (!group) {
         setJoinError('Invalid code. Check with the stokvel admin.');
         setJoinBusy(false);
         return;
       }
-      if (group.data.owner_id === user.id) {
+      // The RPC doesn't expose owner_id, but RLS lets an owner read their own
+      // group row — so if this id comes back filtered on owner_id, the joiner
+      // is the owner.
+      const owned = await supabase
+        .from('stokvel_groups')
+        .select('id')
+        .eq('id', group.id)
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      if (owned.data) {
         setJoinError('You already own this stokvel!');
         setJoinBusy(false);
         return;
@@ -343,7 +366,7 @@ export default function StokvelPage() {
       const existing = await supabase
         .from('stokvel_members')
         .select('id')
-        .eq('stokvel_id', group.data.id)
+        .eq('stokvel_id', group.id)
         .eq('user_id', user.id)
         .maybeSingle();
       if (existing.data) {
@@ -354,7 +377,7 @@ export default function StokvelPage() {
       // Was unchecked: a failed insert still closed the modal, so the user
       // believed their join request was pending when no row existed at all.
       const joinWrite = await supabase.from('stokvel_members').insert({
-        stokvel_id: group.data.id,
+        stokvel_id: group.id,
         user_id: user.id,
         display_name: user.email?.split('@')[0] ?? 'Member',
         role: 'member',

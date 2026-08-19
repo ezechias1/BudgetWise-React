@@ -66,8 +66,16 @@ export function useKidMissions(memberId: string | null) {
         .select('id, mission_id, status, completed_at, quiz_score')
         .eq('member_id', memberId),
     ]);
-    if (mRes.error) {
-      setState((s) => ({ ...s, loading: false, error: mRes.error!.message }));
+    // pRes.error was previously ignored: a failed progress read collapsed to
+    // an empty array and the hook reported a fully successful load, so every
+    // completed mission rendered as not-done. Handle both queries' errors
+    // symmetrically so a failure can't masquerade as "nothing completed yet".
+    if (mRes.error || pRes.error) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: (mRes.error ?? pRes.error)!.message,
+      }));
       return;
     }
     const missions = (mRes.data as KidMission[]) ?? [];

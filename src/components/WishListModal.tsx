@@ -64,11 +64,15 @@ export function WishListModal({ open, onClose, currency }: Props) {
     // update left the added/saved/deleted wish on screen until the next
     // reload, when it silently vanished. Roll the optimistic state back so
     // what's shown matches what's stored.
+    // Upsert, not update: an account with no user_settings row yet gets an
+    // UPDATE matching zero rows, which reports no error — the wish list
+    // looked saved and was gone on the next open. `user_id` carries its own
+    // UNIQUE index, so it is a valid conflict target even though the primary
+    // key is `id`. Same fix as AccountPage automations/avatar.
     const saved = await ok(
       supabase
         .from('user_settings')
-        .update({ wishes: next })
-        .eq('user_id', user.id),
+        .upsert({ user_id: user.id, wishes: next }, { onConflict: 'user_id' }),
       'save your wish list',
     );
     if (!saved) setWishes(previous);

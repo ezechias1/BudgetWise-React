@@ -41,16 +41,28 @@ export function SettleUpModal({ kid, currencySymbol, onClose, onPaid }: Props) {
     setError(null);
     const paidAt = new Date().toISOString();
     const note = `Paid via ${method}`;
-    const { error: upErr } = await supabase
-      .from('kid_ledger')
-      .update({
-        status: 'paid',
-        paid_at: paidAt,
-        split: kid.jar_split,
-        notes: note,
-      })
-      .eq('member_id', kid.id)
-      .eq('status', 'owed');
+    // Per-row updates rather than one bulk write: the bulk version set
+    // `notes` to "Paid via <method>" on every owed row, permanently
+    // destroying each entry's description (the chore name / request reason)
+    // — the only human-readable record of what the payout was for. Append
+    // the payment method to the existing note instead. The
+    // `.eq('status', 'owed')` guard makes a retry safe: rows already
+    // flipped to paid match nothing, so nothing double-appends.
+    const results = await Promise.all(
+      owedRows.map((r) =>
+        supabase
+          .from('kid_ledger')
+          .update({
+            status: 'paid',
+            paid_at: paidAt,
+            split: kid.jar_split,
+            notes: r.notes ? `${r.notes} · ${note}` : note,
+          })
+          .eq('id', r.id)
+          .eq('status', 'owed'),
+      ),
+    );
+    const upErr = results.find((res) => res.error)?.error;
     if (upErr) {
       setError(upErr.message);
       setSubmitting(false);

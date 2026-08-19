@@ -76,11 +76,32 @@ async function fetchSettings(
   if (!force && inflight) return inflight;
 
   inflight = (async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_settings')
       .select(SETTINGS_COLUMNS)
       .eq('user_id', userId)
       .maybeSingle();
+    if (error) {
+      // A failed read must NOT be cached as "this user has no settings row".
+      // That sticky null made the whole app read income/goal/currency as
+      // empty for the session, and a later "Save Changes" then wrote those
+      // zeros over the real values. Leave the cache unloaded so the next
+      // caller retries, and return whatever we last knew.
+      console.error('[user_settings read failed]', error.message);
+      inflight = null;
+      return cachedRow;
+    }
+    if (!data) {
+      // Zero rows with no error is also what an RLS-filtered read returns
+      // (no session attached yet at boot, expired JWT, signed-out race) —
+      // byte-for-byte identical to a genuinely missing row. Only cache the
+      // "no row" answer when a session is actually present.
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) {
+        inflight = null;
+        return cachedRow;
+      }
+    }
     cachedRow = (data as UserSettingsRow | null) ?? null;
     cacheLoaded = true;
     inflight = null;

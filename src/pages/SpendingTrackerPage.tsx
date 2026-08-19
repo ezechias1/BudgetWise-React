@@ -116,6 +116,12 @@ function copyFor(isBusiness: boolean) {
     incomeHelp: isBusiness
       ? 'Combined monthly income from all linked partners. Each partner sets their own.'
       : 'Combined income from all family members. Each parent sets their own contribution.',
+    // The empty state was hardcoded to the family wording, so a business
+    // user was told about "family income" and "members" under a
+    // "Combined Revenue" heading.
+    incomeEmpty: isBusiness
+      ? 'No revenue set yet. Partners can set their contribution in Account settings.'
+      : 'No family income set yet. Members can set their contribution in Account settings.',
     membersHeading: isBusiness ? 'Linked Partners' : 'Linked Members',
     feedHeading: isBusiness ? 'Partner Spending Feed' : 'Family Spending Feed',
     // Shown while SPENDING_FEED_ENABLED is false — see the constant above.
@@ -745,8 +751,7 @@ export default function SpendingTrackerPage() {
                     fontSize: '0.85rem',
                   }}
                 >
-                  No family income set yet. Members can set their contribution
-                  in Account settings.
+                  {t.incomeEmpty}
                 </p>
               )}
             </div>

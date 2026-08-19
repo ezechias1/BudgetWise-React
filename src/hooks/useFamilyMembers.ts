@@ -63,14 +63,29 @@ async function fetchGroupId(userId: string): Promise<string | null> {
   if (groupInflight) return groupInflight;
 
   groupInflight = (async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('family_links')
       .select('group_id')
       .eq('user_id', userId)
       .eq('approved', true)
       .limit(1);
+    if (error) {
+      // A failed read must NOT be cached as "this user is in no group":
+      // every Family-mode expense for the rest of the session would then be
+      // written without a group_id, permanently invisible to the household.
+      // Leave the cache unloaded so the next caller retries.
+      console.error('[family group lookup failed]', error.message);
+      groupInflight = null;
+      return groupCacheId;
+    }
     groupCacheId = (data?.[0]?.group_id as string) ?? null;
-    groupCacheLoaded = true;
+    // Only cache a POSITIVE answer. "No group" is legitimate for a member
+    // whose join is still pending approval — but nothing on their device
+    // invalidates the cache when the owner approves them, so a cached null
+    // held for the whole session had the same invisible-expenses effect.
+    // Leaving it unloaded means the next mount re-checks; concurrent callers
+    // on the same page still share one in-flight request.
+    groupCacheLoaded = groupCacheId !== null;
     groupInflight = null;
     return groupCacheId;
   })();

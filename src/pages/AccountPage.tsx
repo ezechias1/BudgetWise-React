@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { ok } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMode } from '@/contexts/ModeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
@@ -66,6 +68,7 @@ const AUTOMATIONS: AutomationDef[] = [
  */
 export default function AccountPage() {
   const { user, signOut } = useAuth();
+  const { mode } = useMode();
   const { theme, toggleTheme } = useTheme();
   const { expenses, refresh: refreshExpenses } = useExpenses();
   const { goals, refresh: refreshGoals } = useSavingsGoals();
@@ -83,9 +86,18 @@ export default function AccountPage() {
   const isPro = isProUser(isProFromSettings, user);
   const admin = isAdmin(user);
 
-  // Automations JSONB + tithe_enabled + editable profile — loaded directly
+  // Automations JSONB + tithe flags + editable profile — loaded directly
   // from user_settings because useUserSettings doesn't expose these columns.
   const [automations, setAutomations] = useState<Record<string, boolean>>({});
+  // Raw automations JSONB exactly as stored — the column also carries
+  // non-boolean bookkeeping keys (e.g. low_balance_threshold,
+  // weekly_summary_last_sent) that the coerced boolean map above would
+  // otherwise write back as `true` on the next toggle.
+  const automationsRaw = useRef<Record<string, unknown>>({});
+  // Guards the switches until the read resolves: they used to render enabled
+  // from first paint, so a click during load rebuilt the whole automations
+  // object from `{}` and silently wiped the stored keys.
+  const [automationsLoaded, setAutomationsLoaded] = useState(false);
   const [titheEnabled, setTitheEnabled] = useState(false);
   const [profileName, setProfileName] = useState<string>('');
   const [profileEmail, setProfileEmail] = useState<string>('');
@@ -142,40 +154,73 @@ export default function AccountPage() {
     setProfileEmail(user?.email ?? '');
   }, [user]);
 
-  // Load automations JSONB from user_settings. Tithe flag is stored in
-  // localStorage — the vanilla site doesn't have a dedicated column for
-  // it, so we keep this client-side to avoid 400s on the REST query.
+  // Load automations JSONB + the tithe flag from user_settings. The tithe
+  // toggle used to live only in localStorage on the stated basis that no
+  // dedicated column exists — but user_settings really has tithe_personal /
+  // tithe_business / tithe_family. Persist to the column matching the active
+  // mode, keeping the old localStorage value as a read fallback so nobody
+  // loses a setting they already chose on this device.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!user) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_settings')
-        .select('automations')
+        .select('automations, tithe_personal, tithe_business, tithe_family')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (cancelled || !data) return;
-      const raw = (data as { automations: unknown }).automations;
+      if (cancelled) return;
+      if (error) {
+        // A failed read must not be treated as "no automations saved":
+        // rebuilding the JSONB from empty client state on the next toggle
+        // would wipe the stored keys. Leave the switches disabled instead.
+        console.error('[automations read failed]', error.message);
+        alert(`Could not load your automation settings: ${error.message}`);
+        try {
+          setTitheEnabled(localStorage.getItem('bw-tithe-enabled') === '1');
+        } catch (_) {}
+        return;
+      }
+      const raw = (data as { automations?: unknown } | null)?.automations;
+      const rawObj: Record<string, unknown> = {};
       const parsed: Record<string, boolean> = {};
       if (raw && typeof raw === 'object') {
         for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+          rawObj[k] = v;
           parsed[k] = Boolean(v);
         }
       }
+      automationsRaw.current = rawObj;
       setAutomations(parsed);
+      setAutomationsLoaded(true);
+      const titheColumn =
+        mode === 'business'
+          ? 'tithe_business'
+          : mode === 'family'
+            ? 'tithe_family'
+            : 'tithe_personal';
+      const dbTithe = Boolean(
+        (data as Record<string, unknown> | null)?.[titheColumn],
+      );
+      let storedTithe = false;
       try {
-        setTitheEnabled(localStorage.getItem('bw-tithe-enabled') === '1');
+        storedTithe = localStorage.getItem('bw-tithe-enabled') === '1';
       } catch (_) {}
+      setTitheEnabled(dbTithe || storedTithe);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, mode]);
 
   const toggleAutomation = async (key: string) => {
-    if (!user) return;
+    if (!user || !automationsLoaded) return;
     const next = { ...automations, [key]: !automations[key] };
     setAutomations(next);
+    // Merge into the raw stored object, not the Boolean()-coerced map — the
+    // column also holds non-boolean bookkeeping values that a coerced
+    // rewrite silently destroyed even on the happy path.
+    const nextRaw = { ...automationsRaw.current, [key]: !automations[key] };
     // Upsert, not update. Roughly half of all accounts have no user_settings
     // row yet, and an UPDATE that matches zero rows reports no error — the
     // toggle lit up, nothing failed, and the choice was gone on reload.
@@ -183,11 +228,13 @@ export default function AccountPage() {
     // even though the primary key is `id`.
     const { error } = await supabase
       .from('user_settings')
-      .upsert({ user_id: user.id, automations: next }, { onConflict: 'user_id' });
+      .upsert({ user_id: user.id, automations: nextRaw }, { onConflict: 'user_id' });
     if (error) {
       setAutomations((prev) => ({ ...prev, [key]: !next[key] }));
       alert(`Failed to save automation: ${error.message}`);
+      return;
     }
+    automationsRaw.current = nextRaw;
   };
 
   const handleAvatarFile = async (ev: ChangeEvent<HTMLInputElement>) => {
@@ -243,13 +290,34 @@ export default function AccountPage() {
     }
   };
 
-  const toggleTithe = () => {
+  const toggleTithe = async () => {
+    if (!user) return;
     const next = !titheEnabled;
     setTitheEnabled(next);
+    // Keep the legacy localStorage copy in sync so the read fallback above
+    // never contradicts what the user just chose on this device.
     try {
       localStorage.setItem('bw-tithe-enabled', next ? '1' : '0');
     } catch (_) {
-      // localStorage unavailable — state stays in-memory for this session
+      // localStorage unavailable — the DB column below is the real store
+    }
+    const titheColumn =
+      mode === 'business'
+        ? 'tithe_business'
+        : mode === 'family'
+          ? 'tithe_family'
+          : 'tithe_personal';
+    const saved = await ok(
+      supabase
+        .from('user_settings')
+        .upsert({ user_id: user.id, [titheColumn]: next }, { onConflict: 'user_id' }),
+      'save your tithe setting',
+    );
+    if (!saved) {
+      setTitheEnabled(!next);
+      try {
+        localStorage.setItem('bw-tithe-enabled', !next ? '1' : '0');
+      } catch (_) {}
     }
   };
 
@@ -292,6 +360,20 @@ export default function AccountPage() {
         supabase.from('expenses').select('*').eq('user_id', uid),
         supabase.from('savings_goals').select('*').eq('user_id', uid),
       ]);
+      // Refuse to write a file if any query errored: `data` is null on
+      // failure, and `?? []` used to turn that into a convincingly valid
+      // backup with zero expenses — which the restore path then trusted,
+      // deleting everything before "re-inserting" nothing.
+      const failed: string[] = [];
+      if (results[0].error) failed.push(`settings: ${results[0].error.message}`);
+      if (results[1].error) failed.push(`expenses: ${results[1].error.message}`);
+      if (results[2].error) failed.push(`savings goals: ${results[2].error.message}`);
+      if (failed.length > 0) {
+        alert(
+          `Backup failed — no file was created. Nothing was read for:\n\n${failed.join('\n')}\n\nPlease try again.`,
+        );
+        return;
+      }
       const backup = {
         version: 1,
         timestamp: new Date().toISOString(),
@@ -380,10 +462,18 @@ export default function AccountPage() {
 
       const uid = user.id;
       const errs: string[] = [];
-      const { error: delExpErr } = await supabase.from('expenses').delete().eq('user_id', uid);
-      if (delExpErr) errs.push(`clear expenses: ${delExpErr.message}`);
-      const { error: delGoalErr } = await supabase.from('savings_goals').delete().eq('user_id', uid);
-      if (delGoalErr) errs.push(`clear savings_goals: ${delGoalErr.message}`);
+      const expensesArr = backup.expenses as Array<Record<string, unknown>>;
+      const goalsArr = backup.savings_goals as Array<Record<string, unknown>> | undefined;
+      // Defensive: never wipe a table the backup holds no rows for. An empty
+      // array would otherwise mean "delete everything, restore nothing".
+      if (expensesArr.length > 0) {
+        const { error: delExpErr } = await supabase.from('expenses').delete().eq('user_id', uid);
+        if (delExpErr) errs.push(`clear expenses: ${delExpErr.message}`);
+      }
+      if (goalsArr && goalsArr.length > 0) {
+        const { error: delGoalErr } = await supabase.from('savings_goals').delete().eq('user_id', uid);
+        if (delGoalErr) errs.push(`clear savings_goals: ${delGoalErr.message}`);
+      }
 
       const settingsArr = backup.user_settings as Array<Record<string, unknown>> | undefined;
       if (settingsArr && settingsArr.length > 0) {
@@ -393,7 +483,6 @@ export default function AccountPage() {
         const { error } = await supabase.from('user_settings').upsert(settings, { onConflict: 'user_id' });
         if (error) errs.push(`restore user_settings: ${error.message}`);
       }
-      const expensesArr = backup.expenses as Array<Record<string, unknown>>;
       if (expensesArr.length > 0) {
         const exps = expensesArr.map((e) => {
           const copy = { ...e };
@@ -404,7 +493,6 @@ export default function AccountPage() {
         const { error } = await supabase.from('expenses').insert(exps);
         if (error) errs.push(`restore expenses: ${error.message}`);
       }
-      const goalsArr = backup.savings_goals as Array<Record<string, unknown>> | undefined;
       if (goalsArr && goalsArr.length > 0) {
         const gs = goalsArr.map((g) => {
           const copy = { ...g };
@@ -1143,6 +1231,7 @@ export default function AccountPage() {
                     <input
                       type="checkbox"
                       checked={on}
+                      disabled={!automationsLoaded}
                       onChange={() => toggleAutomation(a.key)}
                     />
                     <span className="tithe-slider"></span>
