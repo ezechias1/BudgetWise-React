@@ -19,6 +19,7 @@ import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { CATEGORY_COLORS, type CategoryOption } from '@/lib/categories';
+import { AVAILABLE_MODES } from '@/lib/features';
 import { useCategories } from '@/hooks/useCategories';
 import { formatCurrency, getCurrencySymbol, monthKey } from '@/lib/format';
 import { exportExpensesToCSV, exportExpensesToPDF } from '@/lib/exports';
@@ -886,7 +887,7 @@ export default function ExpensesPage() {
               </div>
               <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>Move to:</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {(['personal', 'business', 'family'] as const)
+                {AVAILABLE_MODES
                   .filter((m) => m !== mode)
                   .map((m) => (
                     <button

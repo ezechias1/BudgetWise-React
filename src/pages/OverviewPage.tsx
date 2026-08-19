@@ -8,6 +8,7 @@ import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/format';
 import { CATEGORY_COLORS } from '@/lib/categories';
+import { AVAILABLE_MODES } from '@/lib/features';
 import { ExpenseModal } from '@/components/ExpenseModal';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { TransferMoneyModal } from '@/components/TransferMoneyModal';
@@ -947,7 +948,7 @@ export default function OverviewPage() {
             </div>
             <p className="modal-desc" style={{ marginBottom: 12 }}>Move to:</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(['personal', 'business', 'family'] as const)
+              {AVAILABLE_MODES
                 .filter((m) => m !== mode)
                 .map((m) => (
                   <button

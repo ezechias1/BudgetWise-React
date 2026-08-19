@@ -103,21 +103,31 @@ export const FAQ: FaqEntry[] = [
     id: 'expenses-missing',
     question: 'My expenses have disappeared!',
     answer:
-      'Almost always this is the mode. Personal, Business and Family each keep their own separate expenses — so a Personal expense is invisible while you\'re standing in Business.\n\nCheck the dropdown at the top of the sidebar and switch back. Also check the month selector above the list, since it only shows one month at a time.\n\nIf it\'s genuinely gone after both of those, email support.',
+      (BUSINESS_MODE_ENABLED
+        ? 'Almost always this is the mode. Personal, Business and Family each keep their own separate expenses — so a Personal expense is invisible while you\'re standing in Business.'
+        : 'Almost always this is the mode. Personal and Family each keep their own separate expenses — so a Personal expense is invisible while you\'re standing in Family.') +
+      '\n\nCheck the dropdown at the top of the sidebar and switch back. Also check the month selector above the list, since it only shows one month at a time.\n\nIf it\'s genuinely gone after both of those, email support.',
     keywords: ['disappeared', 'expenses gone', 'lost my expenses', 'cant see my expenses', 'missing', 'where are my expenses', 'nothing showing', 'empty', 'deleted everything', 'data gone'],
   },
   {
     id: 'switch-mode',
-    question: 'How do I switch between Personal, Business and Family?',
+    question: BUSINESS_MODE_ENABLED
+      ? 'How do I switch between Personal, Business and Family?'
+      : 'How do I switch between Personal and Family?',
     answer:
-      'The dropdown at the very top of the sidebar — the one showing your current mode. Pick another and the whole app switches over.\n\nYou\'ll notice the colour changes too: **green** for Personal, **blue** for Business, **purple** for Family. That\'s the quickest way to tell at a glance which one you\'re in.',
+      'The dropdown at the very top of the sidebar — the one showing your current mode. Pick another and the whole app switches over.\n\n' +
+      (BUSINESS_MODE_ENABLED
+        ? 'You\'ll notice the colour changes too: **green** for Personal, **blue** for Business, **purple** for Family. That\'s the quickest way to tell at a glance which one you\'re in.'
+        : 'You\'ll notice the colour changes too: **green** for Personal and **purple** for Family. That\'s the quickest way to tell at a glance which one you\'re in.\n\nBusiness is in that dropdown as well, greyed out — it\'s being rebuilt and can\'t be opened yet.'),
     keywords: ['switch mode', 'change mode', 'personal business family', 'change account', 'switch account', 'business mode', 'family mode', 'personal mode', 'three modes', 'difference between modes'],
   },
   {
     id: 'colours',
     question: 'Why does the app change colour?',
     answer:
-      'It tells you which account you\'re in without you having to look. **Green** is Personal, **blue** is Business, **purple** is Family.\n\nIt\'s there so you don\'t accidentally log a grocery run against the business.',
+      (BUSINESS_MODE_ENABLED
+        ? 'It tells you which account you\'re in without you having to look. **Green** is Personal, **blue** is Business, **purple** is Family.\n\nIt\'s there so you don\'t accidentally log a grocery run against the business.'
+        : 'It tells you which account you\'re in without you having to look. **Green** is Personal and **purple** is Family.\n\nIt\'s there so you don\'t accidentally log a private treat against the household budget.'),
     keywords: ['colour', 'color', 'blue', 'green', 'purple', 'why green', 'why blue', 'why purple', 'changed colour', 'different colour'],
   },
 
@@ -144,7 +154,9 @@ export const FAQ: FaqEntry[] = [
     id: 'move-expense',
     question: 'I put an expense in the wrong account — can I move it?',
     answer:
-      'Yes. Sidebar → Expenses, find the row, then **Move**, and choose Business or Family. No need to delete it and start again.\n\nOne thing to know: it keeps its original category, so a Personal "Food" expense is still "Food" once it lands in Business.',
+      (BUSINESS_MODE_ENABLED
+        ? 'Yes. Sidebar → Expenses, find the row, then **Move**, and choose Business or Family. No need to delete it and start again.\n\nOne thing to know: it keeps its original category, so a Personal "Food" expense is still "Food" once it lands in Business.'
+        : 'Yes. Sidebar → Expenses, find the row, then **Move**, and choose the other account. No need to delete it and start again.\n\nOne thing to know: it keeps its original category, so a Personal "Food" expense is still "Food" once it lands in Family.'),
     keywords: ['move expense', 'wrong account', 'wrong mode', 'personal to business', 'business to personal', 'move to family', 'transfer expense', 'put it in the wrong'],
   },
   {
