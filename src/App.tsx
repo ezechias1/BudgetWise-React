@@ -11,6 +11,17 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ModeProvider } from '@/contexts/ModeContext';
 import { JuniorLangProvider } from '@/i18n/junior';
+import { BUSINESS_MODE_ENABLED } from '@/lib/features';
+
+/**
+ * Sends business-only pages back to the dashboard while Business mode is
+ * closed. Replaces rather than pushes, so Back doesn't bounce the user
+ * straight into the redirect again.
+ */
+function BusinessOnly({ children }: { children: JSX.Element }) {
+  if (!BUSINESS_MODE_ENABLED) return <Navigate to="/dashboard" replace />;
+  return children;
+}
 
 /**
  * Wrap dynamic imports so a chunk-not-found after a deploy doesn't brick
@@ -165,12 +176,15 @@ export default function App() {
               <Route path="stokvel" element={<StokvelPage />} />
               <Route path="loadshedding" element={<LoadSheddingPage />} />
 
-              {/* Business module */}
-              <Route path="invoices" element={<InvoicesPage />} />
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="pnl" element={<PnLPage />} />
-              <Route path="tax" element={<TaxPage />} />
-              <Route path="partners" element={<SpendingTrackerPage />} />
+              {/* Business module. The sidebar already hides these outside
+                  Business mode and the mode itself is closed, but a typed or
+                  bookmarked URL reaches a route regardless of the nav — so
+                  the gate belongs here too, not only on the link. */}
+              <Route path="invoices" element={<BusinessOnly><InvoicesPage /></BusinessOnly>} />
+              <Route path="clients" element={<BusinessOnly><ClientsPage /></BusinessOnly>} />
+              <Route path="pnl" element={<BusinessOnly><PnLPage /></BusinessOnly>} />
+              <Route path="tax" element={<BusinessOnly><TaxPage /></BusinessOnly>} />
+              <Route path="partners" element={<BusinessOnly><SpendingTrackerPage /></BusinessOnly>} />
 
               {/* Family module */}
               <Route path="members" element={<MembersPage />} />

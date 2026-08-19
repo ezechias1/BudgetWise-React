@@ -6,6 +6,7 @@ import { useParticleBackground } from '@/hooks/useParticleBackground';
 import { PasswordInput } from '@/components/PasswordInput';
 import type { Mode } from '@/types';
 import { readInviteFromUrl, stashInvite } from '@/lib/family-invite';
+import { BUSINESS_SOON_NOTE, isModeAvailable } from '@/lib/features';
 
 type Tab = 'login' | 'signup' | 'forgot' | 'reset';
 
@@ -52,7 +53,7 @@ const COUNTRIES: Array<{ code: string; name: string }> = [
 
 const TYPE_DESC: Record<Mode, string> = {
   personal: 'Track your personal spending, savings, and goals.',
-  business: 'Manage business finances — invoices, clients, profit & loss.',
+  business: BUSINESS_SOON_NOTE,
   family: 'Budget together — shared expenses, goals, and chore rewards.',
 };
 
@@ -512,18 +513,30 @@ export default function AuthPage() {
                 <div className="field">
                   <label>Account Type</label>
                   <div className="account-type-toggle">
-                    {(['personal', 'business', 'family'] as const).map((t) => (
+                    {(['personal', 'business', 'family'] as const).map((t) => {
+                      // Left visible so people looking for a business account
+                      // learn it's coming rather than concluding the app
+                      // doesn't do it — but not selectable, since signing up
+                      // for a workspace you can't open is a dead end.
+                      const open = isModeAvailable(t);
+                      return (
                       <button
                         key={t}
                         type="button"
                         data-type={t}
-                        className={`type-btn ${signupType === t ? 'active' : ''}`}
-                        onClick={() => setSignupType(t)}
+                        className={`type-btn ${signupType === t ? 'active' : ''}${open ? '' : ' is-soon'}`}
+                        onClick={open ? () => setSignupType(t) : undefined}
+                        disabled={!open}
+                        aria-disabled={!open}
+                        title={open ? undefined : BUSINESS_SOON_NOTE}
                       >
                         {t === 'personal' && 'Personal'}
                         {t === 'business' && (
                           <>
-                            Business <span className="pro-tag">PRO</span>
+                            Business{' '}
+                            <span className={open ? 'pro-tag' : 'soon-tag'}>
+                              {open ? 'PRO' : 'SOON'}
+                            </span>
                           </>
                         )}
                         {t === 'family' && (
@@ -532,7 +545,8 @@ export default function AuthPage() {
                           </>
                         )}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                   <p className="type-desc">{typeDesc}</p>
                 </div>

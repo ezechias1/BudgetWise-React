@@ -5,6 +5,7 @@ import { useMode } from '@/contexts/ModeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { isAdmin, isProUser } from '@/lib/access';
+import { BUSINESS_SOON_NOTE, isModeAvailable } from '@/lib/features';
 import { FamilyKidsDropdown } from './FamilyKidsDropdown';
 import type { Mode } from '@/types';
 
@@ -432,15 +433,21 @@ export function Sidebar({ mobileOpen = false }: SidebarProps) {
                 { id: 'business', text: 'Business', pro: true },
                 { id: 'family', text: 'Family', pro: true },
               ] as const
-            ).map((opt) => (
+            ).map((opt) => {
+              const open = isModeAvailable(opt.id);
+              return (
               <button
                 key={opt.id}
                 type="button"
-                className={`mode-option ${mode === opt.id ? 'active' : ''}`}
-                onClick={() => handleModeSelect(opt.id)}
+                className={`mode-option ${mode === opt.id ? 'active' : ''}${open ? '' : ' is-soon'}`}
+                onClick={open ? () => handleModeSelect(opt.id) : undefined}
+                disabled={!open}
+                aria-disabled={!open}
+                title={open ? undefined : BUSINESS_SOON_NOTE}
               >
                 <span>{opt.text}</span>
-                {opt.pro && <span className="pro-mode-tag">PRO</span>}
+                {open && opt.pro && <span className="pro-mode-tag">PRO</span>}
+                {!open && <span className="soon-tag">SOON</span>}
                 {mode === opt.id && (
                   <svg
                     className="mode-check"
@@ -455,7 +462,8 @@ export function Sidebar({ mobileOpen = false }: SidebarProps) {
                   </svg>
                 )}
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

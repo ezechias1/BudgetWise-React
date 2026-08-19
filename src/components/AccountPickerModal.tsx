@@ -1,5 +1,6 @@
 import type { Mode } from '@/types';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
+import { BUSINESS_SOON_NOTE, isModeAvailable } from '@/lib/features';
 
 interface Props {
   onPick: (mode: Mode) => void;
@@ -95,50 +96,71 @@ export function AccountPickerModal({ onPick }: Props) {
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
           }}
         >
-          {OPTIONS.map((opt) => (
-            <button
-              key={opt.mode}
-              type="button"
-              onClick={() => onPick(opt.mode)}
-              className="account-picker-card"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 10,
-                padding: 18,
-                border: `1px solid ${opt.accentSoft}`,
-                borderRadius: 14,
-                background: opt.accentSoft,
-                color: opt.accent,
-                cursor: 'pointer',
-                textAlign: 'left',
-                font: 'inherit',
-                transition: 'transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease',
-              }}
-            >
-              <span
+          {OPTIONS.map((opt) => {
+            // A closed workspace stays on the card rather than disappearing:
+            // people who were using it need to see where it went, and people
+            // who haven't should know it's on the way.
+            const open = isModeAvailable(opt.mode);
+            const accent = open ? opt.accent : 'var(--text-muted, #8b8b96)';
+            const accentSoft = open ? opt.accentSoft : 'rgba(128,128,128,0.10)';
+            return (
+              <button
+                key={opt.mode}
+                type="button"
+                onClick={open ? () => onPick(opt.mode) : undefined}
+                disabled={!open}
+                aria-disabled={!open}
+                title={open ? undefined : BUSINESS_SOON_NOTE}
+                className={`account-picker-card${open ? '' : ' is-soon'}`}
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: opt.accent,
-                  color: 'white',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  padding: 18,
+                  border: `1px solid ${accentSoft}`,
+                  borderRadius: 14,
+                  background: accentSoft,
+                  color: accent,
+                  cursor: open ? 'pointer' : 'not-allowed',
+                  textAlign: 'left',
+                  font: 'inherit',
+                  transition: 'transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease',
                 }}
               >
-                {opt.icon}
-              </span>
-              <strong style={{ fontSize: '1.05rem', color: opt.accent }}>
-                {opt.label}
-              </strong>
-              <span className="account-picker-desc">
-                {opt.description}
-              </span>
-            </button>
-          ))}
+                <span
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: open ? opt.accent : 'rgba(128,128,128,0.25)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {opt.icon}
+                </span>
+                <strong
+                  style={{
+                    fontSize: '1.05rem',
+                    color: accent,
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 6,
+                  }}
+                >
+                  {opt.label}
+                  {!open && <span className="soon-tag">COMING SOON</span>}
+                </strong>
+                <span className="account-picker-desc">
+                  {open ? opt.description : 'Being rebuilt — not open yet.'}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <p className="account-picker-hint">

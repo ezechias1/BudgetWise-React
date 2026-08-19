@@ -8893,3 +8893,44 @@ body.light .bsmart-form input {
 /* Answers carry short paragraphs; keep the gaps from doubling up with the
    pre-wrap newlines already in the text. */
 .bsmart-msg strong { font-weight: 650; }
+
+/* ==========================================================================
+   Closed workspaces ("Coming Soon")
+   A mode that isn't open yet stays visible but inert — removing it entirely
+   reads as the feature never existing, which is the wrong message for
+   something that is on its way back.
+   ========================================================================== */
+.soon-tag {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+/* Cancels .mode-option:hover, which would otherwise still light up. */
+.mode-option.is-soon,
+.mode-option.is-soon:hover {
+    background: transparent;
+    color: rgba(255,255,255,0.3);
+    cursor: not-allowed;
+}
+body.light .mode-option.is-soon,
+body.light .mode-option.is-soon:hover {
+    background: transparent;
+    color: rgba(0,0,0,0.3);
+}
+
+.account-picker-card.is-soon {
+    opacity: 0.6;
+}
+/* The card has a lift-on-hover transform; a disabled card must not move. */
+.account-picker-card.is-soon:hover {
+    transform: none;
+    box-shadow: none;
+}

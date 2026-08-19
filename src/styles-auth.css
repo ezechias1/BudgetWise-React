@@ -700,3 +700,22 @@ body.light .auth-legal {
   font-size: 0.78rem;
   opacity: 0.7;
 }
+
+/* Signup account types that aren't open yet. Shown so people looking for a
+   business account learn it's coming, but not selectable — signing up for a
+   workspace you can't open is a dead end. */
+.type-btn.is-soon,
+.type-btn.is-soon:hover {
+    color: rgba(255,255,255,0.22);
+    cursor: not-allowed;
+}
+.type-btn .soon-tag {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}

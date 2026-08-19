@@ -1,4 +1,5 @@
 import type { Mode } from '@/types';
+import { BUSINESS_MODE_ENABLED } from '@/lib/features';
 
 /**
  * BudgetSmart's answer bank.
@@ -46,7 +47,10 @@ export const FAQ: FaqEntry[] = [
     id: 'what-is-this',
     question: 'What is BudgetWise?',
     answer:
-      'An app for keeping track of where your money goes. You record what you spend, set limits per category, and save towards goals.\n\nIt has three sides to it — **Personal** for your own money, **Business** for a company or side hustle, and **Family** for a shared household budget. There\'s also **Junior**, for kids.',
+      'An app for keeping track of where your money goes. You record what you spend, set limits per category, and save towards goals.\n\n' +
+      (BUSINESS_MODE_ENABLED
+        ? 'It has three sides to it — **Personal** for your own money, **Business** for a company or side hustle, and **Family** for a shared household budget. There\'s also **Junior**, for kids.'
+        : 'There are two sides to it — **Personal** for your own money and **Family** for a shared household budget — plus **Junior**, for kids. A **Business** side is being built and isn\'t open yet.'),
     keywords: ['what is budgetwise', 'what is the app', 'explain the app', 'how does this work', 'new here'],
   },
   {
@@ -428,10 +432,44 @@ export const FAQ: FaqEntry[] = [
   },
 ];
 
+const isBusinessOnly = (e: FaqEntry) =>
+  e.modes?.length === 1 && e.modes[0] === 'business';
+
+/**
+ * Absorbs the business questions while Business mode is closed.
+ *
+ * Its keywords are taken from the entries it stands in for, so it answers
+ * exactly the questions they would have — "how do I create an invoice" lands
+ * here instead of walking someone through a page they can't reach, and
+ * instead of falling through to "email the helpline", which would send real
+ * mail about something we already know the answer to.
+ *
+ * Nothing above is edited or deleted. Flip BUSINESS_MODE_ENABLED and this
+ * entry disappears while the seven real answers come back.
+ */
+const BUSINESS_COMING_SOON: FaqEntry = {
+  id: 'business-coming-soon',
+  question: 'Can I use BudgetWise for my business?',
+  answer:
+    'Not yet — Business mode is being rebuilt and isn\'t open.\n\nInvoices, clients, Profit & Loss and Tax all live there, so none of them are available at the moment. **Personal** and **Family** work fully.\n\nIf you were using Business before, nothing has been deleted — your figures are still stored and will be there when it reopens.',
+  keywords: [
+    'business mode', 'business account', 'use for my business', 'my company',
+    'side hustle', 'freelance', 'sole proprietor', 'business side',
+    'where is business', 'business missing', 'business gone', 'business greyed out',
+    'business grayed out', 'business disabled', 'when is business',
+    ...FAQ.filter(isBusinessOnly).flatMap((e) => e.keywords),
+  ],
+};
+
+/** What BudgetSmart is allowed to answer from, given the enabled features. */
+const ANSWERS: FaqEntry[] = BUSINESS_MODE_ENABLED
+  ? FAQ
+  : [...FAQ.filter((e) => !isBusinessOnly(e)), BUSINESS_COMING_SOON];
+
 /** Openers offered when the panel is opened, tuned to the current mode. */
 export function suggestionsFor(mode: Mode): FaqEntry[] {
-  const inMode = FAQ.filter((e) => e.modes?.includes(mode));
-  const general = FAQ.filter((e) => !e.modes);
+  const inMode = ANSWERS.filter((e) => e.modes?.includes(mode));
+  const general = ANSWERS.filter((e) => !e.modes);
   return [...inMode, ...general].slice(0, 4);
 }
 
@@ -482,7 +520,7 @@ export function findAnswer(query: string, mode: Mode): FaqEntry | null {
   let best: FaqEntry | null = null;
   let bestScore = 0;
 
-  for (const entry of FAQ) {
+  for (const entry of ANSWERS) {
     let score = 0;
     const entryWords = new Set<string>();
 

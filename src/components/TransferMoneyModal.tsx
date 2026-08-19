@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { formatCurrency } from '@/lib/format';
+import { AVAILABLE_MODES } from '@/lib/features';
 import type { Mode } from '@/types';
 
 interface Props {
@@ -11,6 +12,18 @@ interface Props {
   onClose: () => void;
   /** Called after a successful transfer so the parent can refresh. */
   onTransferred?: () => void;
+}
+
+/**
+ * First ledger that isn't the one being moved from.
+ *
+ * The destination used to default to Business whenever the user was in
+ * Personal. With Business closed that would have parked money in a ledger
+ * with no way back in, so the default is now whatever workspace is actually
+ * open — and it stays correct if a mode is opened or closed later.
+ */
+function defaultDestination(from: Mode): Mode {
+  return AVAILABLE_MODES.find((m) => m !== from) ?? from;
 }
 
 /**
@@ -31,7 +44,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
     family: 0,
   });
   const [from, setFrom] = useState<Mode>(mode);
-  const [to, setTo] = useState<Mode>(mode === 'personal' ? 'business' : 'personal');
+  const [to, setTo] = useState<Mode>(defaultDestination(mode));
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +66,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
         family: data?.fam_income ?? 0,
       });
       setFrom(mode);
-      setTo(mode === 'personal' ? 'business' : 'personal');
+      setTo(defaultDestination(mode));
       setAmount('');
       setError(null);
     })();
@@ -139,7 +152,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
               onChange={(ev) => setFrom(ev.target.value as Mode)}
               style={selectStyle}
             >
-              {(['personal', 'business', 'family'] as const).map((m) => (
+              {AVAILABLE_MODES.map((m) => (
                 <option key={m} value={m}>
                   {modeLabel(m)} ({formatCurrency(balances[m], currency)})
                 </option>
@@ -156,7 +169,7 @@ export function TransferMoneyModal({ open, onClose, onTransferred }: Props) {
               onChange={(ev) => setTo(ev.target.value as Mode)}
               style={selectStyle}
             >
-              {(['personal', 'business', 'family'] as const)
+              {AVAILABLE_MODES
                 .filter((m) => m !== from)
                 .map((m) => (
                   <option key={m} value={m}>
