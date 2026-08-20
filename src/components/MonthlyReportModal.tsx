@@ -50,6 +50,10 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
   const [expenses, setExpenses] = useState<Array<{ category: string; amount: number }>>([]);
   const [loading, setLoading] = useState(true);
+  // Every read here used to be `(res.data as ...) || []`, so a failed load
+  // rendered as a confident, tidy report reading Total Spent 0.00 — worse than
+  // no report at all, because the family reviews their month against it.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const dialog = useDialogA11y(open);
 
   const s = sym(currency);
@@ -60,6 +64,7 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setLoadError(null);
     const [mRes, cRes, gRes, eRes] = await Promise.all([
       supabase.from('family_members').select('*').eq('user_id', user.id),
       supabase.from('family_chores').select('*').eq('user_id', user.id),
@@ -67,14 +72,33 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
       supabase
         .from('expenses')
         .select('category, amount')
-        .eq('user_id', user.id)
+        // No user_id filter, on purpose. This is the shared household ledger
+        // and it is read exactly the way the Spending page reads it
+        // (useExpenses drops the owner filter in Family mode and lets the
+        // SELECT policy `own OR can_read_family_expense(group_id,
+        // account_mode)` decide). Scoping it to the owner meant a household
+        // where the partner does most of the shopping saw a Total Spent that
+        // was short by the majority of the month, with nothing saying so.
         .eq('account_mode', 'family')
         .gte('date', monthKey + '-01')
         .lt('date', monthKey + '-32')
         // A trip expense that's still unreviewed or confirmed Business isn't
         // this family's own spend — keep it out of the monthly report too.
-        .or('trip_id.is.null,business_expense.eq.false'),
+        .or('trip_id.is.null,business_expense.eq.false')
+        // Imported rows land 'pending' and 'dismissed' rows never count; the
+        // ledger filters on this too, so leaving it off made the report
+        // disagree with the Spending page in the other direction.
+        .eq('review_status', 'confirmed'),
     ]);
+    // Keep whatever was last shown rather than blanking it: a partial report is
+    // still a wrong report, so this reports the failure instead of rendering
+    // one read's outage as "you spent nothing this month".
+    const failed = mRes.error || cRes.error || gRes.error || eRes.error;
+    if (failed) {
+      setLoadError(failed.message);
+      setLoading(false);
+      return;
+    }
     setMembers((mRes.data as FamilyMember[]) || []);
     setChores((cRes.data as Chore[]) || []);
     setGoals((gRes.data as FamilyGoal[]) || []);
@@ -123,6 +147,18 @@ export function MonthlyReportModal({ open, onClose, currency }: Props) {
           <p style={{ padding: 24, textAlign: 'center', opacity: 0.4 }}>
             Loading...
           </p>
+        ) : loadError ? (
+          <div style={{ padding: '0 20px 20px', textAlign: 'center' }}>
+            <p style={{ fontWeight: 600, marginBottom: 6 }}>
+              Couldn't load this month's report
+            </p>
+            <p style={{ fontSize: '0.82rem', opacity: 0.6, marginBottom: 14 }}>
+              {loadError}
+            </p>
+            <button className="btn-primary" onClick={load}>
+              Try again
+            </button>
+          </div>
         ) : (
           <div style={{ padding: '0 20px 20px', maxHeight: '70vh', overflowY: 'auto' }}>
             {/* Summary stats */}

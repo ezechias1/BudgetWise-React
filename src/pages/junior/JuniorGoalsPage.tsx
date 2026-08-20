@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useKidLedger } from '@/hooks/useKidLedger';
 import { enqueueApprovalNudge } from '@/lib/junior-notifications';
+import { formatCurrency } from '@/lib/format';
 
 interface Goal {
   id: string;
@@ -11,10 +12,6 @@ interface Goal {
   target: number;
   saved: number;
   status: 'pending' | 'active' | 'declined';
-}
-
-function formatRands(amount: number): string {
-  return `R${amount.toFixed(2)}`;
 }
 
 /**
@@ -25,11 +22,13 @@ function formatRands(amount: number): string {
  * FamilyGoalsPage.tsx rather than inventing new transactional rigor.
  */
 export default function JuniorGoalsPage() {
-  const { member, loading: profileLoading } = useKidProfile();
+  const { member, loading: profileLoading, error: profileError } = useKidProfile();
   const { owed_cents, paid_cents, refresh: refreshLedger } = useKidLedger(member?.id ?? null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [contributed, setContributed] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [currency, setCurrency] = useState('ZAR');
 
   const [proposeOpen, setProposeOpen] = useState(false);
   const [proposeName, setProposeName] = useState('');
@@ -73,6 +72,18 @@ export default function JuniorGoalsPage() {
         .order('created_at', { ascending: false })
         .limit(10),
     ]);
+    // All three used to be read as .data only, so a failed request was written
+    // back as [] / 0 over real values: the kid was told "No goals yet" over
+    // goals that exist, and a failed contributions read reset `contributed` to
+    // 0, handing them their whole lifetime earnings to allocate a second time.
+    // Keep whatever we last loaded and say so instead of overwriting it.
+    const readError = goalsRes.error ?? contribRes.error ?? reqRes.error;
+    if (readError) {
+      setLoadError(readError.message);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setGoals((goalsRes.data as Goal[]) ?? []);
     setContributed(
       ((contribRes.data as { amount: number }[]) ?? []).reduce((sum, c) => sum + c.amount, 0)
@@ -85,7 +96,51 @@ export default function JuniorGoalsPage() {
     load();
   }, [load]);
 
-  if (profileLoading || loading || !member) return <p>Loading…</p>;
+  // A kid's session cannot read the parent's user_settings row (RLS is
+  // auth.uid() = user_id), so the family's currency comes from a
+  // security-definer RPC. This page used to hardcode R for all eleven amounts.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('get_kid_currency');
+      if (cancelled || error || !data) return;
+      setCurrency(data as string);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatMoney = (amount: number) => formatCurrency(amount, currency);
+
+  // Gate ORDER matters. This was one combined condition with `loading` tested
+  // alongside `!member`, and load() returns early on `if (!member) return;`
+  // without clearing `loading` — so a failed kid-profile read pinned the page
+  // on a bare "Loading…" forever and the error banner below (plus its Try
+  // again) could never be reached. Check profileLoading, then !member, then
+  // this page's own load.
+  if (profileLoading) return <p>Loading…</p>;
+  if (!member)
+    return (
+      <div style={{ background: 'white', borderRadius: 16, padding: 20, color: '#1a1a2e' }}>
+        <p style={{ margin: 0 }}>
+          {profileError
+            ? "We couldn't load your profile just now. Check your connection and try again."
+            : 'Something went wrong — no profile found.'}
+        </p>
+        {/* useKidProfile exposes no refetch, so a reload is the only retry we
+            can offer from here without reaching into the hook. */}
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ marginTop: 12 }}
+          onClick={() => window.location.reload()}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  if (loading) return <p>Loading…</p>;
 
   const activeGoals = goals.filter((g) => g.status === 'active');
   const pendingGoals = goals.filter((g) => g.status === 'pending');
@@ -93,7 +148,11 @@ export default function JuniorGoalsPage() {
   // Lifetime earned (owed + already settled), minus whatever's already been
   // put into any goal — the ceiling on how much a kid can move today.
   const lifetimeEarnedRands = (owed_cents + paid_cents) / 100;
-  const availableToAllocate = Math.max(lifetimeEarnedRands - contributed, 0);
+  // Fail closed while a read is broken: `contributed` is the only thing that
+  // brings this number down, so a failed contributions read would otherwise
+  // raise the ceiling to full lifetime earnings and let the kid allocate money
+  // they have already put into a goal.
+  const availableToAllocate = loadError ? 0 : Math.max(lifetimeEarnedRands - contributed, 0);
 
   const handlePropose = async (e: FormEvent) => {
     e.preventDefault();
@@ -124,7 +183,7 @@ export default function JuniorGoalsPage() {
       member.user_id,
       member.name,
       'goal_proposal',
-      `${proposeName.trim()} (${formatRands(target)})`,
+      `${proposeName.trim()} (${formatMoney(target)})`,
       '/dashboard/family-goals',
     );
     await load();
@@ -139,8 +198,12 @@ export default function JuniorGoalsPage() {
       setAddMoneyError('Enter an amount above 0.');
       return;
     }
+    if (loadError) {
+      setAddMoneyError("We couldn't check how much you have left. Tap Try again first.");
+      return;
+    }
     if (amount > availableToAllocate) {
-      setAddMoneyError(`You've only got ${formatRands(availableToAllocate)} left to put toward goals.`);
+      setAddMoneyError(`You've only got ${formatMoney(availableToAllocate)} left to put toward goals.`);
       return;
     }
     setAddingMoney(true);
@@ -189,7 +252,7 @@ export default function JuniorGoalsPage() {
       setAddingMoney(false);
       setAddMoneyError(
         rollbackFailed
-          ? `That didn't save, and the goal total is now ${formatRands(amount)} too high. Ask a parent to fix it.`
+          ? `That didn't save, and the goal total is now ${formatMoney(amount)} too high. Ask a parent to fix it.`
           : "That didn't save. Please try again.",
       );
       return;
@@ -230,7 +293,7 @@ export default function JuniorGoalsPage() {
       member.user_id,
       member.name,
       'money_request',
-      `Asking for ${formatRands(amount)}`,
+      `Asking for ${formatMoney(amount)}`,
       '/dashboard/junior',
     );
     await load();
@@ -246,9 +309,22 @@ export default function JuniorGoalsPage() {
       <div style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 16, color: '#1a1a2e' }}>
         <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>Available to put toward goals</p>
         <p style={{ margin: '4px 0 0', fontSize: '1.6rem', fontWeight: 700, color: '#10b981' }}>
-          {formatRands(availableToAllocate)}
+          {/* A dash, not R0.00: while a read is broken we genuinely don't know
+              the number, and a confident zero is its own lie. */}
+          {loadError ? '—' : formatMoney(availableToAllocate)}
         </p>
       </div>
+
+      {loadError && (
+        <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>
+            We couldn't load your goals just now, so this might not be everything.
+          </p>
+          <button type="button" className="btn-primary" style={{ marginTop: 10 }} onClick={() => void load()}>
+            Try again
+          </button>
+        </div>
+      )}
 
       {askSent && (
         <div style={{ background: '#d1fae5', color: '#065f46', borderRadius: 12, padding: 12, marginBottom: 16, fontWeight: 600 }}>
@@ -256,7 +332,9 @@ export default function JuniorGoalsPage() {
         </div>
       )}
 
-      {activeGoals.length === 0 && pendingGoals.length === 0 && !proposeOpen && (
+      {/* Gated on !loadError: "No goals yet" over a failed read is what made
+          kids propose a duplicate for their parent to approve. */}
+      {!loadError && activeGoals.length === 0 && pendingGoals.length === 0 && !proposeOpen && (
         <p style={{ opacity: 0.6, marginBottom: 16 }}>No goals yet — propose one below.</p>
       )}
 
@@ -267,13 +345,13 @@ export default function JuniorGoalsPage() {
           <div key={g.id} style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 12, color: '#1a1a2e' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <strong>{g.name}</strong>
-              <span style={{ fontSize: '0.85rem', opacity: 0.7 }}>{formatRands(remaining)} to go</span>
+              <span style={{ fontSize: '0.85rem', opacity: 0.7 }}>{formatMoney(remaining)} to go</span>
             </div>
             <div style={{ height: 8, background: '#eee', borderRadius: 4, margin: '10px 0', overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: '#10b981', transition: 'width 200ms' }} />
             </div>
             <p style={{ margin: '0 0 10px', fontSize: '0.8rem', opacity: 0.6 }}>
-              {formatRands(g.saved)} of {formatRands(g.target)}
+              {formatMoney(g.saved)} of {formatMoney(g.target)}
             </p>
 
             {addMoneyGoalId === g.id ? (
@@ -348,7 +426,7 @@ export default function JuniorGoalsPage() {
           </p>
           {pendingGoals.map((g) => (
             <div key={g.id} style={{ background: 'white', borderRadius: 16, padding: 16, marginBottom: 8, color: '#1a1a2e', opacity: 0.7 }}>
-              <strong>{g.name}</strong> — {formatRands(g.target)}
+              <strong>{g.name}</strong> — {formatMoney(g.target)}
               <span style={{ marginLeft: 8, fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 999 }}>
                 Pending
               </span>
@@ -365,7 +443,7 @@ export default function JuniorGoalsPage() {
           {requests.map((r) => (
             <div key={r.id} style={{ background: 'white', borderRadius: 16, padding: '10px 16px', marginBottom: 8, color: '#1a1a2e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>
-                {formatRands(r.requested_amount_cents / 100)}
+                {formatMoney(r.requested_amount_cents / 100)}
                 {r.reason && <span style={{ opacity: 0.6 }}> — {r.reason}</span>}
               </span>
               {r.status === 'pending' && (
@@ -373,7 +451,7 @@ export default function JuniorGoalsPage() {
               )}
               {r.status === 'approved' && (
                 <span style={{ fontSize: '0.75rem', background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 999 }}>
-                  Approved {formatRands((r.approved_amount_cents ?? 0) / 100)}
+                  Approved {formatMoney((r.approved_amount_cents ?? 0) / 100)}
                 </span>
               )}
               {r.status === 'declined' && (

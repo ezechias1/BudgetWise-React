@@ -8,6 +8,25 @@ import type { Expense, Mode, NewExpense } from '@/types';
 export type ExpensePatch = Partial<NewExpense>;
 
 /**
+ * Family mode reads the whole household's ledger (see `load` below) but the
+ * expenses write policies are own-row only, so a delete/update/move aimed at
+ * a partner's row matches nothing and Postgrest still answers 200 with
+ * error:null. That used to read as success: the row disappeared optimistically
+ * and the Expenses page offered an Undo whose addExpense inserted a REAL
+ * duplicate of money nobody had deleted. Every write below now asks for the
+ * affected ids back and treats zero rows as this failure.
+ *
+ * The wording is deliberately neutral about WHY nothing matched. Zero rows is
+ * not only a partner's row: it is also the ordinary "the row is already gone"
+ * case — deleted on another device, or acted on from a stale render — which a
+ * solo Personal user with no family at all can hit. Blaming a family member
+ * there is simply a different false statement, so this covers both without
+ * asserting either.
+ */
+const NO_MATCHING_ROW =
+  'No matching expense was found — it may have been removed already, or it belongs to someone else in your household and only they can change it.';
+
+/**
  * Reads and mutates the `expenses` Supabase table.
  *
  * Mirrors the query shape in js/app.js `loadExpenses()` (line 2154):
@@ -131,14 +150,19 @@ export function useExpenses() {
       // Optimistic removal
       const snapshot = expenses;
       setExpenses((list) => list.filter((e) => e.id !== id));
-      const { error: err } = await supabase
+      const { data, error: err } = await supabase
         .from('expenses')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id'); // see NO_MATCHING_ROW
       if (err) {
         setExpenses(snapshot); // rollback
         return { error: err.message };
+      }
+      if (!data || data.length === 0) {
+        setExpenses(snapshot); // nothing was deleted — put the row back
+        return { error: NO_MATCHING_ROW };
       }
       return { error: null };
     },
@@ -152,14 +176,19 @@ export function useExpenses() {
       if (!user) return { error: 'Not signed in' };
       const snapshot = expenses;
       setExpenses((list) => list.filter((e) => e.id !== id)); // optimistic
-      const { error: err } = await supabase
+      const { data, error: err } = await supabase
         .from('expenses')
         .update({ account_mode: targetMode })
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id'); // see NO_MATCHING_ROW
       if (err) {
         setExpenses(snapshot);
         return { error: err.message };
+      }
+      if (!data || data.length === 0) {
+        setExpenses(snapshot); // nothing moved — put the row back
+        return { error: NO_MATCHING_ROW };
       }
       return { error: null };
     },
@@ -171,12 +200,16 @@ export function useExpenses() {
   const updateExpense = useCallback(
     async (id: string, patch: ExpensePatch): Promise<{ error: string | null }> => {
       if (!user) return { error: 'Not signed in' };
-      const { error: err } = await supabase
+      const { data, error: err } = await supabase
         .from('expenses')
         .update(patch)
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id'); // see NO_MATCHING_ROW
       if (err) return { error: err.message };
+      // A zero-row update read as success, so the edit modal closed and the
+      // refetch quietly put the old values straight back.
+      if (!data || data.length === 0) return { error: NO_MATCHING_ROW };
       await load();
       return { error: null };
     },

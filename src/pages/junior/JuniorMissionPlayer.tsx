@@ -15,6 +15,11 @@ interface TieInStep { type: 'tie_in'; body: string; }
 interface DoneStep { type: 'done'; body: string; }
 type MissionStep = HookStep | ConceptStep | QuizStep | TieInStep | DoneStep;
 
+// What the celebration screen is allowed to say about money. Set only from
+// what we actually read back after saving — never assumed. `tone` is just the
+// colour: 'good' = money is waiting for them, 'info' = nothing new is owed.
+interface RewardNote { tone: 'good' | 'info'; text: string; }
+
 export default function JuniorMissionPlayer() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -24,7 +29,13 @@ export default function JuniorMissionPlayer() {
   const [stepIdx, setStepIdx] = useState(0);
   const [quizPick, setQuizPick] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Load and save failures used to share one `error`, so a failed completion
+  // write was announced as "Couldn't load mission" and tore down the whole
+  // player — the child lost all five steps and had no retry. They are separate
+  // states now: only a load failure may replace the lesson.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [rewardNote, setRewardNote] = useState<RewardNote | null>(null);
   const [missionGateBlocked, setMissionGateBlocked] = useState<{ current: number; limit: number } | null>(null);
 
   useEffect(() => {
@@ -37,7 +48,7 @@ export default function JuniorMissionPlayer() {
         .eq('id', id)
         .maybeSingle();
       if (cancelled) return;
-      if (err) setError(err.message);
+      if (err) setLoadError(err.message);
       else setMission(data as KidMission | null);
     })();
     return () => { cancelled = true; };
@@ -46,18 +57,32 @@ export default function JuniorMissionPlayer() {
   const completeMission = useCallback(async (quizScore: number | null) => {
     if (!member || !mission) return;
     setSubmitting(true);
-    setError(null);
+    setSaveError(null);
 
-    // Freemium gate: count existing completed missions for this kid. If over
-    // the free limit and parent isn't Pro, show the upgrade modal and bail
-    // before writing progress. The mission has NOT been completed yet so
-    // re-entering after upgrade is fine.
-    const { count } = await supabase
-      .from('kid_mission_progress')
-      .select('mission_id', { count: 'exact', head: true })
-      .eq('member_id', member.id)
-      .eq('status', 'completed');
-    const completedCount = count ?? 0;
+    // Two things have to be known BEFORE we write. First the freemium gate:
+    // count existing completed missions for this kid; if over the free limit
+    // and the parent isn't Pro, show the upgrade modal and bail before writing
+    // progress (the mission has NOT been completed yet, so re-entering after
+    // upgrade is fine). Second, whether THIS mission was already completed —
+    // once the upsert lands we can no longer tell, and a replay pays nothing
+    // (see the reward note below), so the wording depends on it.
+    const [gateRes, priorRes] = await Promise.all([
+      supabase
+        .from('kid_mission_progress')
+        .select('mission_id', { count: 'exact', head: true })
+        .eq('member_id', member.id)
+        .eq('status', 'completed'),
+      supabase
+        .from('kid_mission_progress')
+        .select('status')
+        .eq('member_id', member.id)
+        .eq('mission_id', mission.id)
+        .maybeSingle(),
+    ]);
+    const completedCount = gateRes.count ?? 0;
+    // null = the read failed, so we genuinely don't know. Treating a failed
+    // read as "first time" would make us claim they just earned something.
+    const wasReplay = priorRes.error ? null : priorRes.data?.status === 'completed';
     const gate = checkJuniorGate(isPro, 'missions', completedCount);
     if (gate) {
       setMissionGateBlocked({ current: gate.current, limit: gate.limit });
@@ -79,11 +104,70 @@ export default function JuniorMissionPlayer() {
         },
         { onConflict: 'member_id,mission_id' },
       );
-    setSubmitting(false);
     if (err) {
-      setError(err.message);
+      setSubmitting(false);
+      setSaveError(err.message);
       return;
     }
+
+    // Work out what actually happened to the money before promising anything.
+    // Payouts are written by DB triggers, never here (a kid cannot write
+    // kid_ledger — RLS is parent-only): one fires on the transition into
+    // 'completed', the other backfills every already-completed kid when the
+    // parent sets or raises the reward. Both are guarded so a mission is paid
+    // at most once, which means a replay adds nothing however it is worded.
+    //
+    // The ledger read must filter on status. It used to match any row, so a
+    // reward the parent had ALREADY handed over (status 'paid' — this exists in
+    // live data) still printed "your parents owe you", telling the child they
+    // were owed money they had already been given.
+    const [rewardRes, ledgerRes] = await Promise.all([
+      supabase
+        .from('kid_mission_rewards')
+        .select('reward_amount_cents')
+        .eq('user_id', member.user_id)
+        .eq('mission_id', mission.id)
+        .maybeSingle(),
+      supabase
+        .from('kid_ledger')
+        .select('status')
+        .eq('member_id', member.id)
+        .eq('source_type', 'lesson')
+        .eq('source_id', mission.id),
+    ]);
+    const ledgerRows = (ledgerRes.data as { status: string }[] | null) ?? [];
+    const owed = ledgerRows.some((r) => r.status === 'owed');
+    const alreadyPaid = ledgerRows.some((r) => r.status === 'paid');
+    if (rewardRes.error || ledgerRes.error) {
+      // Reads failed: say nothing about money rather than guess. Claiming
+      // either "paid" or "not paid" here would be inventing an answer.
+      setRewardNote(null);
+    } else if (owed) {
+      setRewardNote({
+        tone: 'good',
+        text:
+          wasReplay === true
+            ? 'You finished this one before, and that reward is still on the list your parents owe you. Playing it again does not add more.'
+            : 'Your reward for this mission is on the list your parents owe you.',
+      });
+    } else if (alreadyPaid) {
+      setRewardNote({
+        tone: 'info',
+        text: 'You already earned this mission’s reward and your parents have paid it. Playing it again is just for practice — it does not pay twice.',
+      });
+    } else if ((rewardRes.data?.reward_amount_cents ?? 0) > 0) {
+      // Reward is set but no ledger row came back. With both triggers in place
+      // this should not happen; rather than invent a story about the money,
+      // say nothing and let the jars/owed screens be the source of truth.
+      setRewardNote(null);
+    } else {
+      setRewardNote({
+        tone: 'info',
+        text: 'There is no reward set for this mission yet, so this one does not pay. Ask your parent to set up mission rewards — when they do, missions you have already finished get paid too.',
+      });
+    }
+    setSubmitting(false);
+
     // Enqueue approval nudge for the parent. Fire-and-forget.
     void enqueueApprovalNudge(
       member.user_id,
@@ -96,7 +180,7 @@ export default function JuniorMissionPlayer() {
     setStepIdx((i) => i + 1);
   }, [member, mission, isPro]);
 
-  if (error) return <p style={{ color: '#dc2626' }}>Couldn&apos;t load mission: {error}</p>;
+  if (loadError) return <p style={{ color: '#dc2626' }}>Couldn&apos;t load mission: {loadError}</p>;
   if (!mission) return <p>Loading…</p>;
 
   const steps = (mission.body.steps ?? []) as unknown as MissionStep[];
@@ -188,6 +272,11 @@ export default function JuniorMissionPlayer() {
             <h2 className="junior-celebrate-wow">WOW!!</h2>
             <p className="junior-celebrate-welldone">Well done, {member?.name ?? 'champ'}!</p>
             <p style={{ color: '#4b5563', marginTop: 6 }}>{step.body}</p>
+            {rewardNote && (
+              <p style={{ marginTop: 10, fontWeight: 600, color: rewardNote.tone === 'good' ? '#059669' : '#4b5563' }}>
+                {rewardNote.text}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => navigate('/junior/missions')}
@@ -200,6 +289,14 @@ export default function JuniorMissionPlayer() {
         )}
       </div>
 
+      {saveError && (
+        <p style={{ color: '#dc2626', marginTop: 16 }}>
+          Couldn&apos;t save that you finished: {saveError}
+          <br />
+          Your lesson is still here — tap Try again to save it.
+        </p>
+      )}
+
       {step.type !== 'done' && (
         <button
           type="button"
@@ -208,7 +305,7 @@ export default function JuniorMissionPlayer() {
           className="btn-primary"
           style={{ marginTop: 16, width: '100%' }}
         >
-          {submitting ? 'Saving…' : step.type === 'tie_in' ? 'Finish' : 'Next'}
+          {submitting ? 'Saving…' : step.type === 'tie_in' ? (saveError ? 'Try again' : 'Finish') : 'Next'}
         </button>
       )}
 

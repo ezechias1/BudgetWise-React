@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scanReceipt, type ParsedReceipt } from '@/lib/receipt-scan';
-import { useExpenses } from '@/hooks/useExpenses';
 import { useOverviewStats } from '@/hooks/useOverviewStats';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
@@ -60,7 +59,10 @@ function firstName(fullName: string | undefined, email: string | undefined): str
 export default function OverviewPage() {
   const navigate = useNavigate();
   const stats = useOverviewStats();
-  const { addExpense, moveExpense, deleteExpense, refresh } = useExpenses();
+  // Deliberately taken off `stats` rather than from a second useExpenses():
+  // the page renders `stats` exclusively, so mutating a different instance
+  // left every write on this page looking like it had done nothing.
+  const { addExpense, moveExpense, deleteExpense, refresh } = stats;
   const { mode } = useMode();
   const { user } = useAuth();
   const { companyName, familyName, currency: userCurrency } = useUserSettings();
@@ -158,16 +160,22 @@ export default function OverviewPage() {
     const amt = parseFloat(quickAmount);
     if (!amt || amt <= 0) return;
     setQuickBusy(true);
-    const { expense } = await addExpense({
+    const { expense, error: addError } = await addExpense({
       category: quickCategory,
       amount: amt,
       description: quickDesc.trim() || quickCategory,
       date: todayIso(),
       recurring: 'no',
     });
+    setQuickBusy(false);
+    // Was discarded. A failed insert still cleared the bar, so the expense
+    // looked filed and the user had nothing left to retry from.
+    if (addError) {
+      reportWriteFailure('add that expense', addError);
+      return;
+    }
     setQuickAmount('');
     setQuickDesc('');
-    setQuickBusy(false);
     if (expense && isPendingTripReview(expense)) {
       setPendingReview(expense);
     }
@@ -196,8 +204,14 @@ export default function OverviewPage() {
   };
 
   const handleMove = async (id: string, target: Mode) => {
-    await moveExpense(id, target);
+    // moveExpense's result was discarded, so a move that wrote no row still
+    // closed the dialog as though it had worked.
+    const { error: moveError } = await moveExpense(id, target);
     setMoveTargetId(null);
+    if (moveError) {
+      reportWriteFailure('move this expense', moveError);
+      return;
+    }
     refresh();
   };
 
@@ -744,6 +758,11 @@ export default function OverviewPage() {
                 <tbody>
                   {stats.recent.map((e) => {
                     const color = CATEGORY_COLORS[e.category] ?? '#6b7280';
+                    // Family mode lists the whole household's ledger, but the
+                    // expenses write policies are own-row only. Offering Move
+                    // and Delete on a partner's row could only ever produce a
+                    // no-op that looked like it had worked.
+                    const isOwnRow = e.user_id === user?.id;
                     return (
                       <tr key={e.id}>
                         <td>{e.date}</td>
@@ -758,60 +777,70 @@ export default function OverviewPage() {
                         <td>{e.description}</td>
                         <td>{formatCurrency(e.amount, stats.currency)}</td>
                         <td style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn-move-expense"
-                            onClick={() => setMoveTargetId(e.id)}
-                            title="Move to another account"
-                            style={{
-                              background: 'rgba(59,130,246,0.1)',
-                              border: '1px solid rgba(59,130,246,0.2)',
-                              color: '#60a5fa',
-                              cursor: 'pointer',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              fontSize: '0.7rem',
-                              fontFamily: 'inherit',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 3,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="12"
-                              height="12"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M18 8l4 4-4 4" />
-                              <path d="M2 12h20" />
-                            </svg>
-                            Move
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-delete"
-                            onClick={async () => {
-                              if (!confirm('Delete this expense?')) return;
-                              await deleteExpense(e.id);
-                              refresh();
-                            }}
-                            aria-label={`Delete ${e.description}`}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                            </svg>
-                          </button>
+                          {isOwnRow && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn-move-expense"
+                                onClick={() => setMoveTargetId(e.id)}
+                                title="Move to another account"
+                                style={{
+                                  background: 'rgba(59,130,246,0.1)',
+                                  border: '1px solid rgba(59,130,246,0.2)',
+                                  color: '#60a5fa',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  fontSize: '0.7rem',
+                                  fontFamily: 'inherit',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M18 8l4 4-4 4" />
+                                  <path d="M2 12h20" />
+                                </svg>
+                                Move
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete"
+                                onClick={async () => {
+                                  if (!confirm('Delete this expense?')) return;
+                                  // Was discarded: a delete that removed no row
+                                  // still cleared the row from the screen.
+                                  const { error: delError } = await deleteExpense(e.id);
+                                  if (delError) {
+                                    reportWriteFailure('delete this expense', delError);
+                                    return;
+                                  }
+                                  refresh();
+                                }}
+                                aria-label={`Delete ${e.description}`}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  height="14"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );

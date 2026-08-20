@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { reportWriteFailure } from '@/lib/db';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { enqueueApprovalNudge } from '@/lib/junior-notifications';
+import { formatCurrency } from '@/lib/format';
 
 interface Chore {
   id: string;
@@ -12,26 +13,48 @@ interface Chore {
   pending_approval: boolean;
 }
 
-function formatRands(rands: number): string {
-  return `R${rands.toFixed(2)}`;
-}
-
 export default function JuniorChoresPage() {
   const { member, loading: profileLoading } = useKidProfile();
   const [chores, setChores] = useState<Chore[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [marking, setMarking] = useState<string | null>(null);
+  const [currency, setCurrency] = useState('ZAR');
+
+  // The amounts on this page used to be hardcoded to R, which is wrong for the
+  // eleven other currencies the family can pick. A kid's session cannot read
+  // the parent's user_settings row (RLS is auth.uid() = user_id), so the code
+  // comes from a security-definer RPC; ZAR stays the fallback.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('get_kid_currency');
+      if (cancelled || error || !data) return;
+      setCurrency(data as string);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (!member) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('family_chores')
       .select('id, name, reward, completed, pending_approval')
       .eq('assignee', member.id)
       .order('created_at');
-    setChores((data as Chore[]) ?? []);
     setLoading(false);
+    // The error used to be dropped and the list set to [], so a dropped request
+    // told the child "No chores yet" — a confident lie — when they had chores.
+    // markDone below already checks its error; the read needs the same.
+    if (error) {
+      setLoadError(error.message);
+      return;
+    }
+    setLoadError(null);
+    setChores((data as Chore[]) ?? []);
   }, [member]);
 
   useEffect(() => {
@@ -88,6 +111,39 @@ export default function JuniorChoresPage() {
         <p>Tap a chore when you&apos;ve done it. Mom or Dad will check it.</p>
       </section>
 
+      {loadError && (
+        <div
+          role="alert"
+          style={{
+            background: '#fee2e2',
+            borderRadius: 12,
+            padding: '12px 16px',
+            marginBottom: 16,
+          }}
+        >
+          <strong>We couldn&apos;t load your chores.</strong>
+          <br />
+          <small>Check your internet, then try again.</small>
+          <br />
+          <button
+            type="button"
+            onClick={() => load()}
+            style={{
+              marginTop: 8,
+              background: '#ef4444',
+              color: 'white',
+              border: 0,
+              borderRadius: 10,
+              padding: '8px 14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {todo.length > 0 && (
         <>
           <h3>To do</h3>
@@ -110,7 +166,7 @@ export default function JuniorChoresPage() {
                   <strong>{c.name}</strong>
                   <br />
                   <small style={{ color: '#10b981', fontWeight: 600 }}>
-                    Worth {formatRands(c.reward)}
+                    Worth {formatCurrency(c.reward, currency)}
                   </small>
                 </div>
                 <button
@@ -149,7 +205,7 @@ export default function JuniorChoresPage() {
                   margin: '8px 0',
                 }}
               >
-                <strong>{c.name}</strong> · waiting for approval ({formatRands(c.reward)})
+                <strong>{c.name}</strong> · waiting for approval ({formatCurrency(c.reward, currency)})
               </li>
             ))}
           </ul>
@@ -172,14 +228,14 @@ export default function JuniorChoresPage() {
                   opacity: 0.7,
                 }}
               >
-                {c.name} · earned {formatRands(c.reward)}
+                {c.name} · earned {formatCurrency(c.reward, currency)}
               </li>
             ))}
           </ul>
         </>
       )}
 
-      {chores.length === 0 && (
+      {chores.length === 0 && !loadError && (
         <p style={{ textAlign: 'center', marginTop: 40, opacity: 0.7 }}>
           No chores yet. Ask your parent to add some!
         </p>

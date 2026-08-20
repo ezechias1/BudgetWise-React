@@ -28,7 +28,21 @@ interface OverviewStats {
    * month has zero data. Mirrors vanilla js/app.js:4048-4056.
    */
   monthCompareText: string | null;
+  /**
+   * The mutators belonging to the very useExpenses() instance these numbers
+   * are derived from. A page that renders `stats` must write through these:
+   * calling useExpenses() a second time gave the Overview page a private
+   * list that nothing rendered, so Add, Quick Add, Scan, Move and Delete all
+   * refreshed the wrong copy and the dashboard sat visibly unchanged until a
+   * reload — which had users repeating the action and duplicating expenses.
+   */
+  addExpense: ExpenseActions['addExpense'];
+  deleteExpense: ExpenseActions['deleteExpense'];
+  moveExpense: ExpenseActions['moveExpense'];
+  refresh: ExpenseActions['refresh'];
 }
+
+type ExpenseActions = ReturnType<typeof useExpenses>;
 
 /**
  * Recent expenses — no dedup by category|description|amount (AUDIT Imp #26:
@@ -46,7 +60,14 @@ function dedupeRecent(list: Expense[]): Expense[] {
  * place so savings/balance/spent can be reused by other pages.
  */
 export function useOverviewStats(): OverviewStats {
-  const { expenses, loading: expensesLoading } = useExpenses();
+  const {
+    expenses,
+    loading: expensesLoading,
+    addExpense,
+    deleteExpense,
+    moveExpense,
+    refresh,
+  } = useExpenses();
   const { currency, income, savingsGoal, loading: settingsLoading } = useUserSettings();
 
   return useMemo(() => {
@@ -133,6 +154,21 @@ export function useOverviewStats(): OverviewStats {
       recent,
       trend,
       monthCompareText,
+      addExpense,
+      deleteExpense,
+      moveExpense,
+      refresh,
     };
-  }, [expenses, income, savingsGoal, currency, expensesLoading, settingsLoading]);
+  }, [
+    expenses,
+    income,
+    savingsGoal,
+    currency,
+    expensesLoading,
+    settingsLoading,
+    addExpense,
+    deleteExpense,
+    moveExpense,
+    refresh,
+  ]);
 }

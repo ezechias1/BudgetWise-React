@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useKidProfile } from '@/hooks/useKidProfile';
-import { useKidMissions } from '@/hooks/useKidMissions';
+import { useKidMissions, type KidMission } from '@/hooks/useKidMissions';
 
 // Per-unit accent for the leading icon circle. Keeps cards visually
 // grouped without forking the card component per unit.
@@ -50,14 +50,54 @@ const UNIT_COLORS: Record<string, { bg: string; fg: string; icon: JSX.Element }>
 const DEFAULT_UNIT = UNIT_COLORS['Money is a tool'];
 
 export default function JuniorMissionsPage() {
-  const { member, loading: profileLoading } = useKidProfile();
-  const { missions, progressByMission, loading } = useKidMissions(member?.id ?? null);
+  const { member, loading: profileLoading, error: profileError } = useKidProfile();
 
-  if (profileLoading || loading) return <p>Loading missions…</p>;
-  if (!member) return <p>Couldn&apos;t load your profile.</p>;
+  // Gate ORDER matters: `loading` used to be tested alongside `!member`, so a
+  // failed profile read could sit on "Loading missions…" instead of saying so.
+  if (profileLoading) return <p>Loading missions…</p>;
+  if (!member)
+    return (
+      <div style={{ background: 'white', borderRadius: 16, padding: 20, color: '#1a1a2e' }}>
+        <p style={{ margin: 0 }}>
+          {profileError
+            ? "We couldn't load your profile just now. Check your connection and try again."
+            : "Couldn't load your profile."}
+        </p>
+        {/* useKidProfile exposes no refetch, so a reload is the only retry we
+            can offer from here without reaching into the hook. */}
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ marginTop: 12 }}
+          onClick={() => window.location.reload()}
+        >
+          Try again
+        </button>
+      </div>
+    );
 
-  const byUnit: Record<string, typeof missions> = {};
-  for (const m of missions) {
+  // Deliberately a child component mounted only once we hold a real member id,
+  // so useKidMissions starts from its own initial {missions: null, loading:
+  // true}. Calling the hook up here instead would hand us its null-memberId
+  // result ({missions: [], loading: false}) on the very commit where `member`
+  // first arrives — effects run after commit, so the page would paint one frame
+  // of "No missions for you right now" on every single normal load.
+  return <MissionList memberId={member.id} />;
+}
+
+function MissionList({ memberId }: { memberId: string }) {
+  const { missions, progressByMission, loading, error, refresh } = useKidMissions(memberId);
+
+  if (loading) return <p>Loading missions…</p>;
+
+  // useKidMissions returns `missions: null` (not []) for every failure path, so
+  // a broken read is distinguishable from a genuinely empty age bracket. Never
+  // group or count off a failure — that is what "0 missions" would claim.
+  const missionsFailed = error !== null || missions === null;
+  const missionList = missions ?? [];
+
+  const byUnit: Record<string, KidMission[]> = {};
+  for (const m of missionList) {
     if (!byUnit[m.unit]) byUnit[m.unit] = [];
     byUnit[m.unit].push(m);
   }
@@ -68,6 +108,31 @@ export default function JuniorMissionsPage() {
         <h1>Missions</h1>
         <p>Short money lessons. Finish a mission, earn a reward.</p>
       </section>
+
+      {/* useKidMissions fails CLOSED — a failed DOB, missions or progress read
+          yields no list plus an error, rather than silently showing every age
+          bracket. This page used to ignore `error` and had no empty state, so
+          both cases rendered the hero above and then nothing at all: no cards,
+          no message, no way to retry. */}
+      {missionsFailed && (
+        <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>We couldn&apos;t load your missions just now.</p>
+          <p style={{ margin: '4px 0 0', fontSize: '0.85rem' }}>Check your connection and try again.</p>
+          <button type="button" className="btn-primary" style={{ marginTop: 12 }} onClick={() => void refresh()}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!missionsFailed && missionList.length === 0 && (
+        <div style={{ background: 'white', borderRadius: 16, padding: 20, color: '#1a1a2e', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>No missions for you right now.</p>
+          <p style={{ margin: '6px 0 0', fontSize: '0.9rem', opacity: 0.7 }}>
+            Lessons are matched to your age — new ones show up here as you grow. Ask a parent if you think
+            something&apos;s missing.
+          </p>
+        </div>
+      )}
 
       {Object.entries(byUnit).map(([unit, unitMissions]) => {
         const palette = UNIT_COLORS[unit] ?? DEFAULT_UNIT;

@@ -18,6 +18,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useMode } from '@/contexts/ModeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { reportWriteFailure } from '@/lib/db';
 import { CATEGORY_COLORS, type CategoryOption } from '@/lib/categories';
 import { AVAILABLE_MODES } from '@/lib/features';
 import { useCategories } from '@/hooks/useCategories';
@@ -35,10 +36,73 @@ interface CustomCategoryRow {
 
 type BudgetLimits = Record<string, number>;
 
-// Namespaced per-user-per-mode localStorage key — only used as a fallback
-// when the user_settings.budget_limits column doesn't exist yet.
+/**
+ * What actually sits in `user_settings.budget_limits`: ONE jsonb column
+ * shared by every mode, so it is keyed by mode name and each mode owns its
+ * own category -> amount map. Rows written before that keying existed hold a
+ * bare flat map instead, hence the union — both shapes are read, and the
+ * flat one is only converted on the next save. See `mergeLimitsForMode`.
+ */
+type StoredLimits = Record<string, BudgetLimits | number>;
+
+/**
+ * A limit is always a number, so any object-valued entry means the column
+ * already holds the mode-keyed shape. Sniffing the value rather than the key
+ * keeps this correct for mode names this build can't currently enter.
+ */
+function isModeKeyed(raw: StoredLimits): boolean {
+  return Object.values(raw).some((v) => typeof v === 'object' && v !== null);
+}
+
+function limitsForMode(raw: StoredLimits | null, mode: Mode): BudgetLimits {
+  if (!raw) return {};
+  if (isModeKeyed(raw)) return (raw[mode] as BudgetLimits | undefined) ?? {};
+  // Legacy flat map: it had no mode dimension and was already shown in every
+  // mode, so keep showing it in every mode rather than blanking it here.
+  return raw as BudgetLimits;
+}
+
+/**
+ * Merge this mode's limits into whatever the column already holds.
+ *
+ * Saving used to write the modal's `next` straight into the column, and the
+ * modal only ever knows the CURRENT mode's categories — so setting a Family
+ * limit replaced every Personal limit with nothing, silently and with no
+ * undo. Merging is what makes one shared column safe for several modes.
+ */
+function mergeLimitsForMode(
+  raw: StoredLimits | null,
+  mode: Mode,
+  next: BudgetLimits,
+): StoredLimits {
+  const merged: StoredLimits = {};
+  if (raw && isModeKeyed(raw)) {
+    // Carry every other mode's slot across untouched.
+    Object.assign(merged, raw);
+  } else if (raw) {
+    // Converting a legacy flat map. It was displayed under every mode, so it
+    // is seeded into each of them — dropping it into only one would orphan
+    // limits the user is currently seeing somewhere else.
+    for (const m of AVAILABLE_MODES) merged[m] = raw as BudgetLimits;
+  }
+  merged[mode] = next;
+  return merged;
+}
+
+// Namespaced per-user-per-mode localStorage key. Read-only legacy support:
+// limits used to be written here whenever the server read came back empty,
+// which meant they never reached Postgres at all (see the load effect).
 function limitsLsKey(userId: string, mode: Mode) {
   return `bw_budget_limits_${userId}_${mode}`;
+}
+
+function readLegacyLocalLimits(userId: string, mode: Mode): BudgetLimits {
+  try {
+    const raw = localStorage.getItem(limitsLsKey(userId, mode));
+    return raw ? (JSON.parse(raw) as BudgetLimits) : {};
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -117,20 +181,34 @@ export default function ExpensesPage() {
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
-  // Budget limits state — loaded lazily when modal opens, also used by the
-  // warning banner above the table. Falls back to localStorage if the
-  // user_settings.budget_limits JSONB column doesn't exist yet.
+  // This mode's slice of user_settings.budget_limits. Also used by the
+  // warning banner above the table, so it loads on mount rather than when
+  // the Limits modal opens.
   const [budgetLimits, setBudgetLimits] = useState<BudgetLimits>({});
-  const [limitsFallback, setLimitsFallback] = useState(false);
+  // False until a read for the CURRENT mode has actually succeeded. While it
+  // is false `budgetLimits` is empty by definition, not "no limits set", so
+  // the Limits modal must not save — see limitsBlockedReason below.
+  const [limitsLoaded, setLimitsLoaded] = useState(false);
+  const [limitsError, setLimitsError] = useState<string | null>(null);
 
   const currencySymbol = getCurrencySymbol(currency);
 
-  // Load saved budget limits from Supabase (or localStorage fallback). We do
-  // this on mount + whenever the user/mode changes so the warning banner can
-  // render without first opening the Limits modal.
+  // Load saved budget limits from Supabase. Runs on mount and whenever the
+  // user/mode changes so the warning banner can render without first opening
+  // the Limits modal.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    // Clear first. The deps are [user, mode], so this effect also runs on a
+    // MODE SWITCH — and Personal and Family share four category names. Any
+    // path that leaves the old map in state hands the previous mode's numbers
+    // to the modal as `initial`, which seeds its draft and then saves them as
+    // THIS mode's limits. (The re-read inside saveBudgetLimits does not save
+    // us: it protects the sibling modes' slots, but the current mode's slot is
+    // replaced wholesale by whatever the draft holds.)
+    setBudgetLimits({});
+    setLimitsLoaded(false);
+    setLimitsError(null);
     (async () => {
       const { data, error: err } = await supabase
         .from('user_settings')
@@ -138,49 +216,91 @@ export default function ExpensesPage() {
         .eq('user_id', user.id)
         .maybeSingle();
       if (cancelled) return;
-      if (err || !data) {
-        // Column likely missing — fall back to localStorage
-        setLimitsFallback(true);
-        try {
-          const raw = localStorage.getItem(limitsLsKey(user.id, mode));
-          setBudgetLimits(raw ? (JSON.parse(raw) as BudgetLimits) : {});
-        } catch {
-          setBudgetLimits({});
-        }
+      if (err) {
+        // A genuine read failure, which is NOT the same thing as having no
+        // settings row: maybeSingle() answers data:null / error:null for a
+        // missing row, and treating that as "the column is broken" is what
+        // used to divert every new signup into a localStorage-only branch
+        // where their limits never reached the server.
+        //
+        // We do not know this mode's limits, and guessing is what destroys
+        // data here, so leave the map empty, leave limitsLoaded false (which
+        // blocks the save) and tell the user instead of only the console.
+        setLimitsError(err.message);
         return;
       }
-      const row = data as { budget_limits: BudgetLimits | null };
-      setBudgetLimits(row.budget_limits ?? {});
+      const row = data as { budget_limits: StoredLimits | null } | null;
+      const stored = limitsForMode(row?.budget_limits ?? null, mode);
+      if (Object.keys(stored).length > 0) {
+        setBudgetLimits(stored);
+        setLimitsLoaded(true);
+        return;
+      }
+      // Nothing on the server for this mode — recover anything the old
+      // localStorage-only path stranded on this device so the over-limit
+      // banner works again and the next save puts it in Postgres.
+      setBudgetLimits(readLegacyLocalLimits(user.id, mode));
+      setLimitsLoaded(true);
     })();
     return () => {
       cancelled = true;
     };
   }, [user, mode]);
 
+  // Why the Limits modal must refuse to save, or null when it may. Saving
+  // from an unknown baseline replaces this mode's stored slot with a draft
+  // built from nothing (or, before the clear above, from the other mode).
+  const limitsBlockedReason = limitsLoaded
+    ? null
+    : limitsError
+      ? `Your saved limits could not be loaded (${limitsError}), so saving is disabled — it would overwrite whatever is stored. Please reload and try again.`
+      : 'Still loading your saved limits…';
+
   const saveBudgetLimits = useCallback(
     async (next: BudgetLimits): Promise<{ error: string | null }> => {
       if (!user) return { error: 'Not signed in' };
-      if (!limitsFallback) {
-        const { error: err } = await supabase
-          .from('user_settings')
-          .update({ budget_limits: next })
-          .eq('user_id', user.id);
-        if (!err) {
-          setBudgetLimits(next);
-          return { error: null };
-        }
-        // Column missing — switch to fallback mode
-        setLimitsFallback(true);
+      // Refuse outright when we never learned this mode's stored limits. The
+      // modal blocks its own Save button too, but the guard belongs next to
+      // the write: `next` is built only from what the modal was seeded with,
+      // so saving from an unknown baseline silently deletes this mode's real
+      // limits.
+      if (limitsBlockedReason) return { error: limitsBlockedReason };
+      // Re-read immediately before writing so the merge is against what is
+      // actually stored, not a copy this page loaded before the user may have
+      // switched modes. NOTE this only protects the OTHER modes' slots — the
+      // current mode's slot is replaced wholesale by `next`, which is why the
+      // guard above matters.
+      const { data: current, error: readErr } = await supabase
+        .from('user_settings')
+        .select('budget_limits')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (readErr) return { error: readErr.message };
+      const merged = mergeLimitsForMode(
+        (current as { budget_limits: StoredLimits | null } | null)?.budget_limits ??
+          null,
+        mode,
+        next,
+      );
+      // upsert, not update: accounts that have never saved a setting have no
+      // user_settings row at all, and .update() on a missing row affects
+      // nothing and still returns error:null — the modal reported success
+      // and the limits existed nowhere. user_settings_user_id_key makes
+      // onConflict:'user_id' valid.
+      const { data: written, error: err } = await supabase
+        .from('user_settings')
+        .upsert({ user_id: user.id, budget_limits: merged }, { onConflict: 'user_id' })
+        .select('id');
+      if (err) return { error: err.message };
+      // Zero rows with no error is the one failure an unchecked write can't
+      // report: RLS matched nothing.
+      if (!written || written.length === 0) {
+        return { error: 'Your limits could not be saved. Please try again.' };
       }
-      try {
-        localStorage.setItem(limitsLsKey(user.id, mode), JSON.stringify(next));
-        setBudgetLimits(next);
-        return { error: null };
-      } catch (e) {
-        return { error: (e as Error).message };
-      }
+      setBudgetLimits(next);
+      return { error: null };
     },
-    [user, mode, limitsFallback],
+    [user, mode, limitsBlockedReason],
   );
 
   const handleExportCSV = () => exportExpensesToCSV(filtered);
@@ -188,8 +308,14 @@ export default function ExpensesPage() {
     exportExpensesToPDF({ expenses: filtered, income, currencySymbol });
 
   const handleMove = async (id: string, target: Mode) => {
-    await moveExpense(id, target);
+    // moveExpense's result was discarded, so a move that wrote no row still
+    // closed the dialog as though it had worked.
+    const { error: moveErr } = await moveExpense(id, target);
     setMoveTargetId(null);
+    if (moveErr) {
+      reportWriteFailure('move this expense', moveErr);
+      return;
+    }
     refresh();
   };
 
@@ -218,7 +344,10 @@ export default function ExpensesPage() {
     const exp = expenses.find((e) => e.id === id);
     if (!exp) return;
     const { error: delErr } = await deleteExpense(id);
-    if (delErr) { alert(`Delete failed: ${delErr}`); return; }
+    // Bail before the Undo toast: a delete that removed nothing used to fall
+    // through to it, and tapping Undo inserted a real duplicate of an
+    // expense that had never left the ledger.
+    if (delErr) { reportWriteFailure('delete this expense', delErr); return; }
     setUndoData({
       id,
       expense: {
@@ -233,7 +362,17 @@ export default function ExpensesPage() {
 
   const handleUndo = async () => {
     if (!undoData) return;
-    await addExpense(undoData.expense as unknown as Parameters<typeof addExpense>[0]);
+    // The delete really committed, so this insert is the only copy of the row
+    // left. Its result used to be discarded and the toast dismissed
+    // regardless: a failed Undo lost the expense outright and said nothing.
+    // Keep the toast up on failure so the user can tap Undo again.
+    const { error: undoErr } = await addExpense(
+      undoData.expense as unknown as Parameters<typeof addExpense>[0],
+    );
+    if (undoErr) {
+      reportWriteFailure('restore that expense', undoErr);
+      return;
+    }
     setUndoData(null);
   };
 
@@ -266,6 +405,11 @@ export default function ExpensesPage() {
     const map = new Map<string, Set<string>>();
     for (const e of expenses) {
       if (e.recurring !== 'no') continue; // already marked
+      // Family mode's list includes partner rows, but the expenses write
+      // policies are own-row only — the same reason Edit/Move/Delete are
+      // hidden on those rows below. Suggesting "mark as recurring" for one
+      // could only ever produce an update that changes nothing.
+      if (!user || e.user_id !== user.id) continue;
       const key = `${e.description.toLowerCase().trim()}|${e.category}`;
       if (!map.has(key)) map.set(key, new Set());
       map.get(key)!.add(e.date.slice(0, 7)); // month key YYYY-MM
@@ -278,18 +422,33 @@ export default function ExpensesPage() {
       }
     });
     return suggestions;
-  }, [expenses, dismissedRecurring]);
+  }, [expenses, dismissedRecurring, user]);
 
   const markAsRecurring = async (description: string, category: string) => {
-    // Find the most recent matching expense and update it
+    // Find the most recent matching expense and update it. Own rows only, to
+    // match the suggestion list above.
     const match = expenses.find(
       (e) =>
         e.description.toLowerCase().trim() === description &&
         e.category === category &&
-        e.recurring === 'no',
+        e.recurring === 'no' &&
+        e.user_id === user?.id,
     );
-    if (match) {
-      await updateExpense(match.id, { recurring: 'monthly' });
+    // updateExpense's result was discarded and the suggestion was dismissed
+    // either way, so a write that changed nothing looked exactly like one
+    // that worked — the banner vanished and the expense stayed one-off.
+    // Only dismiss once the row is really marked.
+    if (!match) {
+      reportWriteFailure(
+        'mark this expense as recurring',
+        'it is no longer in the list — please reload and try again.',
+      );
+      return;
+    }
+    const { error: markErr } = await updateExpense(match.id, { recurring: 'monthly' });
+    if (markErr) {
+      reportWriteFailure('mark this expense as recurring', markErr);
+      return;
     }
     setDismissedRecurring((prev) => new Set(prev).add(`${description}|${category}`));
   };
@@ -480,6 +639,28 @@ export default function ExpensesPage() {
             </button>
           </div>
 
+          {/* A failed limits read used to be console.error only, so the
+              over-budget banner just silently stopped warning. Say so — the
+              absence of a warning is otherwise indistinguishable from being
+              under budget. */}
+          {limitsError && (
+            <div
+              style={{
+                margin: '12px 16px 0',
+                padding: '12px 14px',
+                background: 'rgba(245,158,11,0.1)',
+                border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: 10,
+                color: '#f59e0b',
+                fontSize: '0.85rem',
+              }}
+            >
+              Your budget limits could not be loaded, so over-budget warnings
+              are off and limits cannot be changed right now. Reload to try
+              again. ({limitsError})
+            </div>
+          )}
+
           {overLimitCategories.length > 0 && (
             <div
               style={{
@@ -618,6 +799,12 @@ export default function ExpensesPage() {
                 <tbody>
                   {filtered.map((e) => {
                     const color = CATEGORY_COLORS[e.category] ?? '#6b7280';
+                    // Family mode renders the whole household's ledger, but
+                    // the expenses write policies are own-row only. Edit,
+                    // Move, Delete and the swipe gestures on a partner's row
+                    // could only ever be a no-op that looked like it worked,
+                    // so they aren't offered at all.
+                    const isOwnRow = e.user_id === user?.id;
                     return (
                       <tr
                         key={e.id}
@@ -638,6 +825,7 @@ export default function ExpensesPage() {
                           const diff = (parseFloat(tr.style.transform.replace(/[^-\d.]/g, '')) || 0);
                           tr.style.transition = 'transform 0.3s ease';
                           tr.style.transform = 'translateX(0)';
+                          if (!isOwnRow) return;
                           if (diff < -50) handleDelete(e.id);
                           else if (diff > 50) setEditTargetId(e.id);
                         }}
@@ -696,89 +884,93 @@ export default function ExpensesPage() {
                         <td>{e.recurring === 'no' ? '-' : e.recurring}</td>
                         <td>{formatCurrency(e.amount, currency)}</td>
                         <td style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => setEditTargetId(e.id)}
-                            title="Edit expense"
-                            aria-label={`Edit ${e.description}`}
-                            style={{
-                              background: 'rgba(139,92,246,0.1)',
-                              border: '1px solid rgba(139,92,246,0.2)',
-                              color: '#c4b5fd',
-                              cursor: 'pointer',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              fontSize: '0.7rem',
-                              fontFamily: 'inherit',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 3,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="12"
-                              height="12"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                            </svg>
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-move-expense"
-                            onClick={() => setMoveTargetId(e.id)}
-                            title="Move to another account"
-                            style={{
-                              background: 'rgba(59,130,246,0.1)',
-                              border: '1px solid rgba(59,130,246,0.2)',
-                              color: '#60a5fa',
-                              cursor: 'pointer',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              fontSize: '0.7rem',
-                              fontFamily: 'inherit',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 3,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="12"
-                              height="12"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M18 8l4 4-4 4" />
-                              <path d="M2 12h20" />
-                            </svg>
-                            Move
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-delete"
-                            onClick={() => handleDelete(e.id)}
-                            aria-label={`Delete ${e.description}`}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="16"
-                              height="16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                            </svg>
-                          </button>
+                          {isOwnRow && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditTargetId(e.id)}
+                                title="Edit expense"
+                                aria-label={`Edit ${e.description}`}
+                                style={{
+                                  background: 'rgba(139,92,246,0.1)',
+                                  border: '1px solid rgba(139,92,246,0.2)',
+                                  color: '#c4b5fd',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  fontSize: '0.7rem',
+                                  fontFamily: 'inherit',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M12 20h9" />
+                                  <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                </svg>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-move-expense"
+                                onClick={() => setMoveTargetId(e.id)}
+                                title="Move to another account"
+                                style={{
+                                  background: 'rgba(59,130,246,0.1)',
+                                  border: '1px solid rgba(59,130,246,0.2)',
+                                  color: '#60a5fa',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  fontSize: '0.7rem',
+                                  fontFamily: 'inherit',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M18 8l4 4-4 4" />
+                                  <path d="M2 12h20" />
+                                </svg>
+                                Move
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete"
+                                onClick={() => handleDelete(e.id)}
+                                aria-label={`Delete ${e.description}`}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="16"
+                                  height="16"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -818,6 +1010,7 @@ export default function ExpensesPage() {
           currency={currency}
           currencySymbol={currencySymbol}
           initial={budgetLimits}
+          blockedReason={limitsBlockedReason}
           onClose={() => setLimitsOpen(false)}
           onSave={async (next) => {
             const res = await saveBudgetLimits(next);
@@ -1157,6 +1350,13 @@ interface BudgetLimitsModalProps {
   currency: string;
   currencySymbol: string;
   initial: BudgetLimits;
+  /**
+   * Non-null when this mode's stored limits are not known (still loading, or
+   * the read failed). `initial` is empty in that case and is NOT "no limits
+   * set", so saving would wipe whatever is really stored — the fields are
+   * left read-only and Save is disabled until a read succeeds.
+   */
+  blockedReason: string | null;
   onClose: () => void;
   onSave: (next: BudgetLimits) => Promise<{ error: string | null }>;
 }
@@ -1166,6 +1366,7 @@ function BudgetLimitsModal({
   currency,
   currencySymbol,
   initial,
+  blockedReason,
   onClose,
   onSave,
 }: BudgetLimitsModalProps) {
@@ -1179,6 +1380,19 @@ function BudgetLimitsModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Reseed when the stored limits arrive or change underneath us. Without
+  // this, a modal opened while the read was still in flight would keep its
+  // empty draft, and the instant the read landed and unblocked Save that
+  // emptiness would be written over the real limits.
+  useEffect(() => {
+    const out: Record<string, string> = {};
+    for (const c of modeCategories) {
+      const v = initial[c.value];
+      out[c.value] = v ? String(v) : '';
+    }
+    setDraft(out);
+  }, [initial, modeCategories]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1198,6 +1412,13 @@ function BudgetLimitsModal({
   );
 
   const handleSave = async () => {
+    // Belt and braces with the disabled button: `draft` is only ever as good
+    // as `initial`, so saving without a confirmed read overwrites the stored
+    // limits with a guess.
+    if (blockedReason) {
+      setErr(blockedReason);
+      return;
+    }
     setSubmitting(true);
     setErr(null);
     const next: BudgetLimits = {};
@@ -1246,6 +1467,11 @@ function BudgetLimitsModal({
         <p style={{ opacity: 0.55, fontSize: '0.8rem', marginTop: 0 }}>
           Set a monthly cap per category. Leave blank for no limit.
         </p>
+        {blockedReason && (
+          <p className="auth-error" style={{ marginTop: 0, marginBottom: 12 }}>
+            {blockedReason}
+          </p>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {modeCategories.map((c) => (
             <div
@@ -1278,6 +1504,9 @@ function BudgetLimitsModal({
                   step="0.01"
                   placeholder="0"
                   value={draft[c.value] ?? ''}
+                  // Blank while blocked means "unknown", not "no limit" —
+                  // don't invite edits to a value we can't yet show.
+                  disabled={blockedReason !== null}
                   onChange={(ev) =>
                     setDraft((d) => ({ ...d, [c.value]: ev.target.value }))
                   }
@@ -1327,7 +1556,7 @@ function BudgetLimitsModal({
             type="button"
             className="btn-primary"
             onClick={handleSave}
-            disabled={submitting}
+            disabled={submitting || blockedReason !== null}
             style={{ flex: 1 }}
           >
             {submitting ? 'Saving…' : 'Save Limits'}

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from 'react';
@@ -69,24 +70,73 @@ export function ExpenseModal({
   const dialog = useDialogA11y<HTMLDivElement>(open);
   const reviewDialog = useDialogA11y<HTMLDivElement>(pendingReview !== null);
 
+  // What the reset below seeds the form with, held in a ref so it can be read
+  // without being a dependency of that effect. Kept in sync on every commit,
+  // so the reset always reads the values from the render that opened the modal.
+  const seedsRef = useRef({ defaultCategory, defaultValues, refreshCategories });
+  useEffect(() => {
+    seedsRef.current = { defaultCategory, defaultValues, refreshCategories };
+  });
+
   // Reset form every time the modal opens so it doesn't show stale state.
   // `defaultValues` (from the receipt scanner) seeds amount/description/date
   // when provided; otherwise fall back to empty + today's date.
+  //
+  // This effect depends on `open` ALONE, and deliberately so. It used to also
+  // list defaultCategory/defaultValues/refreshCategories, which meant it fired
+  // on any identity change and not just on the open transition:
+  // refreshCategories is rebuilt whenever the auth user object changes, and
+  // auth-js re-emits SIGNED_IN with a freshly deserialised session on every
+  // hidden→visible transition. So backgrounding the phone with the modal open
+  // — switching to a banking app to check a figure, or just the screen locking
+  // — reset the form underneath the user: the category they had picked dropped
+  // back to "Select...", and an amount they had corrected reverted to the raw
+  // OCR value, which then got saved to the ledger as if they had typed it.
   useEffect(() => {
-    if (open) {
-      setCategory(defaultCategory ?? '');
-      setDescription(defaultValues?.description ?? '');
-      setAmount(defaultValues?.amount ?? '');
-      setDate(defaultValues?.date ?? todayIso());
-      setRecurring('no');
-      setError(null);
-      setPendingReview(null);
-      // This modal stays mounted between opens, so its category list would
-      // otherwise be whatever existed at page load — a category added under
-      // Expenses → Categories a moment ago would be missing from the picker.
-      void refreshCategories();
-    }
-  }, [open, defaultCategory, defaultValues, refreshCategories]);
+    if (!open) return;
+    const { defaultCategory: seedCategory, defaultValues: seed, refreshCategories: refresh } =
+      seedsRef.current;
+    setCategory(seedCategory ?? '');
+    setDescription(seed?.description ?? '');
+    setAmount(seed?.amount ?? '');
+    setDate(seed?.date ?? todayIso());
+    setRecurring('no');
+    setError(null);
+    setPendingReview(null);
+    // This modal stays mounted between opens, so its category list would
+    // otherwise be whatever existed at page load — a category added under
+    // Expenses → Categories a moment ago would be missing from the picker.
+    void refresh();
+  }, [open]);
+
+  // Drop the picked category the moment it stops existing in the current
+  // mode's list, and nothing else.
+  //
+  // The mode switcher is genuinely reachable with the modal open: .main-content
+  // is `position: relative; z-index: 1`, so it opens a stacking context that
+  // traps .modal-overlay's z-index:500 inside it, while .sidebar is a
+  // root-level `position: fixed; z-index: 50` — the sidebar paints on top of
+  // the overlay and takes clicks. Sidebar's handler then navigates to
+  // /dashboard, which from OverviewPage is a same-route navigation, so nothing
+  // unmounts and this modal survives with its state.
+  //
+  // Before this, switching Personal → Family with "Housing" picked left
+  // `category` as the Personal string while the picker showed the Family list.
+  // A controlled <select> with no matching <option> renders blank but never
+  // writes back, so handleSubmit's `if (!category)` guard sailed past the
+  // truthy stale value and filed a Family expense under the Personal category
+  // "Housing". Clearing it puts the picker back to "Select...", where both
+  // `required` and that guard actually stop the submit.
+  //
+  // Functional update on purpose: the reset effect above may have already
+  // queued a fresh seed in this same flush, and the updater sees that queued
+  // value rather than this render's stale one, so a valid `defaultCategory`
+  // is never wiped on open.
+  useEffect(() => {
+    setCategory((current) =>
+      current && !modeCategories.some((c) => c.value === current) ? '' : current,
+    );
+  }, [category, modeCategories]);
 
   // Close on Escape — but not while a trip-review decision is pending; that
   // must be answered before the modal can close.

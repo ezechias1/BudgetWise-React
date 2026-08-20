@@ -22,7 +22,20 @@ export interface KidMissionProgress {
 }
 
 interface State {
-  missions: KidMission[];
+  /**
+   * `null` means "we could not work out what to show" — a read failed, so this
+   * is NOT an empty mission list. It is nullable on purpose: every failure path
+   * below returns early, and when `missions` was typed `KidMission[]` a caller
+   * that destructured only { missions, progressByMission, loading } rendered a
+   * silent, explanation-less blank screen on any error. Under `strict` the null
+   * makes that impossible to compile, so the failure has to be dealt with.
+   *
+   * Callers want roughly:
+   *   const { missions, progressByMission, loading, error, refresh } = useKidMissions(id);
+   *   if (loading) return <p>Loading missions…</p>;
+   *   if (error || !missions) return <RetryMessage msg={error} onRetry={refresh} />;
+   */
+  missions: KidMission[] | null;
   progressByMission: Record<string, KidMissionProgress>;
   loading: boolean;
   error: string | null;
@@ -30,7 +43,7 @@ interface State {
 
 export function useKidMissions(memberId: string | null) {
   const [state, setState] = useState<State>({
-    missions: [],
+    missions: null,
     progressByMission: {},
     loading: true,
     error: null,
@@ -38,17 +51,28 @@ export function useKidMissions(memberId: string | null) {
 
   const refresh = useCallback(async () => {
     if (!memberId) {
+      // No member is a real, successful "nothing to show" — not a failure —
+      // so this one stays an empty array.
       setState({ missions: [], progressByMission: {}, loading: false, error: null });
       return;
     }
     setState((s) => ({ ...s, loading: true }));
 
     // Look up the kid's DOB first so we can age-filter missions server-side.
-    const { data: member } = await supabase
+    const { data: member, error: dobErr } = await supabase
       .from('family_members')
       .select('date_of_birth')
       .eq('id', memberId)
       .maybeSingle();
+    // dobErr was previously ignored, and a failed read is indistinguishable
+    // from "no DOB recorded" — which skips the filter below and hands a
+    // ten-year-old every bracket, Adult lite included, while their done-count
+    // silently rebases against all 32 missions. Fail closed: a read failure
+    // must never widen what the child is shown.
+    if (dobErr) {
+      setState({ missions: null, progressByMission: {}, loading: false, error: dobErr.message });
+      return;
+    }
     const age = ageFromDob(member?.date_of_birth as string | null | undefined);
 
     let missionsQuery = supabase.from('kid_missions').select('*').order('ord');
@@ -71,11 +95,12 @@ export function useKidMissions(memberId: string | null) {
     // completed mission rendered as not-done. Handle both queries' errors
     // symmetrically so a failure can't masquerade as "nothing completed yet".
     if (mRes.error || pRes.error) {
-      setState((s) => ({
-        ...s,
+      setState({
+        missions: null,
+        progressByMission: {},
         loading: false,
         error: (mRes.error ?? pRes.error)!.message,
-      }));
+      });
       return;
     }
     const missions = (mRes.data as KidMission[]) ?? [];

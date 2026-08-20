@@ -14,16 +14,28 @@ export function MissionRewardsModal({ onClose }: Props) {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [rewards, setRewards] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const dialog = useDialogA11y();
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setLoadError(null);
     const [mRes, rRes] = await Promise.all([
       supabase.from('kid_missions').select('id, title, unit').order('ord'),
       supabase.from('kid_mission_rewards').select('mission_id, reward_amount_cents').eq('user_id', user.id),
     ]);
+    // Both errors were previously discarded. A failed rewards read collapsed to
+    // an empty map, so every configured amount rendered blank — indistinguishable
+    // from first-time setup — and Save then upserted 0 over amounts we had never
+    // read, after which the payout trigger paid the kid nothing. Never show (or
+    // save) a form built from a read that failed.
+    if (mRes.error || rRes.error) {
+      setLoadError((mRes.error ?? rRes.error)!.message);
+      setLoading(false);
+      return;
+    }
     setMissions((mRes.data as Mission[]) ?? []);
     const rewardMap: Record<string, string> = {};
     for (const r of (rRes.data as Reward[]) ?? []) {
@@ -36,7 +48,7 @@ export function MissionRewardsModal({ onClose }: Props) {
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || loadError) return;
     setSaving(true);
     const rows = missions
       .map((m) => ({
@@ -81,8 +93,27 @@ export function MissionRewardsModal({ onClose }: Props) {
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <p>Set how much each mission earns when your kid finishes it. Leave at 0 if you don&apos;t want it to pay.</p>
+        {/*
+          Saving used to look like it only affected future completions, so a
+          parent who set a reward late assumed the missions their kid had
+          already finished were lost money. They aren't: the database now pays
+          every child who already completed the mission when the reward is
+          saved. Say so, and say it only pays once so nobody expects a top-up
+          from raising an amount later.
+        */}
+        <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
+          Setting a reward also pays for missions your kid has already finished — each mission pays out once.
+        </p>
         {loading ? (
           <p>Loading…</p>
+        ) : loadError ? (
+          <div>
+            <p style={{ color: '#dc2626' }}>
+              Couldn&apos;t load the rewards you already set: {loadError}
+            </p>
+            <p>Nothing has been changed. Try again before editing, so you don&apos;t overwrite them.</p>
+            <button type="button" className="btn-secondary" onClick={load}>Try again</button>
+          </div>
         ) : (
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {Object.entries(byUnit).map(([unit, uMissions]) => (
@@ -112,7 +143,12 @@ export function MissionRewardsModal({ onClose }: Props) {
         )}
         <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={saving} onClick={handleSave}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={saving || loading || !!loadError}
+            onClick={handleSave}
+          >
             {saving ? 'Saving…' : 'Save rewards'}
           </button>
         </div>

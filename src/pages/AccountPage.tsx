@@ -57,6 +57,133 @@ const AUTOMATIONS: AutomationDef[] = [
   { key: 'low_balance_warning', title: 'Low Balance Warning', desc: 'Alert me when my remaining budget drops below a safe threshold.' },
 ];
 
+// -------- Backup / restore --------
+
+/** A `supabase.from(...).select(...)` awaited for its rows, whatever the table. */
+type TableRead = PromiseLike<{
+  data: unknown[] | null;
+  error: { message: string } | null;
+}>;
+
+/** Tables "Restore from Backup" writes back. Everything else in the file is a
+ *  record only — restoring it in-app would re-create rows under fresh ids that
+ *  the ids frozen in the same file no longer point at. */
+const BACKUP_RESTORABLE = ['user_settings', 'expenses', 'savings_goals'] as const;
+
+/** Deliberately left out of the file, so the alert and the JSON can say so
+ *  plainly rather than implying the export is complete. The first two are live
+ *  credentials and must never reach the user's Downloads folder. */
+const BACKUP_EXCLUDED = [
+  'linked_accounts.plaid_access_token (bank credential)',
+  'family_members.pin_hash (kid PIN)',
+  'kid_mission_progress, kid_streaks, kid_devices, family_goal_contributions (keyed to a member row, not to you)',
+  'kid_notifications, push_subscriptions, login_events, audit_logs, budgetsmart_usage (device and audit records)',
+] as const;
+
+/** Insert/delete batch size. Also keeps the `.in('id', …)` rollback URLs
+ *  comfortably inside PostgREST's request length limit. */
+const RESTORE_CHUNK = 200;
+
+/**
+ * Replace every row `uid` owns in `table` with `rows`, guaranteeing the caller
+ * can never come out of a restore with less than they went in with.
+ *
+ * This used to be `delete(everything)` followed by a single `insert(everything)`.
+ * Both halves are hostile. The DELETE is unguarded and always commits, while
+ * the one-statement INSERT is all-or-nothing and really does get rejected in
+ * full: 42501 from the restrictive expenses_group_write_guard_insert once the
+ * user has been removed from the family group the backed-up rows still carry,
+ * or 23503 from a trip or bank link deleted after the backup was taken. The
+ * user was then left holding zero expenses, was told the result was "partial"
+ * when it was total, and had already spent their only copy. Retrying the same
+ * file failed identically.
+ *
+ * So: insert first, retry once with the stale references stripped, and only
+ * remove the previous rows after the new ones are committed.
+ */
+async function restoreOwnedRows(
+  table: string,
+  rows: Array<Record<string, unknown>>,
+  uid: string,
+  staleRefColumns: string[],
+): Promise<{ error?: string; warning?: string }> {
+  const { data: existing, error: readErr } = await supabase
+    .from(table)
+    .select('id')
+    .eq('user_id', uid);
+  if (readErr) {
+    return {
+      error: `${table}: could not read what you currently have (${readErr.message}) — nothing was changed.`,
+    };
+  }
+
+  const insertedIds: string[] = [];
+  const rollback = async () => {
+    for (let i = 0; i < insertedIds.length; i += RESTORE_CHUNK) {
+      await supabase
+        .from(table)
+        .delete()
+        .eq('user_id', uid)
+        .in('id', insertedIds.slice(i, i + RESTORE_CHUNK));
+    }
+    insertedIds.length = 0;
+  };
+
+  const insertAll = async (batch: Array<Record<string, unknown>>): Promise<string | null> => {
+    for (let i = 0; i < batch.length; i += RESTORE_CHUNK) {
+      const slice = batch.slice(i, i + RESTORE_CHUNK);
+      const { data, error } = await supabase.from(table).insert(slice).select('id');
+      if (error) return error.message;
+      // A write RLS blocks reports error: null and stores nothing, so the row
+      // count is the only honest signal that the insert actually happened.
+      if (!data || data.length < slice.length) {
+        return 'the database accepted the request but did not store the rows (blocked by a security policy).';
+      }
+      for (const r of data as Array<{ id: string }>) insertedIds.push(r.id);
+    }
+    return null;
+  };
+
+  let failure = await insertAll(rows);
+  if (failure && staleRefColumns.length > 0) {
+    await rollback();
+    // Second attempt with the columns that can block a re-insert cleared:
+    // a trip or bank link deleted since the backup (23503), a family group the
+    // user is no longer an approved member of (42501), or — the failure mode
+    // inserting-before-deleting introduces — a value that is unique per user
+    // and whose original row is still sitting there, because we no longer
+    // clear it first (23505). What matters about an expense is its amount,
+    // date, category and description; losing its trip tag or its bank
+    // reconciliation id is vastly better than losing the row.
+    const stripped = rows.map((r) => {
+      const copy = { ...r };
+      for (const col of staleRefColumns) copy[col] = null;
+      return copy;
+    });
+    failure = await insertAll(stripped);
+  }
+  if (failure) {
+    await rollback();
+    return { error: `${table}: ${failure} Nothing was removed — what you already had is untouched.` };
+  }
+
+  // Only now is it safe to clear what the backup replaces.
+  const oldIds = ((existing ?? []) as Array<{ id: string }>).map((r) => r.id);
+  for (let i = 0; i < oldIds.length; i += RESTORE_CHUNK) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq('user_id', uid)
+      .in('id', oldIds.slice(i, i + RESTORE_CHUNK));
+    if (error) {
+      return {
+        warning: `${table}: the backup is restored, but the rows it replaces could not be removed (${error.message}) — expect duplicates.`,
+      };
+    }
+  }
+  return {};
+}
+
 /**
  * Ports #page-account from dashboard.html lines 2275-2442.
  *
@@ -355,32 +482,85 @@ export default function AccountPage() {
     if (!user) return;
     try {
       const uid = user.id;
-      const results = await Promise.all([
-        supabase.from('user_settings').select('*').eq('user_id', uid),
-        supabase.from('expenses').select('*').eq('user_id', uid),
-        supabase.from('savings_goals').select('*').eq('user_id', uid),
-      ]);
+      // "Backup All Data" read exactly three tables while sitting in the same
+      // Actions card as Purge Entire Account, so the obvious safe sequence —
+      // back up, then purge — permanently destroyed everything the file did
+      // not hold: custom categories, every family member, chores, family
+      // goals, the whole kid earnings ledger, trips and the bank links. Export
+      // every table the caller genuinely owns instead, scoped by the column
+      // that actually holds the owner id (family_groups and stokvel_groups key
+      // on owner_id, stokvel_payouts on recipient_id). Two columns are named
+      // out of their SELECTs on purpose: plaid_access_token and pin_hash are
+      // live credentials and this file lands in the Downloads folder.
+      const reads: Array<{ key: string; label: string; run: () => TableRead }> = [
+        { key: 'user_settings', label: 'settings', run: () => supabase.from('user_settings').select('*').eq('user_id', uid) },
+        { key: 'expenses', label: 'expenses', run: () => supabase.from('expenses').select('*').eq('user_id', uid) },
+        { key: 'savings_goals', label: 'savings goals', run: () => supabase.from('savings_goals').select('*').eq('user_id', uid) },
+        { key: 'custom_categories', label: 'custom categories', run: () => supabase.from('custom_categories').select('*').eq('user_id', uid) },
+        { key: 'trips', label: 'trips', run: () => supabase.from('trips').select('*').eq('user_id', uid) },
+        { key: 'family_groups', label: 'family group', run: () => supabase.from('family_groups').select('*').eq('owner_id', uid) },
+        {
+          key: 'family_members',
+          label: 'family members',
+          run: () =>
+            supabase
+              .from('family_members')
+              .select('id, user_id, name, role, age, color, allowance, spent, earned, created_at, group_id, date_of_birth, jar_split')
+              .eq('user_id', uid),
+        },
+        { key: 'family_links', label: 'linked members', run: () => supabase.from('family_links').select('*').eq('user_id', uid) },
+        { key: 'family_chores', label: 'chores', run: () => supabase.from('family_chores').select('*').eq('user_id', uid) },
+        { key: 'family_goals', label: 'family goals', run: () => supabase.from('family_goals').select('*').eq('user_id', uid) },
+        { key: 'kid_ledger', label: 'kid earnings ledger', run: () => supabase.from('kid_ledger').select('*').eq('user_id', uid) },
+        { key: 'kid_mission_rewards', label: 'mission rewards', run: () => supabase.from('kid_mission_rewards').select('*').eq('user_id', uid) },
+        { key: 'kid_money_requests', label: 'kid money requests', run: () => supabase.from('kid_money_requests').select('*').eq('user_id', uid) },
+        {
+          key: 'linked_accounts',
+          label: 'bank links',
+          run: () =>
+            supabase
+              .from('linked_accounts')
+              .select('id, user_id, account_id, account_name, account_type, account_subtype, institution_name, mask, balance_current, balance_available, currency_code, last_synced, created_at, account_mode, is_primary, is_business')
+              .eq('user_id', uid),
+        },
+        { key: 'stokvel_groups', label: 'stokvel groups', run: () => supabase.from('stokvel_groups').select('*').eq('owner_id', uid) },
+        { key: 'stokvel_members', label: 'stokvel memberships', run: () => supabase.from('stokvel_members').select('*').eq('user_id', uid) },
+        { key: 'stokvel_contributions', label: 'stokvel contributions', run: () => supabase.from('stokvel_contributions').select('*').eq('user_id', uid) },
+        { key: 'stokvel_payouts', label: 'stokvel payouts', run: () => supabase.from('stokvel_payouts').select('*').eq('recipient_id', uid) },
+        { key: 'invoices', label: 'invoices', run: () => supabase.from('invoices').select('*').eq('user_id', uid) },
+        { key: 'clients', label: 'clients', run: () => supabase.from('clients').select('*').eq('user_id', uid) },
+      ];
+      const results = await Promise.all(reads.map((r) => r.run()));
       // Refuse to write a file if any query errored: `data` is null on
       // failure, and `?? []` used to turn that into a convincingly valid
       // backup with zero expenses — which the restore path then trusted,
       // deleting everything before "re-inserting" nothing.
       const failed: string[] = [];
-      if (results[0].error) failed.push(`settings: ${results[0].error.message}`);
-      if (results[1].error) failed.push(`expenses: ${results[1].error.message}`);
-      if (results[2].error) failed.push(`savings goals: ${results[2].error.message}`);
+      results.forEach((res, i) => {
+        if (res.error) failed.push(`${reads[i].label}: ${res.error.message}`);
+      });
       if (failed.length > 0) {
         alert(
           `Backup failed — no file was created. Nothing was read for:\n\n${failed.join('\n')}\n\nPlease try again.`,
         );
         return;
       }
+      const tables: Record<string, unknown[]> = {};
+      let totalRows = 0;
+      results.forEach((res, i) => {
+        const rows = res.data ?? [];
+        tables[reads[i].key] = rows;
+        totalRows += rows.length;
+      });
       const backup = {
-        version: 1,
+        // Bumped from 1 because the file now carries far more than the three
+        // original keys. Restore still accepts a version 1 file.
+        version: 2,
         timestamp: new Date().toISOString(),
         user_id: uid,
-        user_settings: results[0].data ?? [],
-        expenses: results[1].data ?? [],
-        savings_goals: results[2].data ?? [],
+        restorable_in_app: BACKUP_RESTORABLE,
+        not_included: BACKUP_EXCLUDED,
+        ...tables,
       };
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
         type: 'application/json',
@@ -391,7 +571,13 @@ export default function AccountPage() {
       a.download = `budgetwise-backup-${todayIso()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      alert('Backup downloaded successfully');
+      alert(
+        `Backup downloaded — ${totalRows} rows across ${reads.length} tables.\n\n` +
+          'Restore from Backup puts back your settings, expenses and savings goals. ' +
+          'Everything else in the file (family, chores, kid ledger, trips, bank links, stokvel) ' +
+          'is saved as a record only and cannot be put back from inside the app.\n\n' +
+          'Bank access tokens and kid PINs are deliberately left out of the file.',
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       alert(`Backup failed: ${msg}`);
@@ -422,8 +608,8 @@ export default function AccountPage() {
         alert('Invalid backup file: not valid JSON.');
         return;
       }
-      if (Number(backup.version) !== 1) {
-        alert('Invalid backup file: unsupported version (expected 1).');
+      if (Number(backup.version) !== 1 && Number(backup.version) !== 2) {
+        alert('Invalid backup file: unsupported version (expected 1 or 2).');
         return;
       }
       if (!Array.isArray(backup.expenses)) {
@@ -455,25 +641,16 @@ export default function AccountPage() {
         : 'unknown date';
       if (
         !confirm(
-          `This will replace all your current data with the backup from ${stamp}. Continue?`,
+          `This will replace your settings, expenses and savings goals with the backup from ${stamp}. Anything else in the file is a record only and will not be put back. Continue?`,
         )
       )
         return;
 
       const uid = user.id;
       const errs: string[] = [];
+      const warnings: string[] = [];
       const expensesArr = backup.expenses as Array<Record<string, unknown>>;
       const goalsArr = backup.savings_goals as Array<Record<string, unknown>> | undefined;
-      // Defensive: never wipe a table the backup holds no rows for. An empty
-      // array would otherwise mean "delete everything, restore nothing".
-      if (expensesArr.length > 0) {
-        const { error: delExpErr } = await supabase.from('expenses').delete().eq('user_id', uid);
-        if (delExpErr) errs.push(`clear expenses: ${delExpErr.message}`);
-      }
-      if (goalsArr && goalsArr.length > 0) {
-        const { error: delGoalErr } = await supabase.from('savings_goals').delete().eq('user_id', uid);
-        if (delGoalErr) errs.push(`clear savings_goals: ${delGoalErr.message}`);
-      }
 
       const settingsArr = backup.user_settings as Array<Record<string, unknown>> | undefined;
       if (settingsArr && settingsArr.length > 0) {
@@ -481,32 +658,58 @@ export default function AccountPage() {
         delete settings.id;
         settings.user_id = uid;
         const { error } = await supabase.from('user_settings').upsert(settings, { onConflict: 'user_id' });
-        if (error) errs.push(`restore user_settings: ${error.message}`);
+        if (error) errs.push(`user_settings: ${error.message}`);
       }
+      // Defensive: never wipe a table the backup holds no rows for. An empty
+      // array would otherwise mean "delete everything, restore nothing".
+      // restoreOwnedRows carries the rest of the guarantee — it inserts before
+      // it deletes, so a rejected batch leaves the user exactly as they were.
       if (expensesArr.length > 0) {
-        const exps = expensesArr.map((e) => {
-          const copy = { ...e };
-          delete copy.id;
-          copy.user_id = uid;
-          return copy;
-        });
-        const { error } = await supabase.from('expenses').insert(exps);
-        if (error) errs.push(`restore expenses: ${error.message}`);
+        const res = await restoreOwnedRows(
+          'expenses',
+          expensesArr.map((e) => {
+            const copy = { ...e };
+            delete copy.id;
+            copy.user_id = uid;
+            return copy;
+          }),
+          uid,
+          // trip_id / linked_account_id / group_id can point at something
+          // deleted or un-joined since the backup. external_id is here for a
+          // different reason: `expenses_user_external_uniq` is UNIQUE
+          // (user_id, external_id) WHERE external_id IS NOT NULL, and because
+          // we now insert before we delete, a backed-up bank-imported row is
+          // re-inserted while the original is still present — 23505 on the
+          // first pass, and without this the retry would fail identically and
+          // abort the whole restore. Nulling it costs the row its bank
+          // reconciliation id (a later re-sync could re-import it); keeping it
+          // would cost the row itself.
+          ['trip_id', 'linked_account_id', 'group_id', 'external_id'],
+        );
+        if (res.error) errs.push(res.error);
+        if (res.warning) warnings.push(res.warning);
       }
       if (goalsArr && goalsArr.length > 0) {
-        const gs = goalsArr.map((g) => {
-          const copy = { ...g };
-          delete copy.id;
-          copy.user_id = uid;
-          return copy;
-        });
-        const { error } = await supabase.from('savings_goals').insert(gs);
-        if (error) errs.push(`restore savings_goals: ${error.message}`);
+        const res = await restoreOwnedRows(
+          'savings_goals',
+          goalsArr.map((g) => {
+            const copy = { ...g };
+            delete copy.id;
+            copy.user_id = uid;
+            return copy;
+          }),
+          uid,
+          ['group_id'],
+        );
+        if (res.error) errs.push(res.error);
+        if (res.warning) warnings.push(res.warning);
       }
       if (errs.length > 0) {
         alert(
-          `Restore completed with errors — your data may be partial:\n\n${errs.join('\n')}`,
+          `Restore did not fully complete:\n\n${errs.join('\n')}\n\nNothing was lost — anything that could not be restored left the rows you already had in place, and your backup file is still valid.`,
         );
+      } else if (warnings.length > 0) {
+        alert(`Restore complete, with one thing to check:\n\n${warnings.join('\n')}`);
       } else {
         alert('Restore complete.');
       }
@@ -551,7 +754,7 @@ export default function AccountPage() {
     if (!user) return;
     if (
       !confirm(
-        'Purge EVERYTHING: expenses, savings, family, chores, stokvel, bank links, kid logins and progress, invoices, clients, and settings. This cannot be undone. Continue?',
+        'Purge EVERYTHING: expenses, savings, trips, family, chores, stokvel, bank links, kid logins and progress, invoices, clients, settings — and this sign-in itself. You will not be able to log back in. This cannot be undone. Continue?',
       )
     )
       return;
@@ -559,29 +762,76 @@ export default function AccountPage() {
       'Type PURGE (all caps) to confirm total account deletion:',
     );
     if (typed !== 'PURGE') return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/purge-account`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ confirm: 'PURGE' }),
-      },
-    );
-    const body = await res.json().catch(() => ({ ok: false, error: 'bad response' }));
-    if (res.ok && body.ok) {
-      alert('Account purged. You will be signed out.');
-      await signOut();
+    // The account is about to stop existing, so signOut() is talking to the
+    // server about a user that is already gone and may well come back with an
+    // error. Leaving them parked on a dashboard whose data was just deleted is
+    // the one outcome we cannot allow, so the navigate happens either way.
+    const leave = async () => {
+      try {
+        await signOut();
+      } catch {
+        // ignore — the local session is discarded and the route change is what
+        // actually gets them off the purged dashboard.
+      }
       navigate('/', { replace: true });
+    };
+
+    let res: Response;
+    let body: { ok?: boolean; errors?: Record<string, string>; error?: string } | null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/purge-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+          },
+          body: JSON.stringify({ confirm: 'PURGE' }),
+        },
+      );
+      body = (await res.json().catch(() => null)) as typeof body;
+    } catch (err) {
+      // A dropped request used to throw straight out of this handler, so the
+      // user got no alert at all on the most destructive button in the app and
+      // had no idea whether it had run.
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(
+        `Could not reach the server (${msg}).\n\nWe cannot tell whether the purge ran. Reload and check your data before trying again.`,
+      );
       return;
     }
-    const errs = body.errors
-      ? Object.entries(body.errors).map(([t, m]) => `${t}: ${m}`).join('\n')
-      : (body.error ?? res.statusText);
-    alert(`Purge finished with errors — some data may remain:\n\n${errs}`);
+
+    // The function deletes the caller's auth user in one statement and every
+    // table cascades off it, so the outcome is now genuinely binary: 200 means
+    // the account and all of its data are gone, and a 4xx/5xx means nothing
+    // was touched. 207 is reserved for the one leftover the cascade cannot
+    // reach — a child login whose own delete failed after the account itself
+    // was destroyed. Previously the function's table list named a dropped
+    // table and three owner columns that do not exist, so it returned 207 on
+    // every single invocation and this success branch was dead code for every
+    // user, while their data really was being deleted behind an "errors" alert.
+    if (res.status === 200 && body?.ok) {
+      alert('Account purged, including this login. You will be signed out.');
+      await leave();
+      return;
+    }
+    if (res.status === 207) {
+      const errs = Object.entries(body?.errors ?? {})
+        .map(([t, m]) => `• ${t}: ${m}`)
+        .join('\n');
+      // Sign out regardless: the account really is deleted, so leaving them on
+      // a dashboard reading from stale in-memory hooks is the worse outcome.
+      alert(
+        `Your account and data were deleted, but these child logins could not be removed:\n\n${errs}\n\nSigning you out now. Please send this message to support so the rest can be cleared.`,
+      );
+      await leave();
+      return;
+    }
+    alert(
+      `Purge failed: ${body?.error ?? res.statusText}\n\nNothing was deleted and you are still signed in.`,
+    );
   };
 
   const handleLogout = async () => {
@@ -1264,7 +1514,12 @@ export default function AccountPage() {
               </svg>
               Change Password
             </button>
-            <button type="button" className="btn-primary" onClick={handleBackup}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleBackup}
+              title="Downloads every table you own as JSON. Restore puts back settings, expenses and savings goals; the rest is a record only."
+            >
               <svg
                 viewBox="0 0 24 24"
                 width="18"

@@ -157,6 +157,19 @@ export default function SpendingTrackerPage() {
   const { mode } = useMode();
   const t = copyFor(mode === 'business');
   const [loading, setLoading] = useState(true);
+  // A failed identity read must never be rendered as "you have no family".
+  // The reads below used to drop their error, so an outage collapsed an owner
+  // to the member view — whose "Or create your own family group" button
+  // INSERTs a second family_groups row with a fresh code (nothing stops one
+  // owner_id owning several, and the newest wins the created_at sort), leaving
+  // the real household stranded with no in-app way to delete or merge.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Separate from loadError: here the identity IS known (we read the owned
+  // group fine), only the member list failed. The owner view stays up, but the
+  // list must say so rather than showing "No members linked yet" — that empty
+  // state also hides pending join requests, so the owner re-invites someone
+  // who is already waiting.
+  const [membersError, setMembersError] = useState<string | null>(null);
   const [ownedGroup, setOwnedGroup] = useState<FamilyGroup | null>(null);
   const [myLink, setMyLink] = useState<
     (FamilyLink & { family_groups?: { family_name: string } }) | null
@@ -181,6 +194,8 @@ export default function SpendingTrackerPage() {
   const loadState = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setLoadError(null);
+    setMembersError(null);
     // Owned group first
     const ownedRes = await supabase
       .from('family_groups')
@@ -188,6 +203,16 @@ export default function SpendingTrackerPage() {
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1);
+    // Bail before touching any state: supabase-js returns { data: null, error }
+    // for a transport failure or a 401, and "no rows" is indistinguishable from
+    // "the read failed" once the error is dropped. Leaving ownedGroup/myLink
+    // untouched and rendering the retry screen is what keeps the create-group
+    // button out of reach of a failed read.
+    if (ownedRes.error) {
+      setLoadError(ownedRes.error.message);
+      setLoading(false);
+      return;
+    }
     const owned = ownedRes.data && ownedRes.data.length > 0
       ? (ownedRes.data[0] as FamilyGroup)
       : null;
@@ -215,6 +240,25 @@ export default function SpendingTrackerPage() {
               .limit(50)
           : Promise.resolve({ data: [] as FamilySpending[] }),
       ]);
+      // Same rule as the group read, one level down: a failed links read used
+      // to become an empty member list. Bail before the self-heal below, which
+      // would otherwise see zero links and try to re-create the owner's own.
+      //
+      // The clear is not optional. loadState is keyed on `user`, and auth-js
+      // hands us a fresh user object on every token refresh, so this runs
+      // again inside a live mount — on a REFETCH the previous list is still in
+      // state. Keeping it meant Pending Approvals rendered stale rows with
+      // live Approve/Reject buttons (a write against rows the page had just
+      // failed to read) while the Linked Members card said those same rows
+      // were hidden. Dropping the list makes both cards agree with each other
+      // and with what the error text tells the owner; the next successful load
+      // puts the real rows back.
+      if (linksRes.error) {
+        setMembersError(linksRes.error.message);
+        setLinkedMembers([]);
+        setLoading(false);
+        return;
+      }
       let links = (linksRes.data as FamilyLink[]) || [];
 
       // Self-heal owners orphaned by the display_name bug.
@@ -286,13 +330,21 @@ export default function SpendingTrackerPage() {
       // (Household income is loaded by useFamilyIncome above — it covers the
       // member branch too, which this block never did.)
     } else {
-      setOwnedGroup(null);
       const myLinkRes = await supabase
         .from('family_links')
         .select('*, family_groups(family_name)')
         .eq('user_id', user.id)
         .order('joined_at', { ascending: false })
         .limit(1);
+      // A failed read here is the other route to the same damage: myLink stays
+      // null, the join form appears, and "Or create your own family group"
+      // forks a member who is already in a household off into a new one.
+      if (myLinkRes.error) {
+        setLoadError(myLinkRes.error.message);
+        setLoading(false);
+        return;
+      }
+      setOwnedGroup(null);
       const link = myLinkRes.data && myLinkRes.data.length > 0
         ? (myLinkRes.data[0] as FamilyLink & { family_groups?: { family_name: string } })
         : null;
@@ -579,6 +631,41 @@ export default function SpendingTrackerPage() {
     );
   }
 
+  // Deliberately returns before either view. Falling through to the member
+  // view on a failed read is the whole defect: the create-a-group button lives
+  // there, and one tap forks the household into a second group.
+  if (loadError) {
+    return (
+      <section className="page active" id="page-family-tracking">
+        <div className="page-header">
+          <div>
+            <h1>Spending Tracker</h1>
+            <p className="page-subtitle">{t.subtitle}</p>
+          </div>
+        </div>
+        <div className="chart-card full-width">
+          <h3 style={{ marginBottom: 8 }}>Couldn't load your group</h3>
+          <p
+            className="tracking-desc"
+            style={{ fontSize: '0.82rem', marginBottom: 14 }}
+          >
+            {loadError}
+          </p>
+          <p
+            className="tracking-desc"
+            style={{ fontSize: '0.82rem', marginBottom: 14 }}
+          >
+            Nothing has changed — this is a loading problem, not a sign that
+            your group is gone. Check your connection and try again.
+          </p>
+          <button className="btn-primary" onClick={loadState}>
+            Try again
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   const pending = linkedMembers.filter((l) => !l.approved);
   const approved = linkedMembers.filter((l) => l.approved);
 
@@ -758,7 +845,15 @@ export default function SpendingTrackerPage() {
           </div>
 
           {/* Pending approvals */}
-          {pending.length > 0 && (
+          {/* Rendered on membersError too, not just when there are requests to
+              show. Gating this card on `pending.length > 0` alone reproduced
+              the original defect exactly: a failed family_links read leaves no
+              pending rows, so the card simply wasn't there and join requests
+              silently vanished. The only notice was a line in Linked Members
+              further down the page, which an owner scanning for the approvals
+              card never reaches — so they re-send the invite while the
+              invitee sits on "Waiting for approval...". */}
+          {(membersError || pending.length > 0) && (
             <div
               className="chart-card full-width"
               style={{ marginBottom: 16 }}
@@ -771,8 +866,32 @@ export default function SpendingTrackerPage() {
               >
                 Requests from kids waiting for your approval.
               </p>
+              {membersError && (
+                <div className="empty-state" style={{ padding: 20 }}>
+                  <p style={{ fontWeight: 600, marginBottom: 6 }}>
+                    Couldn't load join requests
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '0.82rem',
+                      opacity: 0.6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {membersError} — anyone waiting for your approval is still
+                    waiting, so don't re-send your invite code yet.
+                  </p>
+                  <button className="btn-primary" onClick={loadState}>
+                    Try again
+                  </button>
+                </div>
+              )}
+              {/* Explicitly suppressed on membersError as well as empty:
+                  Approve/Reject write to rows this page has just admitted it
+                  could not read, so offering them next to the error would be
+                  the contradiction all over again. */}
               <div id="pendingApprovalsList">
-                {pending.map((p) => (
+                {!membersError && pending.map((p) => (
                   <div
                     key={p.id}
                     style={{
@@ -827,7 +946,27 @@ export default function SpendingTrackerPage() {
               approve access.
             </p>
             <div id="linkedMembersList">
-              {approved.length === 0 ? (
+              {membersError ? (
+                <div className="empty-state" style={{ padding: 20 }}>
+                  <p style={{ fontWeight: 600, marginBottom: 6 }}>
+                    Couldn't load your members
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '0.82rem',
+                      opacity: 0.6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {membersError} — nobody has been removed, the list just
+                    couldn't be read. Join requests are reported the same way
+                    in Pending Approvals above.
+                  </p>
+                  <button className="btn-primary" onClick={loadState}>
+                    Try again
+                  </button>
+                </div>
+              ) : approved.length === 0 ? (
                 <div className="empty-state" style={{ padding: 20 }}>
                   <p>
                     No members linked yet. Share your invite code to get
