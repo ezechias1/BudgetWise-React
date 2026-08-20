@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FormEvent,
@@ -338,6 +339,11 @@ export default function ExpensesPage() {
   }, [expenses, month, category, search]);
 
   const [undoData, setUndoData] = useState<{ id: string; expense: Record<string, unknown> } | null>(null);
+  // Set when an Undo attempt fails. The toast auto-dismisses after 5s, and its
+  // dismiss is what throws away `undoData` — the only remaining copy of a row
+  // that really was deleted. Once an Undo has failed, the timer must not be
+  // allowed to finish the job.
+  const [undoFailed, setUndoFailed] = useState(false);
 
   const handleDelete = async (id: string) => {
     // Store the expense data before deleting so we can restore on undo
@@ -348,6 +354,9 @@ export default function ExpensesPage() {
     // through to it, and tapping Undo inserted a real duplicate of an
     // expense that had never left the ledger.
     if (delErr) { reportWriteFailure('delete this expense', delErr); return; }
+    // Clear the pin from any previous failed Undo, or this fresh toast inherits
+    // it and never dismisses.
+    setUndoFailed(false);
     setUndoData({
       id,
       expense: {
@@ -365,14 +374,25 @@ export default function ExpensesPage() {
     // The delete really committed, so this insert is the only copy of the row
     // left. Its result used to be discarded and the toast dismissed
     // regardless: a failed Undo lost the expense outright and said nothing.
-    // Keep the toast up on failure so the user can tap Undo again.
     const { error: undoErr } = await addExpense(
       undoData.expense as unknown as Parameters<typeof addExpense>[0],
     );
     if (undoErr) {
-      reportWriteFailure('restore that expense', undoErr);
+      // Returning early is not enough on its own — UndoToast's own 5s timer
+      // still fires onDismiss, which drops undoData. `undoFailed` pins the
+      // toast so the row survives for another attempt, and the message carries
+      // the figures so it can be re-entered by hand if the retry never works.
+      setUndoFailed(true);
+      const e = undoData.expense as { amount?: unknown; category?: unknown; date?: unknown };
+      reportWriteFailure(
+        'restore that expense',
+        `${undoErr} — it was ${String(e.category ?? 'an expense')} ` +
+          `${formatCurrency(Number(e.amount) || 0, currency)} on ${String(e.date ?? 'an unknown date')}, ` +
+          `if you need to add it again yourself.`,
+      );
       return;
     }
+    setUndoFailed(false);
     setUndoData(null);
   };
 
@@ -1116,9 +1136,16 @@ export default function ExpensesPage() {
 
       {undoData && (
         <UndoToast
-          message="Expense deleted"
+          message={undoFailed ? "Couldn't restore that expense — tap Undo to retry" : 'Expense deleted'}
           onUndo={handleUndo}
-          onDismiss={() => setUndoData(null)}
+          // Ignored once an Undo has failed. The toast's timer calls this when
+          // its bar runs out, and `undoData` is the last copy of a row that is
+          // already gone from the database — letting a timer discard it is how
+          // a retryable failure became a permanent loss.
+          onDismiss={() => {
+            if (undoFailed) return;
+            setUndoData(null);
+          }}
         />
       )}
     </>
@@ -1380,12 +1407,24 @@ function BudgetLimitsModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // True once the user has typed anything. `initial` is the budgetLimits state
+  // object, and its identity changes every time the [user, mode] load effect
+  // refires — which supabase-js causes on TOKEN_REFRESHED and whenever a tab
+  // regains focus. Without this the reseed below fired on that identity change
+  // and silently wiped whatever was half-typed: enter 500 against Food, switch
+  // tabs, come back, blank. Nothing was corrupted, but the edit vanished with
+  // no notice.
+  const dirtyRef = useRef(false);
 
   // Reseed when the stored limits arrive or change underneath us. Without
   // this, a modal opened while the read was still in flight would keep its
   // empty draft, and the instant the read landed and unblocked Save that
   // emptiness would be written over the real limits.
   useEffect(() => {
+    // Never over the top of live typing — see dirtyRef above. The case this
+    // effect exists for (a modal opened before the read landed) is untouched:
+    // nothing has been typed yet then, so the reseed still runs.
+    if (dirtyRef.current) return;
     const out: Record<string, string> = {};
     for (const c of modeCategories) {
       const v = initial[c.value];
@@ -1507,9 +1546,10 @@ function BudgetLimitsModal({
                   // Blank while blocked means "unknown", not "no limit" —
                   // don't invite edits to a value we can't yet show.
                   disabled={blockedReason !== null}
-                  onChange={(ev) =>
-                    setDraft((d) => ({ ...d, [c.value]: ev.target.value }))
-                  }
+                  onChange={(ev) => {
+                    dirtyRef.current = true;
+                    setDraft((d) => ({ ...d, [c.value]: ev.target.value }));
+                  }}
                   style={{ ...fieldInput, padding: '6px 8px', fontSize: '0.85rem' }}
                 />
               </div>

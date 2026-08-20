@@ -203,7 +203,7 @@ export default function ChoresPage() {
         .order('created_at'),
       supabase
         .from('user_settings')
-        .select('currency, fam_currency')
+        .select('currency')
         .eq('user_id', user.id)
         .maybeSingle(),
     ]);
@@ -219,16 +219,14 @@ export default function ChoresPage() {
       const rows = (cRes.data as Chore[]) || [];
       setChores(await rollOverRecurring(rows, user.id));
     }
-    // Chores are a family feature and the child's app resolves its own symbol
-    // through get_kid_currency(), which is
-    //   coalesce(nullif(fam_currency,''), nullif(currency,''), 'ZAR').
-    // Reading plain `currency` here meant a family that had set a family
-    // currency saw the parent's chore card and the child's chore card in two
-    // different currencies — the exact mismatch this was meant to remove. Same
-    // precedence on both sides, same fallback.
-    const famCur = (sRes.data?.fam_currency || '').trim();
+    // Plain `currency`, matching every other screen and get_kid_currency(), so
+    // the parent's chore card and the child's read the same symbol. This briefly
+    // preferred fam_currency to mirror an earlier version of that function —
+    // but nothing in the app ever writes fam_currency, so the preference only
+    // put this page out of step with Allowances, Members, Family Goals and the
+    // Junior dashboard, which the delete confirm points the parent straight at.
     const ownCur = (sRes.data?.currency || '').trim();
-    if (famCur || ownCur) setCurrency(famCur || ownCur);
+    if (ownCur) setCurrency(ownCur);
   }, [user]);
 
   useEffect(() => {
@@ -506,18 +504,31 @@ export default function ChoresPage() {
       }
       const owedTo = juniorOwedTo(chore);
       // Only ask when real money is at stake — un-ticking a plain chore should
-      // stay a single tap. Note the wording: a recurring chore carries one IOU
-      // per period and only the newest is cancelled below.
-      if (
-        owedTo &&
-        !confirm(
-          `Mark "${chore.name}" as not done?\n\n` +
-            `The most recent ${sym}${Number(chore.reward).toFixed(2)} still owed to ` +
-            `${owedTo.name} for it will be cancelled. Rewards from earlier rounds of ` +
-            `this chore, and anything already paid, stay.`,
-        )
-      ) {
-        return;
+      // stay a single tap.
+      //
+      // The read happens BEFORE the question, the way deleteChore already does
+      // it. Asking first and reading afterwards meant the sentence could not
+      // describe what was about to happen: a parent whose reward had already
+      // been settled was told the money "will be cancelled" when there was
+      // nothing left to cancel, and the figure quoted was the chore's reward
+      // rather than the ledger row that would actually be deleted — which
+      // differ once a chore's reward has been edited.
+      let owed: OwedRow[] | null = null;
+      if (owedTo) {
+        owed = await readOwedForChore(user.id, chore.id);
+        const money =
+          owed === null
+            ? `Its unpaid rewards could not be read, so nothing will be cancelled — ` +
+              `anything still owed to ${owedTo.name} stays on the settle-up screen.`
+            : owed.length === 0
+              ? `Nothing is currently owed to ${owedTo.name} for it, so no reward is ` +
+                `cancelled.`
+              : `The most recent ${sym}${(Number(owed[0].amount_cents) / 100).toFixed(2)} ` +
+                `still owed to ${owedTo.name} for it will be cancelled. Rewards from ` +
+                `earlier rounds of this chore, and anything already paid, stay.`;
+        if (!confirm(`Mark "${chore.name}" as not done?\n\n${money}`)) {
+          return;
+        }
       }
 
       setBusyChoreId(chore.id);
@@ -549,12 +560,14 @@ export default function ChoresPage() {
       }
 
       if (owedTo) {
-        const owed = await readOwedForChore(user.id, chore.id);
+        // Reuses the read taken before the confirm — the parent has already
+        // been told exactly which amount this cancels, so re-reading here
+        // could only act on something different from what they agreed to.
         if (owed === null) {
           // Read failed, so we cannot tell which row belongs to this round.
           // Cancel nothing rather than delete the wrong one, and say plainly
           // that the money is still owed so it is not a silent surprise on the
-          // settle-up screen.
+          // settle-up screen. (The confirm said this would happen.)
           reportWriteFailure(
             'cancel the reward owed for this chore',
             `the chore is now marked not done, but its unpaid rewards could not be read, ` +
@@ -563,12 +576,18 @@ export default function ChoresPage() {
         } else if (owed.length > 0) {
           // Newest first: this round's IOU only. The earlier ones are wages
           // already earned in previous periods and are not ours to cancel.
+          //
+          // `status = 'owed'` is re-asserted on the delete because the read now
+          // happens before the confirm, so a parent settling up on another
+          // device in between would otherwise have a PAID row destroyed here —
+          // settled history, not a cancellable IOU.
           await ok(
             supabase
               .from('kid_ledger')
               .delete()
               .eq('user_id', user.id)
-              .eq('id', owed[0].id),
+              .eq('id', owed[0].id)
+              .eq('status', 'owed'),
             'cancel the reward owed for this chore',
           );
         }

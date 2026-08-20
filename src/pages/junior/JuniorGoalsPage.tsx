@@ -23,7 +23,12 @@ interface Goal {
  */
 export default function JuniorGoalsPage() {
   const { member, loading: profileLoading, error: profileError } = useKidProfile();
-  const { owed_cents, paid_cents, refresh: refreshLedger } = useKidLedger(member?.id ?? null);
+  const {
+    owed_cents,
+    paid_cents,
+    error: ledgerError,
+    refresh: refreshLedger,
+  } = useKidLedger(member?.id ?? null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [contributed, setContributed] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -152,7 +157,16 @@ export default function JuniorGoalsPage() {
   // brings this number down, so a failed contributions read would otherwise
   // raise the ceiling to full lifetime earnings and let the kid allocate money
   // they have already put into a goal.
-  const availableToAllocate = loadError ? 0 : Math.max(lifetimeEarnedRands - contributed, 0);
+  //
+  // `ledgerError` counts too, in the other direction. useKidLedger keeps
+  // owed_cents and paid_cents at 0 when its read fails, so the ceiling silently
+  // became R0.00 and "Add money" refused with "You've only got R0.00 left" over
+  // a real balance — a confident wrong number on the one screen where a child
+  // acts on it. Both failures now mean "we don't know", not "you have nothing".
+  const balanceUnknown = ledgerError !== null || loadError !== null;
+  const availableToAllocate = balanceUnknown
+    ? 0
+    : Math.max(lifetimeEarnedRands - contributed, 0);
 
   const handlePropose = async (e: FormEvent) => {
     e.preventDefault();
@@ -198,7 +212,10 @@ export default function JuniorGoalsPage() {
       setAddMoneyError('Enter an amount above 0.');
       return;
     }
-    if (loadError) {
+    if (balanceUnknown) {
+      // Must come before the amount check below, or a broken read reports the
+      // failure as "You've only got R0.00 left" — a number, not a problem, and
+      // the child has no reason to doubt it.
       setAddMoneyError("We couldn't check how much you have left. Tap Try again first.");
       return;
     }
@@ -311,16 +328,33 @@ export default function JuniorGoalsPage() {
         <p style={{ margin: '4px 0 0', fontSize: '1.6rem', fontWeight: 700, color: '#10b981' }}>
           {/* A dash, not R0.00: while a read is broken we genuinely don't know
               the number, and a confident zero is its own lie. */}
-          {loadError ? '—' : formatMoney(availableToAllocate)}
+          {/* A dash, not a confident 0.00 — same reason as the owed tile on the
+              home screen. This covers a failed ledger read as well as a failed
+              goals read; both leave the number unknowable, and only one of them
+              used to show it. */}
+          {balanceUnknown ? '—' : formatMoney(availableToAllocate)}
         </p>
       </div>
 
-      {loadError && (
+      {/* Covers a failed LEDGER read too, not only a failed goals read. Without
+          that the money tile showed a bare "—" with nothing on screen to say
+          why, and Try again refreshed the goals but never the ledger. */}
+      {(loadError || ledgerError) && (
         <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 12, padding: 12, marginBottom: 16 }}>
           <p style={{ margin: 0, fontWeight: 600 }}>
-            We couldn't load your goals just now, so this might not be everything.
+            {loadError
+              ? "We couldn't load your goals just now, so this might not be everything."
+              : "We couldn't check how much money you have just now."}
           </p>
-          <button type="button" className="btn-primary" style={{ marginTop: 10 }} onClick={() => void load()}>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              void load();
+              void refreshLedger();
+            }}
+          >
             Try again
           </button>
         </div>
