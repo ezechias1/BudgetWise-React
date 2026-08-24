@@ -624,7 +624,14 @@ body.light .sidebar-nav::-webkit-scrollbar-thumb:hover {
 .main-content {
     margin-left: 260px;
     flex: 1;
-    padding: 36px 40px;
+    /* The extra bottom padding is a gutter for .bsmart-fab, which is fixed at
+       bottom-right (56px + 20px, and 50px + 14px under 480px). Without it the
+       last thing on a page sits under the button once you scroll to the end,
+       and on the Stokvel card that last thing is History — a control, not
+       decoration. The FAB still passes over content mid-scroll, which is what a
+       floating button does; this only guarantees there is somewhere to scroll
+       TO where nothing is hidden. */
+    padding: 36px 40px 96px;
     min-height: 100vh;
     position: relative;
     z-index: 1;
@@ -2442,7 +2449,8 @@ body.light .account-value {
 
     .main-content {
         margin-left: 0;
-        padding: 68px 14px 24px;
+        /* Bottom value carries the .bsmart-fab gutter — see .main-content. */
+        padding: 68px 14px 96px;
         width: 100%;
         max-width: 100vw;
     }
@@ -2842,7 +2850,8 @@ body.light .account-value {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 64px 12px 20px;
+        /* The FAB shrinks to 50px + 14px here, so 84px clears it with room. */
+        padding: 64px 12px 84px;
     }
 
     .modal {
@@ -2995,7 +3004,7 @@ body.light .account-value {
 
 @media (max-width: 390px) {
     .main-content {
-        padding: 60px 10px 18px;
+        padding: 60px 10px 84px;
     }
 
     .page-header h1 {
@@ -3137,7 +3146,7 @@ body.light .account-value {
 
 @media (max-width: 320px) {
     .main-content {
-        padding: 58px 8px 16px;
+        padding: 58px 8px 84px;
     }
 
     .page-header h1 {
@@ -7693,42 +7702,65 @@ body.light #copyCodeBtn {
 }
 
 /* === STOKVEL === */
+
+/* `auto-fill` materialises empty tracks to fill the row whether or not there
+   is anything to put in them. In the real content column — 940px at a 1280px
+   viewport, once the 260px sidebar and the 80px of .main-content padding are
+   taken off — a 300px minimum produced THREE tracks, so a member with one
+   stokvel got a ~250px card and three columns of empty dark space. `auto-fit`
+   collapses the empty tracks, so one group is one wide card, two are ~462px
+   each, and three wrap to two rows rather than being crushed. */
 .stokvel-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     gap: 16px;
 }
 .stokvel-card {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 16px;
-    padding: 20px;
+    padding: 16px;
+    /* Without this a single card runs to a 1260px measure on a 1600px screen,
+       which is an unreadable line length for the prose in the attention
+       strips — the text nobody is allowed to skim. */
+    max-width: 1040px;
+
+    /* --- tokens. One surface, one hairline, two reserved signals. Everything
+       else on the card resolves to var(--accent), so the blue and purple
+       accent themes re-theme it; the ten hard-coded #10b981 literals that used
+       to be scattered through StokvelPage.tsx did not. --- */
+    --sv-surface: rgba(128,128,128,0.06);
+    --sv-line: rgba(128,128,128,0.14);
+    --sv-amber: #f59e0b;
+    --sv-red: #ef4444;
+    /* The accent as TEXT, which is a different job from the accent as a button
+       fill. On the fill it carries white on top of it and the contrast is the
+       button's problem; as the answer headline it sits directly on the card and
+       has to earn its own ratio. Same value as --accent in dark mode, darkened
+       under body.light — see the override below. */
+    --sv-accent-ink: var(--accent);
+    --sv-ink-2: 0.62;
+    --sv-ink-3: 0.45;
+    /* Overridden inline per card. The fallback keeps the color-mix() on the
+       answer band valid if the inline style is ever absent — an invalid
+       color-mix drops the whole declaration and the band loses its tint. */
+    --sv-state: rgba(128,128,128,0.6);
 }
 .stokvel-card h3 {
     font-size: 1.1rem;
     margin-bottom: 4px;
 }
+/* Repurposed as the generic muted key/value label inside the Manage drawer.
+   The margin-bottom stays because PendingStokvelCard — which shares
+   .stokvel-card and is deliberately untouched — still leans on it; the drawer
+   zeroes it locally instead. */
 .stokvel-card .stokvel-goal {
     color: rgba(255,255,255,0.5);
     font-size: 0.8rem;
     margin-bottom: 12px;
 }
-.stokvel-card .stokvel-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-.stokvel-card .stokvel-stat-label {
-    color: rgba(255,255,255,0.5);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.stokvel-card .stokvel-stat-value {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #10b981;
+.sv-fold-body .stokvel-goal {
+    margin-bottom: 0;
 }
 .stokvel-progress {
     background: rgba(255,255,255,0.06);
@@ -7739,42 +7771,844 @@ body.light #copyCodeBtn {
 }
 .stokvel-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #10b981, #06b6d4);
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent), #06b6d4 45%));
     border-radius: 8px;
     transition: width 0.5s;
-}
-.stokvel-actions {
-    display: flex;
-    gap: 8px;
-}
-.stokvel-actions button {
-    flex: 1;
-    padding: 8px;
-    border-radius: 10px;
-    border: none;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: opacity 0.2s;
-}
-.stokvel-actions .btn-contrib {
-    background: rgba(16,185,129,0.15);
-    color: #10b981;
-}
-.stokvel-actions .btn-delete-stokvel {
-    background: rgba(239,68,68,0.1);
-    color: #ef4444;
 }
 body.light .stokvel-card {
     background: rgba(0,0,0,0.02);
     border-color: rgba(0,0,0,0.06);
+    --sv-surface: rgba(0,0,0,0.03);
+    /* A 2.5rem headline in #f59e0b on white is not readable. Every other amber
+       on the card is small text, and this one darkening does not hurt it. */
+    --sv-amber: #b45309;
+    /* Same argument, higher stakes: #ef4444 on white is about 3.8:1, under the
+       4.5:1 that 0.8rem text needs. The red token carries the load-failure
+       strip and every destructive label, which are the two things on this card
+       a member can least afford to squint at. Matches the darkening already
+       used for .bsmart-msg.is-error under body.light. */
+    --sv-red: #b91c1c;
+    /* The one that was actually failing. The default accent #10b981 as text on
+       white is 2.54:1 — under even the 3:1 that large text is allowed, and it
+       carries the single most important line on the page: "You're paid up".
+       Amber and red were darkened here and green was not, so the ONE state a
+       member sees when everything is fine was the one they could not read.
+       Mixed rather than hard-coded so the blue and purple accent themes get the
+       same treatment instead of only the green one being fixed. */
+    --sv-accent-ink: color-mix(in srgb, var(--accent) 68%, #000);
+    /* The ink opacities were tuned against the dark card, where 0.62 of a white
+       text colour on near-black reads fine, and then carried into light mode
+       unchanged. On white they resolve to about 2.85:1 — every small label on
+       the card ("Your turn", "Pay to", "Full pot", each section heading) sat
+       under the 4.5:1 small text needs, and under what the rest of the app
+       already does for the same job: .page-subtitle uses rgba(0,0,0,0.6), which
+       is 5.7:1. These two values put the card back in line with that.
+       0.72 -> ~6.4:1, 0.62 -> ~4.8:1, and ink-2 stays stronger than ink-3 so
+       the three-level hierarchy the card is built on survives. */
+    --sv-ink-2: 0.72;
+    --sv-ink-3: 0.62;
 }
-body.light .stokvel-card .stokvel-goal,
-body.light .stokvel-card .stokvel-stat-label {
+
+/* --- Light-theme legibility floor.
+
+   The card's muted labels set their opacity as literals rather than through the
+   two ink tokens, so the tokens above only reach four of them. The literals were
+   picked against the dark card, where 0.45 of a near-white on near-black is a
+   comfortable secondary label. Flipped to light they become 0.45 of #1a1a2e on
+   white — about 2.85:1, where small text needs 4.5:1, and where the rest of the
+   app already sits at 5.7:1 (.page-subtitle, rgba(0,0,0,0.6)).
+
+   Raised here rather than at each declaration so DARK MODE IS UNTOUCHED — the
+   values it was actually tuned for keep working, and only the theme that was
+   never checked moves. Every figure below clears 4.5:1 against the card.
+
+   :disabled is deliberately absent. Low contrast is the POINT of a disabled
+   control, and WCAG exempts it. --- */
+body.light .stokvel-card .sv-member-tag,
+body.light .stokvel-card .sv-member-note {
+    opacity: 0.62;
+}
+body.light .stokvel-card .sv-period,
+body.light .stokvel-card .sv-turn-label,
+body.light .stokvel-card .sv-pay-label,
+body.light .stokvel-card .sv-fig-label,
+body.light .stokvel-card .sv-mheading,
+body.light .stokvel-card .sv-status-paid,
+body.light .stokvel-card .sv-fold-value-quiet,
+body.light .stokvel-card .sv-fold-chev {
+    opacity: 0.65;
+}
+body.light .stokvel-card .sv-admin,
+body.light .stokvel-card .sv-fold-value,
+body.light .stokvel-card .sv-mrow-sub,
+body.light .stokvel-card .sv-turn-sub {
+    opacity: 0.7;
+}
+body.light .stokvel-card .sv-textbtn {
+    opacity: 0.8;
+}
+
+/* The accent as text again, this time on the controls rather than the headline.
+   "Copy", "Confirm R500.00 paid", the invite code itself and your own name in
+   the roster were all raw var(--accent) — 2.2:1 on white. These are the labels
+   a member reads to act, so they get the darkened ink the headline now uses.
+   Fills are left alone: they carry white on accent and are the button's own
+   problem, not this one. */
+body.light .stokvel-card .sv-outline,
+body.light .stokvel-card .sv-code,
+body.light .stokvel-card .sv-member-me,
+body.light .stokvel-card .sv-fold-value-accent,
+/* Shared app class, scoped to the card so nothing else moves. "Edit settings"
+   is the one control in the drawer still wearing raw var(--accent) at 2.29:1. */
+body.light .stokvel-card .btn-secondary {
+    color: var(--sv-accent-ink);
+}
+
+/* Anything already carrying a signal COLOUR is not also dimmed. The amber and
+   red were darkened for this theme precisely so they could be read; multiplying
+   them by 0.65–0.8 opacity puts them straight back under the line (amber landed
+   at 2.57:1, which is worse than the neutral labels around it). On these the
+   hue is the emphasis and the opacity was only ever a dark-mode nicety. */
+/* Compound selectors, and a leading `body`, so these match the specificity of
+   the theme floors above (0,3,1) and win on document order. Written as
+   `.sv-textbtn-amber` alone they were (0,2,0) and silently lost to
+   `body.light .stokvel-card .sv-textbtn`, which is how "Un-approve" ended up
+   dimmed back to 3.44:1 after being fixed. */
+body .stokvel-card .sv-mheading.sv-mheading-amber,
+body .stokvel-card .sv-fold-value.sv-fold-value-amber,
+body .stokvel-card .sv-textbtn.sv-textbtn-amber,
+body .stokvel-card .sv-textbtn.sv-textbtn-danger {
+    opacity: 1;
+}
+/* The one figure still short after that, and only just: 4.40:1 against 4.5.
+   It is 12.5px, and it sits on the fold's tinted surface rather than on the
+   card, so it loses the ~0.6 of headroom the same amber has everywhere else.
+   Darkened here alone rather than moving --sv-amber, because that token also
+   paints the 2.5rem "You owe" headline, which needs the brighter hue to still
+   read as a warning and already clears its own 3:1 large-text bar at 5.02. */
+body.light .stokvel-card .sv-fold-value-amber {
+    color: #92400e;
+}
+
+/* --- The same floor for the dark card, which was the theme these values WERE
+   tuned against and still came up a hair short. Most of the 0.45 labels landed
+   at 4.48:1 against 4.5 — close enough to be invisible on a screenshot and
+   still a fail — and the two genuinely dim ones were the member tag (0.35 ->
+   3.22:1) and the "you run this" note (0.4 -> 3.84:1), which are exactly the
+   two labels that tell an owner why a button they expected is missing.
+
+   Scoped with :not(.light) so it cannot fight the block above, and applied as
+   an override rather than by editing the ten scattered declarations, so the
+   authored values stay readable as the design's intent. --- */
+body:not(.light) .stokvel-card .sv-period,
+body:not(.light) .stokvel-card .sv-turn-label,
+body:not(.light) .stokvel-card .sv-pay-label,
+body:not(.light) .stokvel-card .sv-fig-label,
+/* :not() because the amber variant carries its own signal colour and is held at
+   full opacity by the rule above — dimming it to 0.52 put it at 3.11:1, the one
+   thing on the dark card still under the line. */
+body:not(.light) .stokvel-card .sv-mheading:not(.sv-mheading-amber),
+body:not(.light) .stokvel-card .sv-status-paid,
+body:not(.light) .stokvel-card .sv-fold-value-quiet,
+body:not(.light) .stokvel-card .sv-member-tag,
+body:not(.light) .stokvel-card .sv-member-note {
+    opacity: 0.52;
+}
+body.light .stokvel-card .stokvel-goal {
     color: rgba(0,0,0,0.6);
 }
 body.light .stokvel-progress {
     background: rgba(0,0,0,0.06);
+}
+
+/* ------------------------------------------------------------------
+   Answer-first card. Class prefix sv-.
+   ------------------------------------------------------------------ */
+
+/* Every currency figure. Digits that change width make a column of money
+   jitter between renders and make two amounts hard to compare by eye. */
+.sv-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Attention strips. Never collapsed, never truncated, never suppressed by
+   the card's state colour: a load failure, a broken rotation, an ended group
+   and "you personally have no turn" are the four things that qualify every
+   figure below them, so they are above everything and outside every
+   disclosure. --- */
+.sv-strips {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.sv-strip {
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+.sv-strip-red {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: var(--sv-red);
+}
+.sv-strip-amber {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    color: var(--sv-amber);
+}
+.sv-strip-neutral {
+    background: var(--sv-surface);
+    opacity: 0.8;
+}
+.sv-strip-tail {
+    margin-top: 4px;
+    opacity: 0.85;
+}
+.sv-strip-sub {
+    margin-top: 4px;
+}
+.sv-strip-btn {
+    margin-top: 8px;
+}
+
+/* --- Answer band. The only element on the card allowed to carry a saturated
+   hue at full strength, and the only place --sv-state is used. --- */
+.sv-answer {
+    margin: -16px -16px 0;
+    padding: 16px;
+    border-radius: 16px 16px 0 0;
+    background: color-mix(in srgb, var(--sv-state) 10%, transparent);
+}
+/* Strips pushed it down, so it is no longer flush with the card's top edge. */
+.sv-answer.sv-answer-pushed {
+    margin: 0 -16px;
+    border-radius: 12px;
+}
+.sv-eyebrow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.sv-eyebrow-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.stokvel-card h3.sv-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    /* Group names are free text and people type long ones. Clamp rather than
+       let a two-word overflow shove the whole answer off the card. */
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* Replaces the green ADMIN pill AND the barely-legible grey Settings pill.
+   Being the admin is a fact about you, not an action, so it is a word. */
+.sv-admin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+.sv-admin-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.sv-period {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.45;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.sv-headline {
+    color: var(--sv-state);
+    line-height: 1.05;
+    letter-spacing: -1.5px;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+/* The two branches that must not render a number at all: "paid up" and "we
+   could not check". A big 2.5rem zero in either is the exact lie this card
+   was redesigned to make impossible. */
+.sv-headline.sv-headline-words {
+    font-size: 1.5rem;
+    font-weight: 650;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+}
+.sv-headline.sv-headline-small {
+    font-size: 1.3rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.3px;
+}
+.sv-caption {
+    font-size: 0.9rem;
+    opacity: var(--sv-ink-2);
+    margin-top: 8px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* --- The one button. --- */
+.sv-cta {
+    margin-top: 14px;
+}
+.stokvel-card .sv-cta .btn-primary {
+    margin-top: 0;
+    min-height: 48px;
+    white-space: nowrap;
+}
+.stokvel-card .sv-cta .btn-secondary {
+    min-height: 48px;
+    white-space: nowrap;
+}
+
+/* Four button shapes, no fifth. */
+.sv-outline {
+    background: transparent;
+    border: 1px solid rgba(var(--accent-rgb),0.4);
+    color: var(--accent);
+    border-radius: 8px;
+    min-height: 36px;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.sv-outline-amber {
+    border-color: rgba(245,158,11,0.45);
+    color: var(--sv-amber);
+}
+/* The "Record another payment" route, shown only to a member who is already
+   paid up. It is deliberately NOT the filled button — nothing needs doing, and
+   a green call-to-action on a card that just said "You're paid up" reads as an
+   instruction to pay again. But quiet is not the same as small: as an underlined
+   text link it was a 36px-tall, 12.8px target, under the 44px a thumb needs, and
+   it did not look pressable. Outlined gives it the affordance and the target
+   while leaving the one-filled-button rule intact. */
+.sv-outline-cta {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 0.85rem;
+}
+.sv-textbtn {
+    background: transparent;
+    border: none;
+    padding: 0 2px;
+    min-height: 36px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    color: inherit;
+    /* No enabled control on this card drops below 0.65 — :disabled is the only
+       thing allowed to look faint. "Skip turn" and "History" used to be dark
+       grey on a dark background and were effectively invisible. */
+    opacity: 0.65;
+    cursor: pointer;
+    white-space: nowrap;
+}
+/* Destructive is text-only everywhere, which is what keeps red rare enough on
+   this card to still mean "something failed or something is about to be
+   destroyed". */
+.sv-textbtn-danger {
+    color: var(--sv-red);
+    opacity: 1;
+}
+.sv-textbtn-amber {
+    color: var(--sv-amber);
+    opacity: 1;
+}
+.stokvel-card button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --- Pay-to block. Inline at the exact moment you owe; behind the "How to
+   pay" disclosure at every other moment, so it exists in exactly one place. */
+.sv-pay {
+    background: var(--sv-surface);
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
+}
+.sv-pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10px;
+}
+.sv-pay-row + .sv-pay-row {
+    margin-top: 10px;
+}
+.sv-pay-label {
+    font-size: 0.8rem;
+    opacity: 0.45;
+}
+/* An account number is read off a screen and typed into a banking app, so
+   contrast beats decoration: body colour, monospace, no blue. */
+.sv-mono {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    margin-top: 2px;
+}
+.sv-pay-empty {
+    font-size: 0.85rem;
+    opacity: var(--sv-ink-2);
+}
+
+/* --- Your turn. A count of turns, never a date: the database stores no
+   schedule, so a date would be invented. --- */
+.sv-turn {
+    border-top: 1px solid var(--sv-line);
+    padding: 12px 0 0;
+    margin-top: 14px;
+}
+.sv-turn-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.45;
+}
+.sv-turn-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 3px;
+}
+.sv-turn-value-accent { color: var(--accent); }
+.sv-turn-value-amber { color: var(--sv-amber); }
+.sv-turn-sub {
+    font-size: 0.8rem;
+    opacity: 0.55;
+    margin-top: 3px;
+}
+.sv-lump {
+    font-size: 0.85rem;
+    opacity: var(--sv-ink-2);
+}
+
+/* --- Group progress. One line, replacing all four stat tiles. --- */
+.sv-progress-line {
+    font-size: 0.8rem;
+    opacity: var(--sv-ink-2);
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+/* --- Disclosures. Native <details>: zero new React state, and the open/closed
+   state survives a refetch on its own. --- */
+.sv-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    border-top: 1px solid var(--sv-line);
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.sv-fold > summary::-webkit-details-marker { display: none; }
+.sv-fold > summary::marker { content: ''; }
+/* The truthful right-hand summary is what makes hiding anything behind a fold
+   legitimate: three collapsed cards still answer "is there anything here". */
+.sv-fold-value {
+    margin-left: auto;
+    font-size: 0.78rem;
+    opacity: 0.55;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+.sv-fold-value-amber {
+    opacity: 1;
+    color: var(--sv-amber);
+    background: rgba(245,158,11,0.12);
+    border-radius: 999px;
+    padding: 2px 9px;
+}
+.sv-fold-value-accent {
+    opacity: 1;
+    color: var(--accent);
+}
+.sv-fold-value-quiet {
+    opacity: 0.45;
+}
+.sv-fold-chev {
+    flex-shrink: 0;
+    opacity: 0.45;
+    transition: transform 0.2s;
+}
+.sv-fold[open] > summary .sv-fold-chev {
+    transform: rotate(180deg);
+}
+.sv-fold-body {
+    padding: 4px 0 14px;
+    font-size: 0.85rem;
+}
+
+/* --- Member roster. One line per member. No red: not having paid on the 3rd
+   of the month is not an error, and the old #ef4444 ✗ said it was. --- */
+.sv-member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    font-size: 0.88rem;
+    /* The row now carries the name, the paid status AND the owner's controls,
+       because there is one roster instead of two. On a phone that is more than
+       fits, and a nowrap row resolves the overflow by ellipsising the member's
+       NAME — the one part of the row that identifies whose money it is. */
+    flex-wrap: wrap;
+}
+/* Once a row can wrap, "Un-approve / Remove" lands on a second line — and with
+   even spacing it sits nearer the NEXT member's name than the one it acts on.
+   Un-approving the wrong person is a silent, plausible mistake, so the rows get
+   a boundary rather than relying on the reader to group them correctly. */
+.sv-member + .sv-member {
+    border-top: 1px solid var(--sv-line);
+    margin-top: 4px;
+    padding-top: 6px;
+}
+.sv-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--sv-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.sv-member-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sv-member-me {
+    color: var(--accent);
+    font-weight: 600;
+}
+.sv-member-tag {
+    font-size: 0.65rem;
+    opacity: 0.35;
+    margin-left: 5px;
+}
+.sv-member-note {
+    font-size: 0.65rem;
+    opacity: 0.4;
+    margin-left: auto;
+    text-align: right;
+    /* Its own line. It shares the row with .sv-status, and both wanted
+       margin-left:auto, so the two fought over the same free space and the
+       sentence was squeezed into a two-line block overlapping the name. It is
+       an explanation, not a figure — a line of its own costs nothing and only
+       ever appears on the admin's single row. */
+    flex-basis: 100%;
+}
+.sv-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+/* Paid rows recede so the eye lands on the unpaid ones. */
+.sv-status-paid { opacity: 0.45; }
+.sv-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.sv-dot-full { background: var(--accent); }
+.sv-dot-partial {
+    background: linear-gradient(to right, var(--sv-amber) 50%, transparent 50%);
+    box-shadow: inset 0 0 0 1.5px var(--sv-amber);
+}
+.sv-dot-none,
+.sv-dot-unknown {
+    box-shadow: inset 0 0 0 1.5px rgba(128,128,128,0.45);
+}
+.sv-short { color: var(--sv-amber); }
+.sv-member-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* --- Manage drawer. The whole of administration, one fold. --- */
+.sv-msection {
+    background: var(--sv-surface);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+.sv-mheading {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.45;
+    margin-bottom: 6px;
+}
+/* Amber = someone must act. No failure implied, so it is not red. */
+.sv-mheading-amber {
+    color: var(--sv-amber);
+    opacity: 1;
+    font-weight: 600;
+}
+.sv-mrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    flex-wrap: wrap;
+}
+.sv-mrow-name {
+    font-size: 0.85rem;
+    min-width: 0;
+}
+.sv-mrow-sub {
+    font-size: 0.7rem;
+    opacity: 0.55;
+    margin-left: 6px;
+}
+.sv-mrow-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+/* .btn-primary carries margin-top: 8px for stacked form footers; inside a flex
+   row it just knocks the row out of alignment. */
+.sv-fold-body .btn-primary,
+.sv-fold-body .btn-secondary {
+    margin-top: 0;
+}
+.sv-mt10 {
+    margin-top: 10px;
+}
+.sv-error-line {
+    font-size: 0.85rem;
+    color: var(--sv-red);
+    padding: 4px 0;
+}
+.sv-figs {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+}
+.sv-fig-label {
+    font-size: 0.7rem;
+    opacity: 0.45;
+}
+.sv-fig-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 2px;
+}
+.sv-note {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    margin-top: 6px;
+}
+.sv-note-red { color: var(--sv-red); }
+.sv-note-amber { color: var(--sv-amber); }
+.sv-code {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+}
+.sv-code-box {
+    background: var(--sv-surface);
+    border: 1px solid var(--sv-line);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.sv-kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.82rem;
+    padding: 3px 0;
+}
+.sv-kv-value {
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+.sv-hair {
+    border-top: 1px solid var(--sv-line);
+    margin-top: 12px;
+    padding-top: 12px;
+}
+/* The last panel in the drawer is Group details, and the hairline above Delete
+   brings its own 12px. Without this the two stack to 22px and the destructive
+   row drifts away from the card it belongs to. */
+.sv-manage .sv-msection:last-of-type {
+    margin-bottom: 0;
+}
+
+/* --- Footer. Delete is deliberately NOT here; it is the last item in the
+   Manage drawer. --- */
+.sv-footer {
+    border-top: 1px solid var(--sv-line);
+    padding-top: 10px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* --- The two column wrappers. Plain blocks below 620px, so the card stacks in
+   the order §3 specifies; grid items in column 1 and column 2 above it, which
+   is the whole of the wide layout's JSX contribution.
+
+   min-width: 0 is the load-bearing half. A grid item defaults to min-width:auto,
+   which refuses to shrink below its longest unbreakable run — a bank reference,
+   a stokvel code, a member's name — so without this a long string widens its
+   1fr track and pushes the card past its own border instead of ellipsising
+   inside it. .sv-answer bleeds through both wrappers with negative margins, so
+   neither may carry padding or a border. --- */
+.sv-left,
+.sv-right {
+    min-width: 0;
+}
+
+/* --- Wide layout.
+
+   This was written as `@container (min-width: 620px) { .stokvel-card.sv-card }`
+   with `container-type: inline-size` on `.stokvel-card` itself. An element is
+   never its own query container, so the `display: grid` never applied — while
+   the DESCENDANT rules in the same block (the 3rem headline, the answer band's
+   negative margins) DID, because descendants of a container do match. The card
+   stayed one column and the band lost its right-hand bleed, leaving a notch of
+   card background against the 16px corner. Both halves of a rule that only ever
+   half-worked.
+
+   Driven off the viewport and a card count instead. `:has()` is Safari 15.4+,
+   Chrome 105+, Firefox 121+ — wider support than container queries, and unlike
+   the original it actually fires. The two selector prefixes are the only cases
+   where a card is wide enough to split:
+
+     one card,  viewport >= 1200px  ->  content ~920px, card ~920px
+     two cards, viewport >= 1600px  ->  content ~1260px, two ~622px tracks
+
+   Three or more cards never reach 620px each before .stokvel-card's 1040px
+   max-width stops mattering, so they stay single-column — correct, just
+   roomier. Scoped to .sv-card throughout because PendingStokvelCard shares
+   .stokvel-card and must not become a two-column grid. --- */
+@media (min-width: 1200px) {
+    .stokvel-grid:has(> .stokvel-card:only-child) > .stokvel-card.sv-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        align-items: start;
+    }
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-strips,
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-footer {
+        grid-column: 1 / -1;
+    }
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-answer {
+        border-radius: 16px 0 0 0;
+        margin: -16px 0 0 -16px;
+    }
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-answer.sv-answer-pushed {
+        border-radius: 12px;
+        margin: 0 0 0 -16px;
+    }
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-answer .sv-headline {
+        font-size: 3rem;
+    }
+    .stokvel-grid:has(> .stokvel-card:only-child) > .sv-card .sv-cta .btn-primary {
+        width: auto;
+        min-width: 220px;
+    }
+}
+
+/* Exactly two cards: :nth-child(2) exists, :nth-child(3) does not. */
+@media (min-width: 1600px) {
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .stokvel-card.sv-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        align-items: start;
+    }
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-strips,
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-footer {
+        grid-column: 1 / -1;
+    }
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-answer {
+        border-radius: 16px 0 0 0;
+        margin: -16px 0 0 -16px;
+    }
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-answer.sv-answer-pushed {
+        border-radius: 12px;
+        margin: 0 0 0 -16px;
+    }
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-answer .sv-headline {
+        font-size: 3rem;
+    }
+    .stokvel-grid:has(> .stokvel-card:nth-child(2)):not(:has(> .stokvel-card:nth-child(3))) > .sv-card .sv-cta .btn-primary {
+        width: auto;
+        min-width: 220px;
+    }
+}
+
+/* At 360px the header's title and its two buttons cannot share a row without
+   the buttons shrinking below a usable tap target. */
+@media (max-width: 600px) {
+    #page-stokvel .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    #page-stokvel .page-header > div:last-child > .btn-primary {
+        flex: 1;
+    }
 }
 
 /* ============================================================
@@ -8933,4 +9767,87 @@ body.light .mode-option.is-soon:hover {
 .account-picker-card.is-soon:hover {
     transform: none;
     box-shadow: none;
+}
+
+/* ==========================================================================
+   Install-to-home-screen card (sidebar)
+   Only rendered when the app is NOT already installed — see InstallAppCard.
+   It exists because push notifications never reach a browser tab on iOS, so
+   installing is the precondition for stokvel and Junior reminders arriving.
+   ========================================================================== */
+.install-card {
+    position: relative;
+    margin: 8px 12px 4px;
+    padding: 12px 12px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.install-card-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--accent);
+    font-size: 0.82rem;
+    line-height: 1.2;
+    padding-right: 16px;
+}
+
+.install-card-copy {
+    margin: 6px 0 10px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.install-card-btn {
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.install-card-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.install-card-btn:disabled { opacity: 0.6; cursor: default; }
+
+.install-card-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+.install-card-close:hover { color: rgba(255, 255, 255, 0.75); }
+
+.install-card-steps {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.62);
+}
+.install-card-steps li { margin-bottom: 5px; }
+.install-card-steps strong { color: rgba(255, 255, 255, 0.85); }
+
+body.light .install-card-copy,
+body.light .install-card-steps { color: rgba(0, 0, 0, 0.62); }
+body.light .install-card-steps strong { color: #1a1a2e; }
+body.light .install-card-close { color: rgba(0, 0, 0, 0.4); }
+body.light .install-card-close:hover { color: rgba(0, 0, 0, 0.7); }
+
+/* The sidebar scrolls on short screens; the card must not squash the nav. */
+@media (max-height: 700px) {
+    .install-card { display: none; }
 }

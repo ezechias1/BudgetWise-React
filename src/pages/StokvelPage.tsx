@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -178,6 +184,41 @@ function isoDate(d: Date): string {
  */
 function hasEnded(endDate: string | null | undefined, today: string): boolean {
   return !!endDate && endDate.slice(0, 10) < today;
+}
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/**
+ * '2026-08' → 'August 2026'. Presentation only — nothing is parsed back out of
+ * this and no query ever sees it.
+ *
+ * The card used to print the raw `monthKey()` string next to the money
+ * ("R1,500.00 of R1,500.00 in for 2026-08"), which reads as an identifier
+ * rather than as a month and gave no help at all to a member trying to work
+ * out whether the figure covers the period they are being chased for.
+ *
+ * Deliberately does NOT go through `new Date(key)`: that parses 'YYYY-MM' as
+ * UTC midnight, so anywhere behind UTC it names the previous month — the same
+ * class of bug that made a stokvel go "(ENDED)" a day early. A key that is not
+ * a 'YYYY-MM' comes back untouched rather than being guessed at.
+ */
+function monthLabel(key: string): string {
+  if (!/^\d{4}-\d{2}$/.test(key)) return key;
+  const name = MONTH_NAMES[Number(key.slice(5, 7)) - 1];
+  return name ? `${name} ${key.slice(0, 4)}` : key;
 }
 
 /**
@@ -3579,7 +3620,13 @@ export default function StokvelPage() {
               );
             }
 
-            const totalContrib = cents(contribs.reduce((s, c) => s + Number(c.amount), 0));
+            // The all-time total is deliberately no longer computed here. It
+            // was the fourth stat tile on the card, competing with the one
+            // figure a member opens this page for, and it is the least
+            // actionable of the four — nobody settles anything against it. It
+            // now renders in the History modal directly beneath the
+            // contribution rows that produce it, where it can be checked line
+            // by line instead of just asserted.
 
             const thisMonthContribs = contribs.filter(
               (c) => c.date && c.date.substring(0, 7) === currentMonth,
@@ -3644,444 +3691,226 @@ export default function StokvelPage() {
             // the group's final day, to every member at once.
             const isExpired = hasEnded(g.end_date, todayStr);
 
+            // How many members have settled this period in full. Only ever
+            // rendered under `progressKnown` — with the contributions read
+            // missing, `paidByUser` is empty and this counts to zero, which is
+            // the "nobody has paid" lie the whole page is built to avoid.
+            const paidCount = approvedMembers.filter(
+              (m) => paidState(cents(paidByUser[m.user_id] ?? 0), owedEach) === 'full',
+            ).length;
+
+            // The reader's own position in the queue, counted in LIVE turns.
+            // Never a date and never a month: `stokvel_groups` stores an order
+            // and an index and no schedule whatsoever, so any date here would
+            // be invented by the UI and then believed by someone planning
+            // around when their pot arrives. Dead slots — ids belonging to
+            // people who have left — are stepped over rather than counted,
+            // because nextRotationSlot will step over them too when the payout
+            // is actually recorded.
+            const mySlot = user ? payoutOrder.indexOf(user.id) : -1;
+            const turnsAway =
+              !membersKnown || payoutSlot === null || mySlot < 0
+                ? null
+                : (() => {
+                    let n = 0;
+                    for (let step = 0; step < payoutOrder.length; step++) {
+                      const at = (payoutSlot + step) % payoutOrder.length;
+                      if (!approvedIdSet.has(payoutOrder[at])) continue; // dead slot is not a turn
+                      if (at === mySlot) return n;
+                      n++;
+                    }
+                    return null;
+                  })();
+
+            // Hoisted out of the payout panel's IIFE so the Manage summary row
+            // and the drawer body read the same three figures. The theoretical
+            // pot and the cash actually in it used to sit inches apart on this
+            // card with nothing linking them — "This Month R3,000" directly
+            // above "Next payout R5,000" — and it was the R5,000 that got
+            // recorded as paid.
+            const potTarget = cents(Number(g.monthly_amount) * approvedMembers.length);
+            // null = the contributions read has not landed or failed. A "Paid
+            // in so far R0.00" under a live Mark Paid Out button is the worst
+            // possible thing to be wrong about on this card.
+            const collected = contribsKnown ? thisMonthTotal : null;
+            const shortfall =
+              collected === null || !membersKnown ? null : cents(potTarget - collected);
+
+            // Who the treasurer still has to chase, computed once. Partial
+            // payers belong here too: filtering on "has any row at all" removed
+            // a member who had sent R50 of R500 from the chase list entirely,
+            // so the outstanding R450 was never asked for by anybody.
+            //
+            // `null` rather than `[]` when either read is missing, on purpose.
+            // An empty array reads as "nobody owes anything" and that is
+            // precisely the claim we cannot make — the same failed read used to
+            // repopulate this list with everyone INCLUDING those who had
+            // already paid, and each tap wrote a real duplicate contribution
+            // nothing in the app could undo.
+            const owing =
+              isOwner && contribsKnown && membersKnown
+                ? approvedMembers
+                    .map((m) => ({
+                      m,
+                      paid: cents(paidByUser[m.user_id] ?? 0),
+                    }))
+                    .filter(
+                      (r) =>
+                        owedEach > 0 &&
+                        r.paid < owedEach &&
+                        (user ? r.m.user_id !== user.id : true),
+                    )
+                : null;
+
+            // Enough cash is in for this period's pot to be handed over. Gated
+            // on progressKnown as well as on shortfall, so a failed read can
+            // never render "Ready to pay out" against money nobody counted.
+            const readyToPayOut =
+              isOwner &&
+              progressKnown &&
+              payoutSlot !== null &&
+              shortfall !== null &&
+              shortfall <= 0;
+
+            // Hoisted out of the roster row it used to live on. The admin's own
+            // membership is the one that cannot go while the group exists —
+            // every owner-only policy is `owner_id = auth.uid()`, so a stokvel
+            // with no admin can never approve anyone, record a payout or be
+            // corrected again. Tested on owner_id rather than `role`, which is
+            // a nullable text column nothing enforces.
+            const canLeave =
+              !!myRow && !!user && myRow.user_id === user.id && myRow.user_id !== g.owner_id;
+
+            // One state hue per card, chosen once, used only by the answer
+            // band. Amber attention strips are deliberately exempt from it —
+            // a broken rotation keeps its colour even on a card whose state is
+            // "paid up", because it costs the reader money either way.
+            const stateColour = isExpired
+              ? 'rgba(128,128,128,0.6)'
+              : myState === 'unknown'
+                ? 'var(--sv-red)'
+                : myState === 'full'
+                  ? 'var(--sv-accent-ink)'
+                  : 'var(--sv-amber)';
+
+            // `myPaidThisMonth` is non-null whenever myState is 'partial' or
+            // 'full' — paidState returns 'unknown' for null — but the compiler
+            // cannot see that through the helper, so the coalesce is here to
+            // satisfy it and never actually runs.
+            const myPaid = myPaidThisMonth ?? 0;
+
+            // The one rotation fault that costs THIS reader money, stated
+            // separately from the general rotation strip. Rendered above
+            // everything, outside every disclosure.
+            const iHaveNoTurn = !!user && notInRotation.some((m) => m.user_id === user.id);
+
+            // The rotation only drives anything on a monthly stokvel — the whole
+            // payout panel these two strips were lifted out of sat behind this
+            // same test. Without it a yearly group starts showing an amber
+            // "rotation needs attention" warning its members have never seen,
+            // and hands its owner a Rebuild button that writes payout_order and
+            // current_payout_index on a group that has never had a rotation to
+            // repair. That is a new write path, not a new layout.
+            const rotationIsLive = g.frequency === 'monthly';
+            const showRotationFault = rotationIsLive && rotationNeedsRepair;
+            const showNoTurnOfMine = rotationIsLive && iHaveNoTurn;
+
+            const hasStrips =
+              !!membersError ||
+              !!contribsError ||
+              isExpired ||
+              showRotationFault ||
+              showNoTurnOfMine;
+
+            // The pay-to details are inline at the moment you owe and behind
+            // the "How to pay" fold at every other moment, so the account
+            // number a member types into their banking app exists in exactly
+            // one place on screen at any time. One boolean drives both, so the
+            // two conditions cannot drift apart and show it twice or never.
+            const payInline =
+              !!g.bank_reference &&
+              (myState === 'none' || myState === 'partial') &&
+              !isExpired;
+
             return (
-              <div className="stokvel-card" key={g.id}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'start',
-                  }}
-                >
-                  <div>
-                    <h3>{g.name}</h3>
-                    {g.goal && <div className="stokvel-goal">{g.goal}</div>}
-                  </div>
-                  {isOwner && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {/* Settings was not a screen at all: nothing in the app
-                          ever updated name, monthly_amount, frequency, the
-                          dates or bank_reference, so the only way to fix a
-                          mistyped bank account number — the string every
-                          member reads before sending real money — was Delete,
-                          which cascades every member's contribution history
-                          away with it. Sits here rather than in
-                          `.stokvel-actions`, whose `flex: 1` would squeeze a
-                          fourth button's label onto two lines. */}
-                      <button
-                        type="button"
-                        className="btn-edit-stokvel"
-                        onClick={() => openSettings(g)}
-                        style={{
-                          background: 'rgba(128,128,128,0.12)',
-                          border: 'none',
-                          padding: '2px 8px',
-                          borderRadius: 6,
-                          fontSize: '0.7rem',
-                          cursor: 'pointer',
-                          opacity: 0.6,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Settings
-                      </button>
-                      <div
-                        style={{
-                          background: 'rgba(16,185,129,0.15)',
-                          color: '#10b981',
-                          padding: '2px 8px',
-                          borderRadius: 6,
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                        }}
-                      >
-                        ADMIN
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div
+                className="stokvel-card sv-card"
+                key={g.id}
+                // The one inline style left in the card tree, and it is a
+                // value rather than a styling decision: the state hue the
+                // answer band tints itself with. Everything else resolves from
+                // var(--accent), so the blue and purple accent themes carry.
+                style={{ '--sv-state': stateColour } as CSSProperties}
+              >
+                {/* ============================================================
+                    Attention strips.
 
-                {(g.start_date || g.end_date) && (
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: isExpired ? '#ef4444' : undefined,
-                      opacity: isExpired ? undefined : 0.4,
-                      margin: '4px 0',
-                    }}
-                  >
-                    {g.start_date}
-                    {g.start_date && g.end_date && ' → '}
-                    {g.end_date}
-                    {isExpired && ' (ENDED)'}
-                  </div>
-                )}
-
-                {isOwner && g.stokvel_code && (
-                  <div
-                    style={{
-                      background: 'rgba(16,185,129,0.08)',
-                      border: '1px solid rgba(16,185,129,0.2)',
-                      borderRadius: 10,
-                      padding: 10,
-                      margin: '8px 0',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: '0.65rem',
-                          opacity: 0.4,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Invite Code
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '1.1rem',
-                          fontWeight: 700,
-                          letterSpacing: '2px',
-                          color: '#10b981',
-                        }}
-                      >
-                        {g.stokvel_code}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-copy-code"
-                      onClick={() => handleCopyCode(g.stokvel_code)}
-                      style={{
-                        background: 'rgba(128,128,128,0.1)',
-                        border: 'none',
-                        opacity: 0.5,
-                        padding: '6px 10px',
-                        borderRadius: 8,
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {copiedCode === g.stokvel_code ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                )}
-
-                {/* A finished stokvel says so once, plainly. `end_date` used to
-                    be read for the red "(ENDED)" label and nothing else, so a
-                    12-month club that closed in December carried on pushing
-                    "your contribution of R1,000 is due this month" at its
-                    members in January and every month after. The reminder is
-                    now gated on this; the figures stay on screen because the
-                    final period still has to be reconciled. */}
-                {isExpired && (
-                  <div
-                    style={{
-                      background: 'rgba(128,128,128,0.06)',
-                      borderRadius: 10,
-                      padding: 10,
-                      margin: '8px 0',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.5,
-                      opacity: 0.8,
-                    }}
-                  >
-                    This stokvel ended on {g.end_date}. Nobody is reminded to pay
-                    into it any more. What is below is its closing record — still
-                    editable, so a final payment can be settled and any mistake
-                    corrected.
-                  </div>
-                )}
-
-                {/* A read that failed says so, here, next to the figures it
-                    would otherwise have silently zeroed. */}
-                {(membersError || contribsError) && (
-                  <div
-                    style={{
-                      background: 'rgba(239,68,68,0.08)',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                      borderRadius: 10,
-                      padding: 10,
-                      margin: '8px 0',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.5,
-                      color: '#ef4444',
-                    }}
-                  >
-                    {contribsError && (
-                      <div>
-                        Could not load this stokvel&rsquo;s contributions:{' '}
-                        {contribsError}
+                    Everything that QUALIFIES a figure lives here: a read that
+                    failed, a group that has ended, a rotation with holes in it,
+                    and "you personally have no turn". None of it is ever behind
+                    a disclosure, ever truncated, or ever suppressed because the
+                    card's state colour happens to be the calm one. A member who
+                    is paid up still needs to know their turn will never come.
+                    ============================================================ */}
+                {hasStrips && (
+                  <div className="sv-strips">
+                    {/* A read that failed says so, above the figures it would
+                        otherwise have silently zeroed. */}
+                    {(membersError || contribsError) && (
+                      <div className="sv-strip sv-strip-red">
+                        {contribsError && (
+                          <div>
+                            Could not load this stokvel&rsquo;s contributions:{' '}
+                            {contribsError}
+                          </div>
+                        )}
+                        {membersError && (
+                          <div>
+                            Could not load this stokvel&rsquo;s members: {membersError}
+                          </div>
+                        )}
+                        <div className="sv-strip-tail">
+                          {contribsKnown || membersKnown
+                            ? 'The figures below are from the last load that worked, so ' +
+                              'they may be out of date. Nothing has been lost.'
+                            : 'Nothing has been lost — we simply could not read it. ' +
+                              'Reload before recording or confirming any payment.'}
+                        </div>
                       </div>
                     )}
-                    {membersError && (
-                      <div>
-                        Could not load this stokvel&rsquo;s members: {membersError}
+
+                    {/* A finished stokvel says so once, plainly. `end_date` used
+                        to be read for a red "(ENDED)" label and nothing else, so
+                        a 12-month club that closed in December carried on
+                        pushing "your contribution of R1,000 is due this month"
+                        at its members in January and every month after. */}
+                    {isExpired && (
+                      <div className="sv-strip sv-strip-neutral">
+                        This stokvel ended on {g.end_date}. Nobody is reminded to pay
+                        into it any more. What is below is its closing record — still
+                        editable, so a final payment can be settled and any mistake
+                        corrected.
                       </div>
                     )}
-                    <div style={{ marginTop: 4, opacity: 0.85 }}>
-                      {contribsKnown || membersKnown
-                        ? 'The figures below are from the last load that worked, so ' +
-                          'they may be out of date. Nothing has been lost.'
-                        : 'Nothing has been lost — we simply could not read it. ' +
-                          'Reload before recording or confirming any payment.'}
-                    </div>
-                  </div>
-                )}
 
-                {/* Every money figure goes through formatCurrency. A bare
-                    toLocaleString() defaults minimumFractionDigits to 0, so
-                    R12,340.50 rendered as "R12 340,5" on the card while the
-                    History modal showed "R12 340,50" for the same money, and a
-                    member reconciling against a bank statement could not tell
-                    which cents figure the app meant. */}
-                <div className="stokvel-stats">
-                  <div>
-                    <div className="stokvel-stat-label">Monthly/Person</div>
-                    <div className="stokvel-stat-value">
-                      {formatCurrency(Number(g.monthly_amount), currency)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="stokvel-stat-label">Members</div>
-                    <div className="stokvel-stat-value">
-                      {membersKnown ? approvedMembers.length : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="stokvel-stat-label">This Month</div>
-                    <div className="stokvel-stat-value">
-                      {contribsKnown ? formatCurrency(thisMonthTotal, currency) : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="stokvel-stat-label">All Time</div>
-                    <div className="stokvel-stat-value">
-                      {contribsKnown ? formatCurrency(totalContrib, currency) : '—'}
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '0.7rem',
-                    opacity: 0.4,
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>This month</span>
-                  {/* An empty bar at 0% is a claim that nobody has paid.
-                      Withhold it rather than assert it from figures we do not
-                      have. */}
-                  <span>
-                    {progressKnown
-                      ? monthPct.toFixed(0) + '%'
-                      : 'not loaded'}
-                  </span>
-                </div>
-                {progressKnown && (
-                  <>
-                    <div className="stokvel-progress">
-                      <div
-                        className="stokvel-progress-bar"
-                        style={{ width: `${monthPct.toFixed(0)}%` }}
-                      />
-                    </div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.4, marginTop: 4 }}>
-                      {formatCurrency(thisMonthTotal, currency)} of{' '}
-                      {formatCurrency(monthTarget, currency)} in for {currentMonth}
-                    </div>
-                  </>
-                )}
-
-                {/* Next payout.
-                    No longer gated on `nextRecipient` being truthy: an
-                    unresolvable rotation must say so, not vanish. */}
-                {g.frequency === 'monthly' && (() => {
-                  const isMe =
-                    !!nextRecipient && !!user && nextRecipient.user_id === user.id;
-                  // Both numbers, side by side. The theoretical pot and the cash
-                  // actually in it used to sit inches apart on this card with
-                  // nothing linking them — "This Month R3,000" directly above
-                  // "Next payout R5,000" — and it was the R5,000 that got
-                  // recorded as paid.
-                  const potTarget = cents(Number(g.monthly_amount) * approvedMembers.length);
-                  // null = the contributions read has not landed or failed. A
-                  // "Paid in so far R0.00" under a live Mark Paid Out button is
-                  // the worst possible thing to be wrong about on this card.
-                  const collected = contribsKnown ? thisMonthTotal : null;
-                  const shortfall =
-                    collected === null || !membersKnown ? null : cents(potTarget - collected);
-                  return (
-                    <div
-                      style={{
-                        background: isMe
-                          ? 'rgba(16,185,129,0.12)'
-                          : 'rgba(128,128,128,0.06)',
-                        borderRadius: 10,
-                        padding: 10,
-                        margin: '8px 0',
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      {nextRecipient ? (
-                        <>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: 8,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <div>
-                              <span className="stokvel-goal">Next payout:</span>{' '}
-                              <strong style={{ color: isMe ? '#10b981' : 'inherit' }}>
-                                {nextRecipient.display_name}
-                                {isMe ? ' (You!)' : ''}
-                              </strong>
-                            </div>
-                            {isOwner && (
-                              <div style={{ display: 'flex', gap: 4 }}>
-                                <button
-                                  type="button"
-                                  className="btn-advance-payout"
-                                  disabled={payoutOpening === g.id}
-                                  onClick={() => openPayout(g, nextRecipient)}
-                                  style={{
-                                    background: '#10b981',
-                                    color: '#fff',
-                                    border: 'none',
-                                    padding: '6px 12px',
-                                    borderRadius: 8,
-                                    fontSize: '0.7rem',
-                                    cursor: payoutOpening === g.id ? 'default' : 'pointer',
-                                    opacity: payoutOpening === g.id ? 0.6 : 1,
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {payoutOpening === g.id ? 'Checking…' : 'Mark Paid Out'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-skip-payout"
-                                  onClick={() => handleSkipTurn(g, nextRecipient)}
-                                  style={{
-                                    background: 'rgba(128,128,128,0.12)',
-                                    border: 'none',
-                                    padding: '6px 12px',
-                                    borderRadius: 8,
-                                    fontSize: '0.7rem',
-                                    cursor: 'pointer',
-                                    opacity: 0.7,
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  Skip turn
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <div
-                            style={{
-                              marginTop: 6,
-                              display: 'flex',
-                              gap: 12,
-                              flexWrap: 'wrap',
-                              fontSize: '0.8rem',
-                            }}
-                          >
-                            <span style={{ opacity: 0.7 }}>
-                              Full pot{' '}
-                              <strong>
-                                {membersKnown
-                                  ? formatCurrency(potTarget, currency)
-                                  : 'not loaded'}
-                              </strong>
-                            </span>
-                            <span
-                              style={{
-                                color:
-                                  shortfall === null
-                                    ? '#ef4444'
-                                    : shortfall > 0
-                                      ? '#f59e0b'
-                                      : '#10b981',
-                              }}
-                            >
-                              Paid in so far{' '}
-                              <strong>
-                                {collected === null
-                                  ? 'not loaded'
-                                  : formatCurrency(collected, currency)}
-                              </strong>
-                            </span>
-                          </div>
-                          {shortfall === null && isOwner && (
-                            <div
-                              style={{ marginTop: 4, fontSize: '0.75rem', color: '#ef4444' }}
-                            >
-                              Reload before recording a payout — we could not read
-                              what has actually been paid in this month.
-                            </div>
-                          )}
-                          {shortfall !== null && shortfall > 0 && (
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: '0.75rem',
-                                color: '#f59e0b',
-                              }}
-                            >
-                              {formatCurrency(shortfall, currency)} of this month&rsquo;s
-                              pot has not been paid in yet.
-                            </div>
-                          )}
-                          {payoutSkipped > 0 && (
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: '0.75rem',
-                                color: '#f59e0b',
-                              }}
-                            >
-                              {payoutSkipped}{' '}
-                              {payoutSkipped === 1 ? 'earlier turn' : 'earlier turns'} in
-                              the rotation {payoutSkipped === 1 ? 'belongs' : 'belong'} to
-                              people who have left this stokvel and{' '}
-                              {payoutSkipped === 1 ? 'was' : 'were'} skipped.
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div style={{ color: '#f59e0b' }}>
-                          {/* The members read failing produces exactly the same
-                              inputs as everyone having left — approvedMembers
-                              is [], so nextRotationSlot returns null. Saying
-                              "there is nobody to pay out to" in that case is a
-                              confident claim about the club's state built on a
-                              read that never arrived, and it invites an owner
-                              to Rebuild a rotation that was never broken.
-                              Every other figure in this block is already gated
-                              on membersKnown; this was the one that was not. */}
-                          {!membersKnown ? (
+                    {/* The rotation. Amber, never demoted to an uncoloured badge
+                        and never folded away: a rotation with holes in it is the
+                        one fault on this card that quietly costs somebody their
+                        entire turn. */}
+                    {showRotationFault && (
+                      <div className="sv-strip sv-strip-amber">
+                        {payoutSlot === null &&
+                          (!membersKnown ? (
+                            /* The members read failing produces exactly the same
+                               inputs as everyone having left — approvedMembers is
+                               [], so nextRotationSlot returns null. Saying "there
+                               is nobody to pay out to" in that case is a confident
+                               claim about the club's state built on a read that
+                               never arrived, and it invites an owner to Rebuild a
+                               rotation that was never broken. */
                             <>
                               <strong>The member list could not be loaded.</strong>
-                              <div style={{ marginTop: 4, fontSize: '0.8rem' }}>
+                              <div className="sv-strip-sub">
                                 So we cannot work out whose turn it is. This does not
                                 mean anything is wrong with the rotation — try again
                                 once your connection is back.
@@ -4090,7 +3919,7 @@ export default function StokvelPage() {
                           ) : (
                             <>
                               <strong>The payout rotation needs attention.</strong>
-                              <div style={{ marginTop: 4, fontSize: '0.8rem' }}>
+                              <div className="sv-strip-sub">
                                 {payoutOrder.length === 0
                                   ? 'Nobody has a turn set up yet, so no payout can be recorded.'
                                   : 'Every turn in the rotation belongs to someone who is no ' +
@@ -4101,518 +3930,920 @@ export default function StokvelPage() {
                                   : ' The admin needs to rebuild it before the next payout can be recorded.'}
                               </div>
                             </>
-                          )}
+                          ))}
+                        {payoutSkipped > 0 && (
+                          <div className="sv-strip-sub">
+                            {payoutSkipped}{' '}
+                            {payoutSkipped === 1 ? 'earlier turn' : 'earlier turns'} in
+                            the rotation {payoutSkipped === 1 ? 'belongs' : 'belong'} to
+                            people who have left this stokvel and{' '}
+                            {payoutSkipped === 1 ? 'was' : 'were'} skipped.
+                          </div>
+                        )}
+                        {notInRotation.length > 0 && (
+                          <div className="sv-strip-sub">
+                            {notInRotation.map((m) => m.display_name).join(', ')}{' '}
+                            {notInRotation.length === 1 ? 'is a member' : 'are members'} but{' '}
+                            {notInRotation.length === 1 ? 'has' : 'have'} no turn in the
+                            rotation, so their payout will never come up.
+                          </div>
+                        )}
+                        {isOwner && (
+                          <button
+                            type="button"
+                            className="btn-repair-rotation sv-outline sv-outline-amber sv-strip-btn"
+                            onClick={() => handleRepairRotation(g)}
+                          >
+                            Rebuild rotation
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Stated separately from the strip above because this is
+                        the one rotation fault that costs THIS reader money, and
+                        it is the reader, not the group, this card answers to. */}
+                    {showNoTurnOfMine && (
+                      <div className="sv-strip sv-strip-amber">
+                        You are a member but you have no turn in the rotation, so your
+                        payout will never come up. Ask the admin to rebuild it.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="sv-left">
+                  {/* ============================================================
+                      The answer.
+
+                      One number, for the person holding the phone. The four
+                      branches are the whole point of the redesign: 'full' and
+                      'unknown' render WORDS, so the band physically cannot say
+                      "R0.00 due" — which is what a member on a dropped
+                      connection used to be told, as a statement of fact, right
+                      next to a red cross against their own name.
+                      ============================================================ */}
+                  <div className={hasStrips ? 'sv-answer sv-answer-pushed' : 'sv-answer'}>
+                    <div className="sv-eyebrow">
+                      <div className="sv-eyebrow-left">
+                        <h3 className="sv-name">{g.name}</h3>
+                        {/* Replaces the green ADMIN pill and the barely-legible
+                            grey Settings pill. Being the admin is a fact about
+                            you, not a control; the controls are all in one
+                            drawer further down. */}
+                        {isOwner && (
+                          <span className="sv-admin">
+                            <span className="sv-admin-dot" />
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      <span className="sv-period">{monthLabel(currentMonth)}</span>
+                    </div>
+
+                    {isExpired ? (
+                      <div className="sv-headline sv-headline-small">
+                        This stokvel has ended
+                      </div>
+                    ) : myState === 'none' ? (
+                      <div className="sv-headline sv-num">
+                        {formatCurrency(owedEach, currency)}
+                      </div>
+                    ) : myState === 'partial' ? (
+                      <div className="sv-headline sv-num">
+                        {formatCurrency(cents(owedEach - myPaid), currency)}
+                      </div>
+                    ) : myState === 'full' ? (
+                      <div className="sv-headline sv-headline-words">
+                        You&rsquo;re paid up for {monthLabel(currentMonth)}
+                      </div>
+                    ) : (
+                      /* contribsKnown is false. We do not know what this member
+                         has paid, so we say that and nothing else — no figure,
+                         no tick, no cross. */
+                      <div className="sv-headline sv-headline-small">
+                        We couldn&rsquo;t check your payments
+                      </div>
+                    )}
+
+                    <div className="sv-caption sv-num">
+                      {isExpired
+                        ? `${g.end_date} · nobody is reminded to pay in any more`
+                        : myState === 'none'
+                          ? 'due this month'
+                          : myState === 'partial'
+                            ? 'still to pay — ' +
+                              formatCurrency(myPaid, currency) +
+                              ' of ' +
+                              formatCurrency(owedEach, currency) +
+                              ' is in'
+                            : myState === 'full'
+                              ? formatCurrency(myPaid, currency) +
+                                ' recorded' +
+                                (myPaidCount > 1 ? ` across ${myPaidCount} payments` : '')
+                              : 'Reload before recording anything.'}
+                    </div>
+                  </div>
+
+                  {/* ============================================================
+                      The one button.
+
+                      Exactly one filled button per card in the member view. The
+                      old card offered "+ Contribute" to everyone
+                      unconditionally, including a member the treasurer had
+                      already ticked off the bank statement with Confirm Paid —
+                      and because Confirm Paid deliberately cannot write to that
+                      member's personal budget, the member opens the app, sees
+                      the expense missing, and taps Contribute for money that is
+                      already in the ledger.
+
+                      The muted "record another" is kept rather than removed
+                      outright: a member who genuinely pays twice in a month, or
+                      who is catching up a previous month, still has to be able
+                      to record it, and taking the only route away would just
+                      push that into an unfixable gap. It is no longer the
+                      obvious thing to press, and handleContribute reads the
+                      period from the database and states what is already on
+                      record before it writes anything.
+
+                      Contribute carried no membership check at all, which is how
+                      an unapproved joiner was able to read the whole ledger and
+                      write real money into it. It needs no explicit gate here
+                      only because everything below the `iAmPendingHere` early
+                      return above is unreachable unless this user owns the group
+                      or is an approved member of it — if you add a control here,
+                      that early return is the gate it relies on.
+                      ============================================================ */}
+                  <div className="sv-cta">
+                    {myState === 'full' ? (
+                      <button
+                        type="button"
+                        className="btn-contrib sv-outline sv-outline-cta"
+                        onClick={() => openContribute(g, myPaidThisMonth, myPaidCount)}
+                      >
+                        Record another payment
+                      </button>
+                    ) : myState === 'unknown' ? (
+                      /* The route survives — the modal re-reads the period from
+                         the database before it writes — but it is not presented
+                         as a settled fact, because we do not know what is
+                         already recorded. */
+                      <button
+                        type="button"
+                        className="btn-contrib btn-secondary btn-sm"
+                        onClick={() => openContribute(g, myPaidThisMonth, myPaidCount)}
+                      >
+                        Record a payment
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={
+                          isExpired
+                            ? 'btn-contrib btn-secondary btn-sm'
+                            : 'btn-contrib btn-primary'
+                        }
+                        onClick={() => openContribute(g, myPaidThisMonth, myPaidCount)}
+                      >
+                        {myState === 'partial'
+                          ? 'Record the remaining ' +
+                            formatCurrency(cents(owedEach - myPaid), currency)
+                          : 'Record my ' +
+                            formatCurrency(owedEach, currency) +
+                            ' payment'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ============================================================
+                      Where to pay — inline, and only at the moment you owe.
+
+                      When you are paid up it moves behind the "How to pay" fold
+                      instead, so the account number a member retypes into a
+                      banking app exists in exactly one place on screen at any
+                      time. Body colour and monospace, not the old blue: an
+                      account number is read and typed, so contrast beats
+                      decoration.
+                      ============================================================ */}
+                  {payInline && (
+                    <div className="sv-pay">
+                      <div className="sv-pay-row">
+                        <div>
+                          <div className="sv-pay-label">Pay to</div>
+                          <div className="sv-mono">{g.bank_reference}</div>
                         </div>
-                      )}
-                      {notInRotation.length > 0 && (
-                        <div
-                          style={{ marginTop: 6, fontSize: '0.75rem', color: '#f59e0b' }}
-                        >
-                          {notInRotation.map((m) => m.display_name).join(', ')}{' '}
-                          {notInRotation.length === 1 ? 'is a member' : 'are members'} but{' '}
-                          {notInRotation.length === 1 ? 'has' : 'have'} no turn in the
-                          rotation, so their payout will never come up.
+                      </div>
+                      <div className="sv-pay-row">
+                        <div>
+                          <div className="sv-pay-label">Use reference</div>
+                          <div className="sv-mono">{g.stokvel_code}</div>
                         </div>
-                      )}
-                      {isOwner && rotationNeedsRepair && (
                         <button
                           type="button"
-                          className="btn-repair-rotation"
-                          onClick={() => handleRepairRotation(g)}
-                          style={{
-                            marginTop: 8,
-                            background: 'rgba(245,158,11,0.15)',
-                            color: '#f59e0b',
-                            border: 'none',
-                            padding: '6px 12px',
-                            borderRadius: 8,
-                            fontSize: '0.7rem',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                          }}
+                          className="btn-copy-code sv-outline"
+                          onClick={() => handleCopyCode(g.stokvel_code)}
                         >
-                          Rebuild rotation
+                          {copiedCode === g.stokvel_code ? 'Copied!' : 'Copy'}
                         </button>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Members list with what each has paid against what they owe.
-                    This used to be a bare green tick or red cross driven by
-                    "does a row exist", so R50 against a R500 obligation looked
-                    identical to R500 and took the member off the treasurer's
-                    chase list. It also drew a red cross for everybody whenever
-                    the contributions read failed — a member being told, as
-                    fact, that they had not paid. */}
-                <div style={{ margin: '8px 0' }}>
-                  <div
-                    style={{
-                      fontSize: '0.7rem',
-                      opacity: 0.4,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: 6,
-                    }}
-                  >
-                    Members
-                  </div>
-                  {!membersKnown && (
-                    <div style={{ fontSize: '0.85rem', color: '#ef4444', padding: '4px 0' }}>
-                      The member list could not be loaded.
+                      </div>
                     </div>
                   )}
-                  {approvedMembers.map((m) => {
-                    const paid = contribsKnown ? cents(paidByUser[m.user_id] ?? 0) : null;
-                    const state = paidState(paid, owedEach);
-                    const marker =
-                      state === 'full'
-                        ? { glyph: '✓', color: '#10b981' }
-                        : state === 'partial'
-                          ? { glyph: '◐', color: '#f59e0b' }
-                          : state === 'none'
-                            ? { glyph: '✗', color: '#ef4444' }
-                            : { glyph: '?', color: 'rgba(128,128,128,0.7)' };
-                    const isMe = user ? m.user_id === user.id : false;
-                    // The admin's own membership is the one that cannot go
-                    // while the group exists — every owner-only policy is
-                    // `owner_id = auth.uid()`, so a stokvel with no admin can
-                    // never approve anyone, record a payout or be corrected
-                    // again. Tested on owner_id rather than `role`, which is a
-                    // nullable text column nothing enforces.
-                    const isTheAdmin = m.user_id === g.owner_id;
-                    const busy = memberBusy === m.id;
-                    // Owner can un-approve or remove anyone else; anyone can
-                    // remove themselves. Both were already permitted by
-                    // `stokvel_members` RLS and neither had a control, which is
-                    // why an approval could never be taken back.
-                    const canManage = isOwner && !isTheAdmin;
-                    const canLeave = isMe && !isTheAdmin;
-                    return (
-                      <div
-                        key={m.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          padding: '4px 0',
-                          fontSize: '0.85rem',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <span style={{ color: marker.color, fontSize: '1rem' }}>
-                          {marker.glyph}
-                        </span>
-                        <span
-                          style={{
-                            color: isMe ? 'var(--accent)' : 'inherit',
-                            fontWeight: isMe ? 600 : 400,
-                          }}
+
+                  {/* Nothing in the app ever updated bank_reference until
+                      Settings existed, so the only way to fix a mistyped account
+                      number — the string every member reads before sending real
+                      money — was Delete, which cascades every member's
+                      contribution history away with it. */}
+                  {/* Not scoped to myState the way payInline is: an owner who is
+                      paid up still needs this, because it is the other members
+                      who cannot pay without it. Scoped to !isExpired though —
+                      a stokvel that has ended is not waiting on anyone's money. */}
+                  {isOwner && !g.bank_reference && !isExpired && (
+                    <div className="sv-pay">
+                      <div className="sv-pay-row">
+                        <div className="sv-pay-empty">
+                          You haven&rsquo;t added bank details yet
+                        </div>
+                        <button
+                          type="button"
+                          className="sv-outline"
+                          onClick={() => openSettings(g)}
                         >
-                          {m.display_name}
-                          {isMe ? ' (You)' : ''}
-                        </span>
-                        {/* Say the numbers. A partial payer used to be
-                            indistinguishable from someone who had paid in
-                            full, so the missing balance was never chased. */}
-                        <span style={{ fontSize: '0.7rem', opacity: 0.55 }}>
-                          {state === 'unknown'
-                            ? 'not loaded'
-                            : state === 'partial' && paid !== null
-                              ? formatCurrency(paid, currency) +
-                                ' of ' +
-                                formatCurrency(owedEach, currency)
-                              : state === 'none'
-                                ? formatCurrency(owedEach, currency) + ' due'
-                                : paid !== null && paid > owedEach
-                                  ? formatCurrency(paid, currency) + ' paid'
-                                  : 'paid'}
-                        </span>
-                        {state === 'partial' && paid !== null && (
-                          <span style={{ fontSize: '0.7rem', color: '#f59e0b' }}>
-                            {formatCurrency(cents(owedEach - paid), currency)} short
-                          </span>
-                        )}
-                        {/* Was `m.role === 'owner'`. `role` is a nullable text
-                            column nothing enforces and nothing keeps in step
-                            with ownership, so it could label the wrong person
-                            as the one who approves members and hands out the
-                            pot — while the controls beside it are driven by
-                            owner_id. One test, everywhere. */}
-                        {isTheAdmin && (
-                          <span
-                            style={{ fontSize: '0.65rem', opacity: 0.3 }}
-                          >
-                            admin
-                          </span>
-                        )}
-                        <span style={{ flex: 1 }} />
-                        {(canManage || canLeave) && (
-                          <span style={{ display: 'flex', gap: 4 }}>
-                            {canManage && (
-                              <button
-                                type="button"
-                                className="btn-unapprove-member"
-                                disabled={busy}
-                                onClick={() => handleUnapproveMember(g, m)}
-                                style={{
-                                  background: 'rgba(245,158,11,0.15)',
-                                  color: '#f59e0b',
-                                  border: 'none',
-                                  padding: '2px 8px',
-                                  borderRadius: 6,
-                                  fontSize: '0.7rem',
-                                  cursor: busy ? 'default' : 'pointer',
-                                  opacity: busy ? 0.5 : 1,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                Un-approve
-                              </button>
-                            )}
-                            {canManage && (
-                              <button
-                                type="button"
-                                className="btn-remove-member"
-                                disabled={busy}
-                                onClick={() => handleRemoveMember(g, m, 'remove')}
-                                style={{
-                                  background: 'rgba(239,68,68,0.15)',
-                                  color: '#ef4444',
-                                  border: 'none',
-                                  padding: '2px 8px',
-                                  borderRadius: 6,
-                                  fontSize: '0.7rem',
-                                  cursor: busy ? 'default' : 'pointer',
-                                  opacity: busy ? 0.5 : 1,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                Remove
-                              </button>
-                            )}
-                            {canLeave && (
-                              <button
-                                type="button"
-                                className="btn-leave-stokvel"
-                                disabled={busy}
-                                onClick={() => handleRemoveMember(g, m, 'leave')}
-                                style={{
-                                  background: 'rgba(239,68,68,0.15)',
-                                  color: '#ef4444',
-                                  border: 'none',
-                                  padding: '2px 8px',
-                                  borderRadius: 6,
-                                  fontSize: '0.7rem',
-                                  cursor: busy ? 'default' : 'pointer',
-                                  opacity: busy ? 0.5 : 1,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                Leave
-                              </button>
-                            )}
-                          </span>
-                        )}
-                        {/* Say why the admin has no Leave button instead of
-                            showing one that cannot work: removing the admin's
-                            membership would leave a live group nobody can
-                            administer, and the delete would half-succeed
-                            because ownership is not the membership row. */}
-                        {isMe && isTheAdmin && (
-                          <span style={{ fontSize: '0.65rem', opacity: 0.4 }}>
-                            you run this — use Delete to end it
-                          </span>
-                        )}
+                          Add payment details
+                        </button>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* ============================================================
+                      Your turn — counted in turns, never dated.
+
+                      `stokvel_groups` stores an order and an index and no
+                      schedule whatsoever, so any month or date printed here
+                      would be invented by the UI and then planned around by
+                      somebody waiting on their pot.
+                      ============================================================ */}
+                  <div className="sv-turn">
+                    {g.frequency === 'monthly' ? (
+                      <>
+                        <div className="sv-turn-label">Your turn</div>
+                        {turnsAway === 0 ? (
+                          <>
+                            <div className="sv-turn-value sv-turn-value-accent">
+                              Now — the pot is yours
+                            </div>
+                            {/* The only place a member sees pot arithmetic, and
+                                only the member whose turn it is. potTarget stays
+                                behind membersKnown even though turnsAway is null
+                                without it: the guard is what stops an empty
+                                member list rendering as a confident R0.00 pot. */}
+                            <div className="sv-turn-sub sv-num">
+                              {membersKnown
+                                ? formatCurrency(potTarget, currency)
+                                : 'not loaded'}{' '}
+                              pot ·{' '}
+                              {collected === null
+                                ? 'amount in not loaded'
+                                : formatCurrency(collected, currency) + ' in so far'}
+                            </div>
+                          </>
+                        ) : turnsAway !== null ? (
+                          <>
+                            <div className="sv-turn-value">
+                              {turnsAway === 1 ? '1 turn away' : `${turnsAway} turns away`}
+                            </div>
+                            {nextRecipient && (
+                              <div className="sv-turn-sub">
+                                next up: {nextRecipient.display_name}
+                              </div>
+                            )}
+                          </>
+                        ) : !membersKnown ? (
+                          <>
+                            <div className="sv-turn-value">
+                              We couldn&rsquo;t work out whose turn it is
+                            </div>
+                            <div className="sv-turn-sub">
+                              This doesn&rsquo;t mean anything is wrong with the rotation.
+                            </div>
+                          </>
+                        ) : (
+                          /* The detail is already in the attention strip above,
+                             which is where it has to be — it is the reader's own
+                             money that never arrives. */
+                          <div className="sv-turn-value sv-turn-value-amber">
+                            You have no turn yet
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="sv-lump">
+                        Paid out as a lump sum at the end of the term.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Pending requests (owner only) */}
-                {isOwner && pendingMembers.length > 0 && (
-                  <div
-                    style={{
-                      margin: '8px 0',
-                      padding: 10,
-                      background: 'rgba(245,158,11,0.08)',
-                      borderRadius: 10,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.7rem',
-                        color: '#f59e0b',
-                        fontWeight: 600,
-                        marginBottom: 6,
-                      }}
-                    >
-                      PENDING REQUESTS
-                    </div>
-                    {pendingMembers.map((m) => (
+                <div className="sv-right">
+                  {/* ============================================================
+                      Group progress — one line, replacing all four stat tiles.
+
+                      Monthly/Person is the answer band's headline, Members is
+                      the "of 3" here, This Month is the first figure, and All
+                      Time moved to the History modal where the rows that produce
+                      it already live. "MEMBERS" therefore appears exactly once
+                      on the card instead of twice.
+
+                      An empty bar at 0% is a claim that nobody has paid.
+                      Withhold the bar entirely rather than assert it from
+                      figures we do not have.
+                      ============================================================ */}
+                  <div className="sv-progress-line sv-num">
+                    {progressKnown
+                      ? `${monthLabel(currentMonth)}: ${formatCurrency(
+                          thisMonthTotal,
+                          currency,
+                        )} of ${formatCurrency(monthTarget, currency)} in · ${paidCount} of ${
+                          approvedMembers.length
+                        } paid`
+                      : 'This month’s total couldn’t be loaded'}
+                  </div>
+                  {progressKnown && (
+                    <div className="stokvel-progress">
                       <div
-                        key={m.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '4px 0',
-                        }}
-                      >
-                        <span style={{ fontSize: '0.85rem' }}>{m.display_name}</span>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {/* Disabled while ANY approve/reject on the page is
-                              in flight, not just this row's: two Approves for
-                              different members inside one round-trip is exactly
-                              what drops a member out of payout_order. */}
-                          <button
-                            type="button"
-                            className="btn-approve-member"
-                            disabled={memberBusy !== null || rotationBusy}
-                            onClick={() => handleApproveMember(m.id, g.id, m.user_id)}
-                            style={{
-                              background: '#10b981',
-                              color: '#fff',
-                              border: 'none',
-                              padding: '4px 10px',
-                              borderRadius: 6,
-                              fontSize: '0.75rem',
-                              cursor:
-                                memberBusy !== null || rotationBusy ? 'not-allowed' : 'pointer',
-                              opacity: memberBusy !== null || rotationBusy ? 0.55 : 1,
-                            }}
-                          >
-                            {memberBusy === m.id ? 'Approving…' : 'Approve'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-reject-member"
-                            disabled={memberBusy !== null || rotationBusy}
-                            onClick={() => handleRejectMember(m.id, g.name)}
-                            style={{
-                              background: 'rgba(239,68,68,0.15)',
-                              color: '#ef4444',
-                              border: 'none',
-                              padding: '4px 10px',
-                              borderRadius: 6,
-                              fontSize: '0.75rem',
-                              cursor:
-                                memberBusy !== null || rotationBusy ? 'not-allowed' : 'pointer',
-                              opacity: memberBusy !== null || rotationBusy ? 0.55 : 1,
-                            }}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Bank reference */}
-                {g.bank_reference && (
-                  <div
-                    style={{
-                      background: 'rgba(59,130,246,0.08)',
-                      border: '1px solid rgba(59,130,246,0.2)',
-                      borderRadius: 10,
-                      padding: 10,
-                      margin: '8px 0',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.65rem',
-                        opacity: 0.4,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      EFT Payment Details
+                        className="stokvel-progress-bar"
+                        style={{ width: `${monthPct.toFixed(0)}%` }}
+                      />
                     </div>
-                    <div
-                      style={{
-                        fontSize: '0.85rem',
-                        color: '#60a5fa',
-                        fontWeight: 500,
-                        marginTop: 4,
-                      }}
-                    >
-                      {g.bank_reference}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.7rem',
-                        opacity: 0.3,
-                        marginTop: 2,
-                      }}
-                    >
-                      Use reference: <strong>{g.stokvel_code}</strong>
-                    </div>
-                  </div>
-                )}
-
-                {/* Admin: confirm payments.
-                    Gated on the contributions read having actually landed. A
-                    failed read used to repopulate this list with every member
-                    — including everyone who had already paid — and each tap
-                    wrote a real duplicate contribution nothing in the app could
-                    undo. "We do not know who has paid" must not render as "no
-                    one has paid". */}
-                {isOwner &&
-                  contribsKnown &&
-                  membersKnown &&
-                  (() => {
-                    // Partial payers belong here too. Filtering on "has any row
-                    // at all" removed a member who had sent R50 of R500 from the
-                    // chase list entirely, so the outstanding R450 was never
-                    // asked for by anybody.
-                    const owing = approvedMembers
-                      .map((m) => ({
-                        m,
-                        paid: cents(paidByUser[m.user_id] ?? 0),
-                      }))
-                      .filter(
-                        (r) =>
-                          owedEach > 0 &&
-                          r.paid < owedEach &&
-                          (user ? r.m.user_id !== user.id : true),
-                      );
-                    if (owing.length === 0) return null;
-                    return (
-                      <div style={{ margin: '8px 0' }}>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            opacity: 0.4,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            marginBottom: 6,
-                          }}
-                        >
-                          Confirm Payments
-                        </div>
-                        {owing.map(({ m, paid }) => (
-                          <div
-                            key={m.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 8,
-                              padding: '4px 0',
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <span style={{ fontSize: '0.85rem' }}>
-                              {m.display_name}
-                              <span
-                                style={{
-                                  fontSize: '0.7rem',
-                                  opacity: 0.55,
-                                  marginLeft: 6,
-                                }}
-                              >
-                                {paid > 0
-                                  ? formatCurrency(paid, currency) +
-                                    ' of ' +
-                                    formatCurrency(owedEach, currency) +
-                                    ' in'
-                                  : 'nothing in yet'}
-                              </span>
-                            </span>
-                            <button
-                              type="button"
-                              className="btn-confirm-paid"
-                              disabled={confirmBusy === m.id}
-                              onClick={() => handleConfirmPaid(g, m)}
-                              style={{
-                                background: '#10b981',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '4px 12px',
-                                borderRadius: 6,
-                                fontSize: '0.75rem',
-                                cursor: confirmBusy === m.id ? 'default' : 'pointer',
-                                opacity: confirmBusy === m.id ? 0.6 : 1,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {confirmBusy === m.id
-                                ? 'Checking…'
-                                : 'Confirm ' +
-                                  formatCurrency(cents(owedEach - paid), currency) +
-                                  ' paid'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                {/* Actions.
-                    Contribute and History carried no membership check at all,
-                    which is how an unapproved joiner was able to read the whole
-                    ledger and write real money into it. They need no explicit
-                    gate here now only because everything below the
-                    `iAmPendingHere` early return above is unreachable unless
-                    this user owns the group or is an approved member of it —
-                    if you add a control here, that early return is the gate it
-                    relies on. */}
-                {/* Already settled for the period, so the primary call to
-                    action goes away. The old card offered "+ Contribute" to
-                    everyone unconditionally, including a member the treasurer
-                    had already ticked off the bank statement with Confirm Paid
-                    — and because Confirm Paid deliberately cannot write to
-                    that member's personal budget, the member opens the app,
-                    sees the expense missing, and taps Contribute for money
-                    that is already in the ledger.
-
-                    The muted "record another" is kept rather than removed
-                    outright: a member who genuinely pays twice in a month, or
-                    who is catching up a previous month, still has to be able
-                    to record it, and taking the only route away would just
-                    push that into an unfixable gap. It is no longer the
-                    obvious thing to press, and handleContribute reads the
-                    period from the database and states what is already on
-                    record before it writes anything. */}
-                <div className="stokvel-actions">
-                  {myState === 'full' ? (
-                    <button
-                      type="button"
-                      className="btn-contrib"
-                      onClick={() => openContribute(g, myPaidThisMonth, myPaidCount)}
-                      style={{ background: 'rgba(128,128,128,0.1)', opacity: 0.7 }}
-                    >
-                      Paid ✓ — record another
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-contrib"
-                      onClick={() => openContribute(g, myPaidThisMonth, myPaidCount)}
-                    >
-                      {myState === 'partial' ? '+ Pay the rest' : '+ Contribute'}
-                    </button>
                   )}
+
+                  {/* ============================================================
+                      Disclosures. Native <details>, so no new React state and no
+                      focus-trap code. Every summary row carries a TRUTHFUL
+                      right-hand value: that is what makes folding anything away
+                      legitimate — three collapsed cards still answer "is there
+                      anything in here for me".
+
+                      React only writes the `open` attribute when the prop's
+                      value CHANGES between renders, so a manual toggle survives
+                      an ordinary refetch. Do not add an onToggle.
+                      ============================================================ */}
+
+                  {/* Rendered only when the inline pay-to block is not, so the
+                      bank details are on screen exactly once. */}
+                  {!payInline && !(isOwner && !g.bank_reference) && (
+                    <details
+                      className="sv-fold"
+                      open={myState !== 'full' && !!g.bank_reference}
+                    >
+                      <summary>
+                        How to pay
+                        <span className="sv-fold-value">
+                          {g.bank_reference ? `Ref ${g.stokvel_code}` : 'Not set'}
+                        </span>
+                        <svg
+                          className="sv-fold-chev"
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </summary>
+                      <div className="sv-fold-body">
+                        {g.bank_reference ? (
+                          <div className="sv-pay">
+                            <div className="sv-pay-row">
+                              <div>
+                                <div className="sv-pay-label">Pay to</div>
+                                <div className="sv-mono">{g.bank_reference}</div>
+                              </div>
+                            </div>
+                            <div className="sv-pay-row">
+                              <div>
+                                <div className="sv-pay-label">Use reference</div>
+                                <div className="sv-mono">{g.stokvel_code}</div>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn-copy-code sv-outline"
+                                onClick={() => handleCopyCode(g.stokvel_code)}
+                              >
+                                {copiedCode === g.stokvel_code ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="sv-pay-empty">
+                            The admin has not added bank details for this stokvel yet.
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Members. The ONLY roster on the card — see the note where
+                      the Manage drawer's duplicate used to be. Everyone gets the
+                      name and what they have paid; the owner additionally gets
+                      Un-approve / Remove on the SAME line, never on a second one.
+                      That second line was the original defect: three members
+                      rendered as six rows of controls, and ten was unusable. */}
+                  <details className="sv-fold">
+                    <summary>
+                      Members
+                      <span className="sv-fold-value">
+                        {progressKnown
+                          ? `${paidCount} of ${approvedMembers.length} paid`
+                          : 'not loaded'}
+                      </span>
+                      <svg
+                        className="sv-fold-chev"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <div className="sv-fold-body">
+                      {!membersKnown ? (
+                        <div className="sv-error-line">
+                          The member list could not be loaded.
+                        </div>
+                      ) : (
+                        approvedMembers.map((m) => {
+                          const paid = contribsKnown
+                            ? cents(paidByUser[m.user_id] ?? 0)
+                            : null;
+                          const state = paidState(paid, owedEach);
+                          const isMe = user ? m.user_id === user.id : false;
+                          // Was `m.role === 'owner'`. `role` is a nullable text
+                          // column nothing enforces and nothing keeps in step
+                          // with ownership, so it could label the wrong person
+                          // as the one who approves members and hands out the
+                          // pot — while the controls are driven by owner_id.
+                          // One test, everywhere.
+                          const isTheAdmin = m.user_id === g.owner_id;
+                          const busy = memberBusy === m.id;
+                          // Owner can un-approve or remove anyone else. Both
+                          // were already permitted by stokvel_members RLS and
+                          // neither had a control, which is why an approval
+                          // could never be taken back.
+                          const canManage = isOwner && !isTheAdmin;
+                          return (
+                            <div className="sv-member" key={m.id}>
+                              <span className="sv-avatar">
+                                {m.display_name.charAt(0)}
+                              </span>
+                              <span
+                                className={
+                                  isMe ? 'sv-member-name sv-member-me' : 'sv-member-name'
+                                }
+                              >
+                                {m.display_name}
+                                {isMe ? ' (You)' : ''}
+                              </span>
+                              {isTheAdmin && (
+                                <span className="sv-member-tag">admin</span>
+                              )}
+                              {/* Say the numbers. A partial payer used to be
+                                  indistinguishable from someone who had paid in
+                                  full, so the missing balance was never chased.
+                                  A dot, never a ✓ or ✗: not having paid on the
+                                  3rd of the month is not an error, and the old
+                                  red cross said it was — to everyone, including
+                                  whenever the contributions read simply failed. */}
+                              <span
+                                className={
+                                  state === 'full' ? 'sv-status sv-status-paid' : 'sv-status'
+                                }
+                              >
+                                <span className={`sv-dot sv-dot-${state}`} />
+                                <span className="sv-num">
+                                  {state === 'unknown'
+                                    ? 'not loaded'
+                                    : state === 'partial' && paid !== null
+                                      ? formatCurrency(paid, currency) +
+                                        ' of ' +
+                                        formatCurrency(owedEach, currency)
+                                      : state === 'none'
+                                        ? formatCurrency(owedEach, currency) + ' due'
+                                        : paid !== null && paid > owedEach
+                                          ? formatCurrency(paid, currency) + ' paid'
+                                          : 'paid'}
+                                </span>
+                                {state === 'partial' && paid !== null && (
+                                  <span className="sv-short sv-num">
+                                    {formatCurrency(cents(owedEach - paid), currency)} short
+                                  </span>
+                                )}
+                              </span>
+                              {canManage ? (
+                                <span className="sv-member-actions">
+                                  <button
+                                    type="button"
+                                    className="btn-unapprove-member sv-textbtn sv-textbtn-amber"
+                                    disabled={busy}
+                                    onClick={() => handleUnapproveMember(g, m)}
+                                  >
+                                    Un-approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-remove-member sv-textbtn sv-textbtn-danger"
+                                    disabled={busy}
+                                    onClick={() => handleRemoveMember(g, m, 'remove')}
+                                  >
+                                    Remove
+                                  </button>
+                                </span>
+                              ) : isMe && isTheAdmin ? (
+                                /* Say why the admin has no Leave button instead
+                                   of showing one that cannot work: removing the
+                                   admin's membership would leave a live group
+                                   nobody can administer, and the delete would
+                                   half-succeed because ownership is not the
+                                   membership row. */
+                                <span className="sv-member-note">
+                                  you run this — use Delete to end it
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </details>
+
+                  {/* ============================================================
+                      Manage group — the whole of administration, one drawer.
+
+                      Hiding admin behind a fold is only legitimate because the
+                      summary row is computed and truthful: an owner with three
+                      stokvels reads three verdicts without opening anything, and
+                      "Some data didn't load" comes FIRST, because with a failed
+                      read `owing` cannot be computed and any count would be a
+                      lie with a number on it.
+                      ============================================================ */}
+                  {isOwner && (
+                    <details className="sv-fold sv-manage">
+                      <summary>
+                        Manage group
+                        {!contribsKnown || !membersKnown ? (
+                          <span className="sv-fold-value">Some data didn&rsquo;t load</span>
+                        ) : pendingMembers.length +
+                            (owing?.length ?? 0) +
+                            (showRotationFault ? 1 : 0) >
+                          0 ? (
+                          <span className="sv-fold-value sv-fold-value-amber">
+                            {pendingMembers.length +
+                              (owing?.length ?? 0) +
+                              (showRotationFault ? 1 : 0) ===
+                            1
+                              ? '1 thing needs you'
+                              : `${
+                                  pendingMembers.length +
+                                  (owing?.length ?? 0) +
+                                  (showRotationFault ? 1 : 0)
+                                } things need you`}
+                          </span>
+                        ) : readyToPayOut ? (
+                          <span className="sv-fold-value sv-fold-value-accent">
+                            Ready to pay out
+                          </span>
+                        ) : (
+                          <span className="sv-fold-value sv-fold-value-quiet">
+                            Nothing to do
+                          </span>
+                        )}
+                        <svg
+                          className="sv-fold-chev"
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </summary>
+                      <div className="sv-fold-body">
+                        {/* Repeated in full and untruncated: the drawer is where
+                            money gets confirmed and paid out, and every figure
+                            in it is qualified by these two reads. */}
+                        {(membersError || contribsError) && (
+                          <div className="sv-msection">
+                            <div className="sv-note sv-note-red">
+                              {contribsError && (
+                                <div>
+                                  Could not load this stokvel&rsquo;s contributions:{' '}
+                                  {contribsError}
+                                </div>
+                              )}
+                              {membersError && (
+                                <div>
+                                  Could not load this stokvel&rsquo;s members:{' '}
+                                  {membersError}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 1. Join requests */}
+                        {pendingMembers.length > 0 && (
+                          <div className="sv-msection">
+                            <div className="sv-mheading sv-mheading-amber">
+                              Join requests ({pendingMembers.length})
+                            </div>
+                            {pendingMembers.map((m) => (
+                              <div className="sv-mrow" key={m.id}>
+                                <span className="sv-mrow-name">{m.display_name}</span>
+                                <span className="sv-mrow-actions">
+                                  {/* Disabled while ANY approve/reject on the
+                                      page is in flight, not just this row's:
+                                      two Approves for different members inside
+                                      one round-trip is exactly what drops a
+                                      member out of payout_order. Do not narrow
+                                      this to a per-row test. */}
+                                  <button
+                                    type="button"
+                                    className="btn-approve-member btn-primary btn-sm"
+                                    disabled={memberBusy !== null || rotationBusy}
+                                    onClick={() =>
+                                      handleApproveMember(m.id, g.id, m.user_id)
+                                    }
+                                  >
+                                    {memberBusy === m.id ? 'Approving…' : 'Approve'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-reject-member sv-textbtn sv-textbtn-danger"
+                                    disabled={memberBusy !== null || rotationBusy}
+                                    onClick={() => handleRejectMember(m.id, g.name)}
+                                  >
+                                    Reject
+                                  </button>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 2. Payments to confirm.
+                            `owing` is null — not empty — whenever the members or
+                            contributions read is missing, and this whole section
+                            goes with it. A failed read used to repopulate this
+                            list with every member INCLUDING everyone who had
+                            already paid, and each tap wrote a real duplicate
+                            contribution nothing in the app could undo. It stays
+                            one batch list: it is the treasurer's monthly job with
+                            a bank statement in the other hand, not something to
+                            scatter across roster rows. */}
+                        {owing !== null && owing.length > 0 && (
+                          <div className="sv-msection">
+                            <div className="sv-mheading">
+                              Payments to confirm ({owing.length})
+                            </div>
+                            {owing.map(({ m, paid }) => (
+                              <div className="sv-mrow" key={m.id}>
+                                <span className="sv-mrow-name">
+                                  {m.display_name}
+                                  <span className="sv-mrow-sub sv-num">
+                                    {paid > 0
+                                      ? formatCurrency(paid, currency) +
+                                        ' of ' +
+                                        formatCurrency(owedEach, currency) +
+                                        ' in'
+                                      : 'nothing in yet'}
+                                  </span>
+                                </span>
+                                <span className="sv-mrow-actions">
+                                  <button
+                                    type="button"
+                                    className="btn-confirm-paid sv-outline"
+                                    disabled={confirmBusy === m.id}
+                                    onClick={() => handleConfirmPaid(g, m)}
+                                  >
+                                    {confirmBusy === m.id
+                                      ? 'Checking…'
+                                      : 'Confirm ' +
+                                        formatCurrency(cents(owedEach - paid), currency) +
+                                        ' paid'}
+                                  </button>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 3. Payout. Still gated on the monthly frequency,
+                            exactly as the old payout panel was: openPayout and
+                            handleSkipTurn write real money and a real rotation
+                            index, and a yearly group has never had a route to
+                            either. This is presentation only — it must not hand
+                            anybody a button they did not have before. */}
+                        {g.frequency === 'monthly' && (
+                          <div className="sv-msection">
+                            <div className="sv-mheading">Payout</div>
+                            {nextRecipient ? (
+                              <>
+                                <div className="sv-mrow">
+                                  <span className="sv-mrow-name">
+                                    <span className="stokvel-goal">Next payout:</span>{' '}
+                                    <strong>{nextRecipient.display_name}</strong>
+                                  </span>
+                                </div>
+                                {/* Both numbers, side by side. The theoretical
+                                    pot and the cash actually in it used to sit
+                                    inches apart with nothing linking them —
+                                    "This Month R3,000" directly above "Next
+                                    payout R5,000" — and it was the R5,000 that
+                                    got recorded as paid. */}
+                                <div className="sv-figs">
+                                  <div>
+                                    <div className="sv-fig-label">Full pot</div>
+                                    <div className="sv-fig-value sv-num">
+                                      {membersKnown
+                                        ? formatCurrency(potTarget, currency)
+                                        : 'not loaded'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="sv-fig-label">Paid in so far</div>
+                                    <div className="sv-fig-value sv-num">
+                                      {collected === null
+                                        ? 'not loaded'
+                                        : formatCurrency(collected, currency)}
+                                    </div>
+                                  </div>
+                                </div>
+                                {shortfall === null && (
+                                  <div className="sv-note sv-note-red">
+                                    Reload before recording a payout — we could not read
+                                    what has actually been paid in this month.
+                                  </div>
+                                )}
+                                {shortfall !== null && shortfall > 0 && (
+                                  <div className="sv-note sv-note-amber sv-num">
+                                    {formatCurrency(shortfall, currency)} of this
+                                    month&rsquo;s pot has not been paid in yet.
+                                  </div>
+                                )}
+                                <div className="sv-mrow">
+                                  <button
+                                    type="button"
+                                    className="btn-advance-payout btn-primary btn-sm"
+                                    disabled={payoutOpening === g.id}
+                                    onClick={() => openPayout(g, nextRecipient)}
+                                  >
+                                    {payoutOpening === g.id ? 'Checking…' : 'Mark Paid Out'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-skip-payout sv-textbtn"
+                                    onClick={() => handleSkipTurn(g, nextRecipient)}
+                                  >
+                                    Skip turn
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              /* No buttons at all: there is nobody to pay out
+                                 to, and the reason is stated in full in the
+                                 amber strip at the top of the card, where it
+                                 cannot be folded away. */
+                              <div className="sv-note">
+                                No payout can be recorded yet — see the note at the top
+                                of this card.
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* The roster used to be repeated here, read-only in the
+                            Members fold and again with controls in this drawer,
+                            so an owner read the same three names twice on one
+                            card — the exact "it looks like a lot" this redesign
+                            existed to remove, reintroduced by the redesign.
+                            There is now one roster, in the Members fold, and the
+                            owner's Un-approve / Remove sit on the same row as
+                            the name and the paid status. Three members is three
+                            lines, whichever way you look at it. */}
+
+                        {/* 5. Invite code. Off the card itself because it is only
+                            useful on the day you recruit somebody. */}
+                        {g.stokvel_code && (
+                          <div className="sv-msection">
+                            <div className="sv-mheading">Invite code</div>
+                            <div className="sv-code-box">
+                              <span className="sv-code">{g.stokvel_code}</span>
+                              <button
+                                type="button"
+                                className="btn-copy-code sv-outline"
+                                onClick={() => handleCopyCode(g.stokvel_code)}
+                              >
+                                {copiedCode === g.stokvel_code ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                            <div className="sv-note">
+                              Members enter this code under Join.
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 6. Group details. "(ENDED)" is neutral grey, not red —
+                            a club finishing on schedule is not a fault, and the
+                            red version used to appear hours early anyway. */}
+                        <div className="sv-msection">
+                          <div className="sv-mheading">Group details</div>
+                          {g.goal && (
+                            <div className="sv-kv">
+                              <span className="stokvel-goal">Goal</span>
+                              <span className="sv-kv-value">{g.goal}</span>
+                            </div>
+                          )}
+                          {(g.start_date || g.end_date) && (
+                            <div className="sv-kv">
+                              <span className="stokvel-goal">Runs</span>
+                              <span className="sv-kv-value">
+                                {g.start_date}
+                                {g.start_date && g.end_date && ' → '}
+                                {g.end_date}
+                                {isExpired && ' (ENDED)'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="sv-kv">
+                            <span className="stokvel-goal">Frequency</span>
+                            <span className="sv-kv-value">{g.frequency}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-edit-stokvel btn-secondary btn-sm sv-mt10"
+                            onClick={() => openSettings(g)}
+                          >
+                            Edit settings
+                          </button>
+                        </div>
+
+                        {/* 7. End this stokvel. Last item on the card and
+                            deliberately unfilled: unmissable, but not inviting.
+                            handleDeleteStokvel reads the real scale out of the
+                            database and puts the counts in the confirm before
+                            anything is destroyed. */}
+                        <div className="sv-hair">
+                          <button
+                            type="button"
+                            className="btn-delete-stokvel sv-textbtn sv-textbtn-danger"
+                            onClick={() => handleDeleteStokvel(g.id)}
+                          >
+                            Delete stokvel
+                          </button>
+                          <div className="sv-note">
+                            Members, every contribution and every payout record cascade
+                            from the group, so deleting it deletes every member&rsquo;s
+                            contribution history in this stokvel too. That cannot be
+                            undone.
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  )}
+                </div>
+
+                <div className="sv-footer">
+                  {/* History carried no membership check at all, which is how an
+                      unapproved joiner was able to read the whole ledger. It
+                      needs no explicit gate only because the `iAmPendingHere`
+                      early return above is unreachable for them. All Time, the
+                      contributions ledger, the payout records and edit/delete of
+                      a contribution all live in this modal now. */}
                   <button
                     type="button"
-                    className="btn-view-stokvel"
+                    className="btn-view-stokvel sv-textbtn"
                     onClick={() => setDetailTarget(g.id)}
-                    style={{
-                      background: 'rgba(128,128,128,0.1)',
-                      opacity: 0.7,
-                    }}
                   >
                     History
                   </button>
-                  {isOwner && (
+                  {/* Anyone can remove themselves — that was already permitted by
+                      stokvel_members RLS and had no control on the card until
+                      now. The admin cannot: see the note on their roster row. */}
+                  {canLeave && myRow && (
                     <button
                       type="button"
-                      className="btn-delete-stokvel"
-                      onClick={() => handleDeleteStokvel(g.id)}
+                      className="btn-leave-stokvel sv-textbtn sv-textbtn-danger"
+                      disabled={memberBusy === myRow.id}
+                      onClick={() => handleRemoveMember(g, myRow, 'leave')}
                     >
-                      Delete
+                      Leave this stokvel
                     </button>
                   )}
                 </div>
@@ -5232,7 +5463,8 @@ export default function StokvelPage() {
                       No contributions yet
                     </p>
                   ) : (
-                    contribs.map((c) => {
+                    <>
+                      {contribs.map((c) => {
                       // "Unknown" was misleading in both directions: it was
                       // shown for a payer who has left the stokvel AND for
                       // every row when the member read had failed and
@@ -5327,7 +5559,32 @@ export default function StokvelPage() {
                           </div>
                         </div>
                       );
-                    })
+                      })}
+                      {/* All Time. It used to be a stat tile on the card,
+                          where it competed with the one figure a member
+                          actually opens the page for and was the least
+                          actionable of the four. It belongs here, immediately
+                          under the rows that produce it, so a member
+                          reconciling against a bank statement can see the
+                          total and check it line by line without leaving the
+                          screen. Inside the contribsKnown branch, so a failed
+                          read still cannot render a confident R0.00. */}
+                      <div
+                        style={{
+                          fontSize: '0.75rem',
+                          opacity: 0.5,
+                          padding: '6px 0 2px',
+                        }}
+                      >
+                        {contribs.length}
+                        {contribs.length === 1 ? ' contribution' : ' contributions'} in
+                        all time, totalling{' '}
+                        {formatCurrency(
+                          cents(contribs.reduce((s, c) => s + Number(c.amount), 0)),
+                          currency,
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

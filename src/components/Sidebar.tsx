@@ -7,6 +7,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { isAdmin, isProUser } from '@/lib/access';
 import { BUSINESS_SOON_NOTE, isModeAvailable } from '@/lib/features';
 import { FamilyKidsDropdown } from './FamilyKidsDropdown';
+import { InstallAppCard } from './InstallAppCard';
 import type { Mode } from '@/types';
 
 interface NavEntry {
@@ -489,6 +490,10 @@ export function Sidebar({ mobileOpen = false }: SidebarProps) {
           </li>
         ))}
       </ul>
+
+      {/* Above the footer so it sits in the sidebar proper, not tangled with the
+          theme toggle and account row. Renders nothing once installed. */}
+      <InstallAppCard />
 
       <div className="sidebar-footer">
         {/* Render BOTH icons; vanilla CSS toggles them via body.light */}
