@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMode } from '@/contexts/ModeContext';
 import { useKidProfile } from '@/hooks/useKidProfile';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
+import { enablePush, getPushStatus, type PushStatus } from '@/lib/push-subscription';
 import { setupParentNotificationPolling } from '@/lib/junior-notifications';
 import { maybeFireSundayReminder } from '@/lib/junior-sunday-reminder';
 import type { Mode } from '@/types';
@@ -30,6 +31,11 @@ import type { Mode } from '@/types';
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [permissionDismissed, setPermissionDismissed] = useState(false);
+  // Whether this device is actually REGISTERED to receive push, which is a
+  // different question from whether the browser granted permission — and the
+  // difference is why reminders reached 1 of 27 accounts. See the banner below.
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
   const [sundayBanner, setSundayBanner] = useState<
     { totalOwedCents: number; kidsCount: number } | null
   >(null);
@@ -70,7 +76,9 @@ export function DashboardLayout() {
   const { items: joinConfirmations, acknowledge } = useJoinConfirmations();
   const userIsPro = isProUser(isProFromSettings, user);
   const { isChild, loading: kidLoading } = useKidProfile();
-  const { permission, request } = useNotificationPermission();
+  // `request` is deliberately not taken: it asks the browser and stops, which is
+  // exactly the bug. enablePush() asks AND registers the device.
+  const { permission } = useNotificationPermission();
 
   // Post-login account picker: AuthPage sets sessionStorage on any successful
   // login (password, Google, password-reset).
@@ -150,8 +158,68 @@ export function DashboardLayout() {
     return cleanup;
   }, [user, kidLoading, isChild]);
 
+  // Read the real subscription state once the user is known. `permission` alone
+  // cannot answer this: a device can hold a granted permission and still have no
+  // push subscription, which was the entire bug.
+  useEffect(() => {
+    if (!user || kidLoading || isChild) return;
+    let cancelled = false;
+    getPushStatus()
+      .then((s) => {
+        if (!cancelled) setPushStatus(s);
+      })
+      .catch(() => {
+        /* Unsupported browser or no service worker — the banner stays hidden
+           because pushStatus remains null, which is the correct outcome. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, kidLoading, isChild]);
+
+  /**
+   * The banner used to render only while `permission === 'default'`, and its
+   * button called `request()` — which asks the browser and stops there. It
+   * never subscribed, so no row was ever written to push_subscriptions.
+   *
+   * The result: everyone who tapped Allow granted permission, watched the
+   * banner disappear (permission was no longer 'default'), and was silently
+   * never registered — with no way back, because the banner could not return.
+   * One account out of 27 could actually be reached, and every one of the
+   * others believed they had turned reminders on.
+   *
+   * So the condition is now SUBSCRIPTION state, not permission state. That
+   * re-offers it to exactly the stranded population, and a granted permission
+   * means enablePush() subscribes without showing a second browser prompt.
+   * 'denied' is excluded because the browser will not re-ask, so the banner
+   * would be a button that cannot work.
+   */
   const showPermissionBanner =
-    user && !kidLoading && !isChild && permission === 'default' && !permissionDismissed;
+    user &&
+    !kidLoading &&
+    !isChild &&
+    !permissionDismissed &&
+    pushStatus?.supported === true &&
+    !pushStatus.subscribed &&
+    permission !== 'denied';
+
+  const handleEnablePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      const ok = await enablePush();
+      // Re-read rather than assuming: enablePush can return true having
+      // subscribed, or false for a denial, a missing VAPID key, or a failed
+      // upsert. Only the real status decides whether the banner stays.
+      const next = await getPushStatus().catch(() => null);
+      if (next) setPushStatus(next);
+      // A failure that leaves permission at 'granted' would otherwise loop the
+      // banner forever on a device that cannot subscribe.
+      if (!ok && next?.permission === 'granted') setPermissionDismissed(true);
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   return (
     <>
@@ -258,15 +326,19 @@ export function DashboardLayout() {
         {showPermissionBanner && (
           <div className="permission-banner">
             <span style={{ fontSize: '0.95rem' }}>
-              Want reminders when the kids need approval?
+              {/* Covers Junior approvals AND stokvel payment reminders now, so
+                  it no longer names only the kids. */}
+              Want reminders when the kids need approval, or a stokvel payment is
+              due?
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
                 className="permission-banner-allow"
-                onClick={() => void request()}
+                onClick={() => void handleEnablePush()}
+                disabled={pushBusy}
               >
-                Allow
+                {pushBusy ? 'Turning on…' : 'Allow'}
               </button>
               <button
                 type="button"

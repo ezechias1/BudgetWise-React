@@ -11,6 +11,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
+import { swReadyOrNull } from '@/lib/push-subscription';
 import { formatCurrency, monthKey, todayIso } from '@/lib/format';
 import { ok, reportWriteFailure } from '@/lib/db';
 
@@ -875,8 +876,11 @@ export default function StokvelPage() {
           return; // storage unavailable: better silent than one push per render
         }
         try {
-          const reg = await navigator.serviceWorker.ready;
-          if (cancelled) return;
+          // Bounded: serviceWorker.ready never settles without a registration,
+          // and it does not throw, so the surrounding try/catch cannot save it.
+          // A hang here stops the loop and every later group is skipped.
+          const reg = await swReadyOrNull();
+          if (!reg || cancelled) return;
           await reg.showNotification('Stokvel Reminder', {
             body:
               `Your ${g.name} contribution of ` +

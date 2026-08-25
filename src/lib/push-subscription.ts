@@ -18,12 +18,36 @@ export interface PushStatus {
   subscribed: boolean;
 }
 
+/**
+ * `navigator.serviceWorker.ready` never settles when no service worker is
+ * registered — it does not reject, it waits forever. Anything that awaits it
+ * bare therefore hangs for the lifetime of the page rather than failing, which
+ * turns a missing worker into a button stuck on "Turning on…" and a status read
+ * that never returns. Bounded here so callers get a definite answer.
+ *
+ * Reproduced directly: `await navigator.serviceWorker.ready` in a context with
+ * no registration hung until the harness killed it at 30 minutes.
+ */
+const SW_READY_TIMEOUT_MS = 5000;
+
+export async function swReadyOrNull(): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), SW_READY_TIMEOUT_MS)),
+  ]).catch(() => null);
+}
+
 export async function getPushStatus(): Promise<PushStatus> {
   const supported =
     'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
   if (!supported) return { supported: false, permission: 'default', subscribed: false };
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
+  const reg = await swReadyOrNull();
+  // No worker means this device cannot receive push, whatever the permission
+  // says. Reporting subscribed:false with supported:false keeps the caller from
+  // offering a control that cannot work.
+  if (!reg) return { supported: false, permission: Notification.permission, subscribed: false };
+  const sub = await reg.pushManager.getSubscription().catch(() => null);
   return { supported: true, permission: Notification.permission, subscribed: sub !== null };
 }
 
@@ -42,7 +66,11 @@ export async function enablePush(): Promise<boolean> {
   }
   if (Notification.permission !== 'granted') return false;
 
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await swReadyOrNull();
+  if (!reg) {
+    console.warn('[push] no service worker registration; cannot subscribe');
+    return false;
+  }
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
     sub = await reg.pushManager.subscribe({
@@ -77,7 +105,10 @@ export async function enablePush(): Promise<boolean> {
 
 export async function disablePush(): Promise<void> {
   if (!('serviceWorker' in navigator)) return;
-  const reg = await navigator.serviceWorker.ready;
+  // Bounded: a bare await here left "turn off notifications" hanging forever on
+  // a device with no registration, with no error and no completion.
+  const reg = await swReadyOrNull();
+  if (!reg) return;
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return;
   const endpoint = sub.endpoint;

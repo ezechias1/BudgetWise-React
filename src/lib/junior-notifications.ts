@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { swReadyOrNull } from '@/lib/push-subscription';
 
 /**
  * Junior Phase 4 · P4-T2 — approval-nudge notifications.
@@ -105,7 +106,11 @@ async function drainPendingNotifications(parentUserId: string): Promise<void> {
     .lte('scheduled_for', new Date().toISOString());
   if (error || !data || data.length === 0) return;
 
-  const reg = await navigator.serviceWorker.ready;
+  // Bounded: this runs on a poll interval, and a bare await on a device with no
+  // registration never settles — so every tick would leak another pending
+  // promise and no notification would ever be shown or marked sent.
+  const reg = await swReadyOrNull();
+  if (!reg) return;
 
   for (const row of data as PendingRow[]) {
     const n = buildNotification(row);
